@@ -49,6 +49,19 @@ terraform {
 2. Extract the archive
 3. Move the binary to `~/.terraform.d/plugins/registry.terraform.io/trozz/pocketid/${VERSION}/${OS_ARCH}/`
 
+#### Verifying Release Attestations
+
+All release artifacts include build attestations for supply chain security. To verify the authenticity of a release:
+
+```bash
+# Using GitHub CLI
+gh attestation verify terraform-provider-pocketid_v1.0.0_darwin_amd64.zip \
+  --owner Trozz \
+  --repo terraform-provider-pocketid
+```
+
+For more information about attestations, see our [attestations documentation](docs/ATTESTATIONS.md).
+
 ## Quick Start
 
 ### 1. Configure the Provider
