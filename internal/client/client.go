@@ -1,0 +1,447 @@
+package client
+
+import (
+	"bytes"
+	"context"
+	"crypto/tls"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"strings"
+	"time"
+
+	"github.com/hashicorp/terraform-plugin-log/tflog"
+)
+
+// Client represents a Pocket-ID API client
+type Client struct {
+	baseURL    string
+	apiToken   string
+	httpClient *http.Client
+}
+
+// NewClient creates a new Pocket-ID API client
+func NewClient(baseURL, apiToken string, skipTLSVerify bool, timeout int64) (*Client, error) {
+	if baseURL == "" {
+		return nil, fmt.Errorf("base URL is required")
+	}
+	if apiToken == "" {
+		return nil, fmt.Errorf("API token is required")
+	}
+
+	// Configure HTTP client with TLS settings
+	transport := &http.Transport{
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: skipTLSVerify,
+		},
+	}
+
+	return &Client{
+		baseURL:  baseURL,
+		apiToken: apiToken,
+		httpClient: &http.Client{
+			Timeout:   time.Duration(timeout) * time.Second,
+			Transport: transport,
+		},
+	}, nil
+}
+
+// doRequest performs an HTTP request to the Pocket-ID API
+func (c *Client) doRequest(method, endpoint string, body interface{}) ([]byte, error) {
+	return c.doRequestWithContext(context.Background(), method, endpoint, body)
+}
+
+// doRequestWithContext performs an HTTP request to the Pocket-ID API with context support
+func (c *Client) doRequestWithContext(ctx context.Context, method, endpoint string, body interface{}) ([]byte, error) {
+	const maxRetries = 3
+	var lastErr error
+
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		if attempt > 0 {
+			// Exponential backoff: 1s, 2s, 4s
+			backoff := time.Duration(1<<(attempt-1)) * time.Second
+			tflog.Debug(ctx, "Retrying request after backoff", map[string]interface{}{
+				"attempt": attempt,
+				"backoff": backoff.String(),
+			})
+
+			select {
+			case <-time.After(backoff):
+				// Continue with retry
+			case <-ctx.Done():
+				return nil, fmt.Errorf("context cancelled during retry backoff: %w", ctx.Err())
+			}
+		}
+
+		respBody, err := c.doSingleRequest(ctx, method, endpoint, body)
+		if err == nil {
+			return respBody, nil
+		}
+
+		lastErr = err
+
+		// Determine if error is retryable
+		if !isRetryableError(err) {
+			return nil, err
+		}
+
+		tflog.Warn(ctx, "Request failed with retryable error", map[string]interface{}{
+			"error":        err.Error(),
+			"attempt":      attempt + 1,
+			"max_attempts": maxRetries + 1,
+		})
+	}
+
+	return nil, fmt.Errorf("request failed after %d attempts: %w", maxRetries+1, lastErr)
+}
+
+// isRetryableError determines if an error is retryable
+func isRetryableError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	errStr := err.Error()
+
+	// Network errors are retryable
+	if strings.Contains(errStr, "connection refused") ||
+		strings.Contains(errStr, "connection reset") ||
+		strings.Contains(errStr, "no such host") ||
+		strings.Contains(errStr, "timeout") {
+		return true
+	}
+
+	// 5xx errors are retryable
+	if strings.Contains(errStr, "HTTP 502") ||
+		strings.Contains(errStr, "HTTP 503") ||
+		strings.Contains(errStr, "HTTP 504") ||
+		strings.Contains(errStr, "HTTP 500") {
+		return true
+	}
+
+	return false
+}
+
+// doSingleRequest performs a single HTTP request without retries
+func (c *Client) doSingleRequest(ctx context.Context, method, endpoint string, body interface{}) ([]byte, error) {
+	var reqBody io.Reader
+	var reqBodyLog []byte
+	if body != nil {
+		jsonBody, err := json.Marshal(body)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling request body: %w", err)
+		}
+		reqBody = bytes.NewBuffer(jsonBody)
+		reqBodyLog = jsonBody
+	}
+
+	url := fmt.Sprintf("%s%s", c.baseURL, endpoint)
+	req, err := http.NewRequestWithContext(ctx, method, url, reqBody)
+	if err != nil {
+		return nil, fmt.Errorf("error creating request: %w", err)
+	}
+
+	// Set headers
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("X-API-KEY", c.apiToken) // Note: Using X-API-KEY header, not Authorization Bearer
+
+	// Log request details (excluding sensitive headers)
+	tflog.Debug(ctx, "Pocket-ID API Request", map[string]interface{}{
+		"method":   method,
+		"url":      url,
+		"endpoint": endpoint,
+		"headers": map[string]string{
+			"Content-Type": req.Header.Get("Content-Type"),
+			"Accept":       req.Header.Get("Accept"),
+			"X-API-KEY":    "[REDACTED]",
+		},
+	})
+
+	if reqBodyLog != nil {
+		tflog.Trace(ctx, "Request Body", map[string]interface{}{
+			"body": string(reqBodyLog),
+		})
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		tflog.Error(ctx, "HTTP Request Failed", map[string]interface{}{
+			"error": err.Error(),
+			"url":   url,
+		})
+		return nil, fmt.Errorf("error making request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("error reading response body: %w", err)
+	}
+
+	// Log response details
+	tflog.Debug(ctx, "Pocket-ID API Response", map[string]interface{}{
+		"status_code": resp.StatusCode,
+		"status":      resp.Status,
+		"url":         url,
+	})
+
+	tflog.Trace(ctx, "Response Body", map[string]interface{}{
+		"body": string(respBody),
+	})
+
+	// Check for errors
+	if resp.StatusCode >= 400 {
+		var errResp ErrorResponse
+		if err := json.Unmarshal(respBody, &errResp); err != nil {
+			tflog.Error(ctx, "API Error Response", map[string]interface{}{
+				"status_code": resp.StatusCode,
+				"raw_body":    string(respBody),
+			})
+			return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(respBody))
+		}
+		tflog.Error(ctx, "API Error", map[string]interface{}{
+			"status_code": resp.StatusCode,
+			"error":       errResp.Error,
+		})
+		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, errResp.Error)
+	}
+
+	return respBody, nil
+}
+
+// OIDC Client methods
+
+// CreateClient creates a new OIDC client
+func (c *Client) CreateClient(createReq *OIDCClientCreateRequest) (*OIDCClient, error) {
+	body, err := c.doRequest("POST", "/api/oidc/clients", createReq)
+	if err != nil {
+		return nil, err
+	}
+
+	var result OIDCClient
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("error unmarshaling response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// GetClient retrieves an OIDC client by ID
+func (c *Client) GetClient(clientID string) (*OIDCClient, error) {
+	body, err := c.doRequest("GET", fmt.Sprintf("/api/oidc/clients/%s", clientID), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var result OIDCClient
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("error unmarshaling response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// UpdateClient updates an existing OIDC client
+func (c *Client) UpdateClient(clientID string, updateReq *OIDCClientCreateRequest) (*OIDCClient, error) {
+	body, err := c.doRequest("PUT", fmt.Sprintf("/api/oidc/clients/%s", clientID), updateReq)
+	if err != nil {
+		return nil, err
+	}
+
+	var result OIDCClient
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("error unmarshaling response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// DeleteClient deletes an OIDC client
+func (c *Client) DeleteClient(clientID string) error {
+	_, err := c.doRequest("DELETE", fmt.Sprintf("/api/oidc/clients/%s", clientID), nil)
+	return err
+}
+
+// ListClients retrieves all OIDC clients
+func (c *Client) ListClients() (*PaginatedResponse[OIDCClient], error) {
+	body, err := c.doRequest("GET", "/api/oidc/clients", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var result PaginatedResponse[OIDCClient]
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("error unmarshaling response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// UpdateClientAllowedUserGroups updates the allowed user groups for an OIDC client
+func (c *Client) UpdateClientAllowedUserGroups(clientID string, groupIDs []string) error {
+	req := UpdateAllowedUserGroupsRequest{UserGroupIDs: groupIDs}
+	_, err := c.doRequest("PUT", fmt.Sprintf("/api/oidc/clients/%s/allowed-user-groups", clientID), req)
+	return err
+}
+
+// GenerateClientSecret generates a new client secret for an OIDC client
+func (c *Client) GenerateClientSecret(clientID string) (string, error) {
+	body, err := c.doRequest("POST", fmt.Sprintf("/api/oidc/clients/%s/secret", clientID), nil)
+	if err != nil {
+		return "", err
+	}
+
+	var result struct {
+		Secret string `json:"secret"`
+	}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return "", fmt.Errorf("error unmarshaling response: %w", err)
+	}
+
+	return result.Secret, nil
+}
+
+// User methods
+
+// CreateUser creates a new user
+func (c *Client) CreateUser(user *UserCreateRequest) (*User, error) {
+	body, err := c.doRequest("POST", "/api/users", user)
+	if err != nil {
+		return nil, err
+	}
+
+	var result User
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("error unmarshaling response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// GetUser retrieves a user by ID
+func (c *Client) GetUser(userID string) (*User, error) {
+	body, err := c.doRequest("GET", fmt.Sprintf("/api/users/%s", userID), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var result User
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("error unmarshaling response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// UpdateUser updates an existing user
+func (c *Client) UpdateUser(userID string, user *UserCreateRequest) (*User, error) {
+	body, err := c.doRequest("PUT", fmt.Sprintf("/api/users/%s", userID), user)
+	if err != nil {
+		return nil, err
+	}
+
+	var result User
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("error unmarshaling response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// DeleteUser deletes a user
+func (c *Client) DeleteUser(userID string) error {
+	_, err := c.doRequest("DELETE", fmt.Sprintf("/api/users/%s", userID), nil)
+	return err
+}
+
+// ListUsers retrieves all users
+func (c *Client) ListUsers() (*PaginatedResponse[User], error) {
+	body, err := c.doRequest("GET", "/api/users", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var result PaginatedResponse[User]
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("error unmarshaling response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// UpdateUserGroups updates the groups a user belongs to
+func (c *Client) UpdateUserGroups(userID string, groupIDs []string) error {
+	req := UpdateUserGroupsRequest{UserGroupIDs: groupIDs}
+	_, err := c.doRequest("PUT", fmt.Sprintf("/api/users/%s/user-groups", userID), req)
+	return err
+}
+
+// User Group methods
+
+// CreateUserGroup creates a new user group
+func (c *Client) CreateUserGroup(group *UserGroupCreateRequest) (*UserGroup, error) {
+	body, err := c.doRequest("POST", "/api/user-groups", group)
+	if err != nil {
+		return nil, err
+	}
+
+	var result UserGroup
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("error unmarshaling response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// GetUserGroup retrieves a user group by ID
+func (c *Client) GetUserGroup(groupID string) (*UserGroup, error) {
+	body, err := c.doRequest("GET", fmt.Sprintf("/api/user-groups/%s", groupID), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var result UserGroup
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("error unmarshaling response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// UpdateUserGroup updates an existing user group
+func (c *Client) UpdateUserGroup(groupID string, group *UserGroupCreateRequest) (*UserGroup, error) {
+	body, err := c.doRequest("PUT", fmt.Sprintf("/api/user-groups/%s", groupID), group)
+	if err != nil {
+		return nil, err
+	}
+
+	var result UserGroup
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("error unmarshaling response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// DeleteUserGroup deletes a user group
+func (c *Client) DeleteUserGroup(groupID string) error {
+	_, err := c.doRequest("DELETE", fmt.Sprintf("/api/user-groups/%s", groupID), nil)
+	return err
+}
+
+// ListUserGroups retrieves all user groups
+func (c *Client) ListUserGroups() (*PaginatedResponse[UserGroup], error) {
+	body, err := c.doRequest("GET", "/api/user-groups", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var result PaginatedResponse[UserGroup]
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("error unmarshaling response: %w", err)
+	}
+
+	return &result, nil
+}

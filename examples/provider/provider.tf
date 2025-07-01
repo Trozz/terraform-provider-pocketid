@@ -1,0 +1,31 @@
+terraform {
+  required_providers {
+    pocketid = {
+      source  = "yourusername/pocketid"
+      version = "~> 1.0"
+    }
+  }
+}
+
+# Configure the Pocket-ID Provider
+provider "pocketid" {
+  # The base URL of your Pocket-ID instance
+  base_url = "https://pocket-id.example.com"
+
+  # API token for authentication
+  # This can also be set via the POCKETID_API_TOKEN environment variable
+  api_token = var.pocketid_api_token
+
+  # Optional: Skip TLS certificate verification (only for development)
+  # skip_tls_verify = true
+
+  # Optional: HTTP client timeout in seconds (default: 30)
+  # timeout = 60
+}
+
+# Variable for API token to avoid hardcoding sensitive values
+variable "pocketid_api_token" {
+  description = "API token for Pocket-ID authentication"
+  type        = string
+  sensitive   = true
+}

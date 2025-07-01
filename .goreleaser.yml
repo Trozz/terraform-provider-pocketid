@@ -1,0 +1,219 @@
+# .goreleaser.yml
+# Configuration for GoReleaser
+# Documentation: https://goreleaser.com
+
+# This is an example .goreleaser.yml file with some sensible defaults.
+# Make sure to check the documentation at https://goreleaser.com
+before:
+  hooks:
+    # You may remove this if you don't use go modules.
+    - go mod tidy
+    # Generate documentation
+    - go install github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs@latest
+    - tfplugindocs generate
+
+# Build configuration
+builds:
+  - id: terraform-provider-pocketid
+    binary: '{{ .ProjectName }}_v{{ .Version }}'
+    env:
+      - CGO_ENABLED=0
+    mod_timestamp: '{{ .CommitTimestamp }}'
+    flags:
+      - -trimpath
+    ldflags:
+      - '-s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}'
+    goos:
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+
+# Archive configuration
+archives:
+  - id: terraform-provider-pocketid
+    name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
+    format: zip
+    files:
+      - LICENSE
+      - README.md
+      - docs/**/*
+
+# Checksum configuration
+checksum:
+  name_template: '{{ .ProjectName }}_{{ .Version }}_SHA256SUMS'
+  algorithm: sha256
+  extra_files:
+    - glob: 'terraform-registry-manifest.json'
+      name_template: '{{ .ProjectName }}_{{ .Version }}_manifest.json'
+
+# Signing configuration for Terraform Registry
+signs:
+  - cmd: gpg
+    args:
+      - --batch
+      - --local-user
+      - '{{ .Env.GPG_FINGERPRINT }}'
+      - --output
+      - ${signature}
+      - --detach-sign
+      - ${artifact}
+    signature: ${artifact}.sig
+    artifacts: checksum
+    stdin: '{{ .Env.GPG_PASSPHRASE }}'
+
+# Release configuration
+release:
+  github:
+    owner: trozz
+    name: terraform-pocket-id-provider
+
+  # Release notes
+  header: |
+    ## Terraform Provider for Pocket-ID v{{ .Version }}
+
+    ### Provider Documentation
+
+    Documentation is available on the [Terraform Registry](https://registry.terraform.io/providers/trozz/pocketid/{{ .Version }}/docs).
+
+  footer: |
+    ## What's Next?
+
+    - Read the [documentation](https://registry.terraform.io/providers/trozz/pocketid/latest/docs)
+    - Report issues on [GitHub](https://github.com/trozz/terraform-pocket-id-provider/issues)
+    - Join the discussion on [Pocket-ID](https://github.com/pocket-id/pocket-id)
+
+    **Full Changelog**: https://github.com/trozz/terraform-pocket-id-provider/compare/{{ .PreviousTag }}...{{ .Tag }}
+
+  # Prerelease configuration
+  prerelease: auto
+
+  # Draft release (set to false for automatic publishing)
+  draft: false
+
+  # Name template for the release
+  name_template: "v{{ .Version }}"
+
+  # Disable the automatic truncation of the release notes
+  disable: false
+
+# Changelog configuration
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+      - '^build:'
+      - '^ci:'
+      - 'typo'
+      - 'Merge pull request'
+      - 'Merge branch'
+
+  groups:
+    - title: '🚀 Features'
+      regexp: "^.*feat[(\\w)]*:+.*$"
+      order: 100
+    - title: '🐛 Bug Fixes'
+      regexp: "^.*fix[(\\w)]*:+.*$"
+      order: 200
+    - title: '🔨 Enhancements'
+      regexp: "^.*enhance[(\\w)]*:+.*$"
+      order: 300
+    - title: '📚 Documentation'
+      regexp: "^.*docs[(\\w)]*:+.*$"
+      order: 400
+    - title: '🔧 Maintenance'
+      order: 999
+
+# Terraform Registry manifest
+publishers:
+  - name: terraform-registry-manifest
+    cmd: |
+      cat > terraform-registry-manifest.json << 'EOF'
+      {
+        "version": 1,
+        "metadata": {
+          "protocol_versions": ["6.0"]
+        }
+      }
+      EOF
+    env:
+      - PATH={{ .Env.PATH }}
+    dir: "{{ dir .Path }}"
+
+# Announce releases
+announce:
+  skip: false
+  discord:
+    enabled: false
+
+  slack:
+    enabled: false
+
+  twitter:
+    enabled: false
+
+# Snapshot configuration (for development builds)
+snapshot:
+  name_template: "{{ incpatch .Version }}-dev"
+
+# Source configuration
+source:
+  enabled: true
+  name_template: '{{ .ProjectName }}_{{ .Version }}_source'
+  format: 'tar.gz'
+
+# SBOM generation
+sboms:
+  - artifacts: archive
+    args: ["$artifact", "--output", "cyclonedx-json@1.4=$document"]
+
+# Docker configuration (optional, for containerized testing)
+dockers:
+  - skip_push: true
+    dockerfile: .goreleaser.dockerfile
+    image_templates:
+      - 'ghcr.io/trozz/{{ .ProjectName }}:{{ .Version }}'
+      - 'ghcr.io/trozz/{{ .ProjectName }}:latest'
+    build_flag_templates:
+      - "--pull"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+      - "--label=org.opencontainers.image.source=https://github.com/trozz/terraform-pocket-id-provider"
+      - "--label=org.opencontainers.image.licenses=MIT"
+
+# Homebrew tap (optional, for macOS users)
+brews:
+  - skip_upload: true
+    tap:
+      owner: trozz
+      name: homebrew-tap
+    folder: Formula
+    homepage: 'https://github.com/trozz/terraform-pocket-id-provider'
+    description: 'Terraform provider for Pocket-ID, a passkey-only OIDC provider'
+    license: 'MIT'
+    test: |
+      system "#{bin}/terraform-provider-pocketid -version"
+    install: |
+      bin.install "terraform-provider-pocketid"
+
+# Nightly builds configuration
+nightly:
+  name_template: '{{ incpatch .Version }}-nightly-{{ .ShortCommit }}'
+  tag_name: nightly
+  publish_release: false
+  keep_single_release: true
+
+# GoReleaser Pro features (if available)
+# partial:
+#   by: goos
