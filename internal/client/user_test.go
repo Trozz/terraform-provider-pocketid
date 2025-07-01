@@ -34,7 +34,9 @@ func TestClient_GetUser(t *testing.T) {
 		assert.Equal(t, "/api/users/test-user-id", r.URL.Path)
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(expectedUser)
+		if err := json.NewEncoder(w).Encode(expectedUser); err != nil {
+			t.Fatalf("Failed to encode response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -49,7 +51,9 @@ func TestClient_GetUser(t *testing.T) {
 func TestClient_GetUser_Error(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		fmt.Fprint(w, `{"error": "User not found"}`)
+		if _, err := fmt.Fprint(w, `{"error": "User not found"}`); err != nil {
+			t.Fatalf("Failed to write response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -94,7 +98,9 @@ func TestClient_UpdateUser(t *testing.T) {
 		assert.Equal(t, updateReq, &req)
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(expectedUser)
+		if err := json.NewEncoder(w).Encode(expectedUser); err != nil {
+			t.Fatalf("Failed to encode response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -125,7 +131,9 @@ func TestClient_DeleteUser(t *testing.T) {
 func TestClient_DeleteUser_Error(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusForbidden)
-		fmt.Fprint(w, `{"error": "Insufficient permissions"}`)
+		if _, err := fmt.Fprint(w, `{"error": "Insufficient permissions"}`); err != nil {
+			t.Fatalf("Failed to write response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -175,7 +183,9 @@ func TestClient_ListUsers(t *testing.T) {
 		assert.Equal(t, "/api/users", r.URL.Path)
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(expectedResponse)
+		if err := json.NewEncoder(w).Encode(expectedResponse); err != nil {
+			t.Fatalf("Failed to encode response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -204,7 +214,9 @@ func TestClient_ListUsers_Empty(t *testing.T) {
 		assert.Equal(t, "/api/users", r.URL.Path)
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(expectedResponse)
+		if err := json.NewEncoder(w).Encode(expectedResponse); err != nil {
+			t.Fatalf("Failed to encode response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -229,7 +241,9 @@ func TestClient_GetUserGroup(t *testing.T) {
 		assert.Equal(t, "/api/user-groups/test-group-id", r.URL.Path)
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(expectedGroup)
+		if err := json.NewEncoder(w).Encode(expectedGroup); err != nil {
+			t.Fatalf("Failed to encode response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -244,7 +258,9 @@ func TestClient_GetUserGroup(t *testing.T) {
 func TestClient_GetUserGroup_NotFound(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		fmt.Fprint(w, `{"error": "Group not found"}`)
+		if _, err := fmt.Fprint(w, `{"error": "Group not found"}`); err != nil {
+			t.Fatalf("Failed to write response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -279,7 +295,9 @@ func TestClient_UpdateUserGroup(t *testing.T) {
 		assert.Equal(t, updateReq, &req)
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(expectedGroup)
+		if err := json.NewEncoder(w).Encode(expectedGroup); err != nil {
+			t.Fatalf("Failed to encode response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -310,7 +328,9 @@ func TestClient_DeleteUserGroup(t *testing.T) {
 func TestClient_DeleteUserGroup_InUse(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusConflict)
-		fmt.Fprint(w, `{"error": "Group is in use"}`)
+		if _, err := fmt.Fprint(w, `{"error": "Group is in use"}`); err != nil {
+			t.Fatalf("Failed to write response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -356,7 +376,9 @@ func TestClient_ListUserGroups(t *testing.T) {
 		assert.Equal(t, "/api/user-groups", r.URL.Path)
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(expectedResponse)
+		if err := json.NewEncoder(w).Encode(expectedResponse); err != nil {
+			t.Fatalf("Failed to encode response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -372,7 +394,9 @@ func TestClient_ListUserGroups(t *testing.T) {
 func TestClient_ListUserGroups_Error(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprint(w, `{"error": "Internal server error"}`)
+		if _, err := fmt.Fprint(w, `{"error": "Internal server error"}`); err != nil {
+			t.Fatalf("Failed to write response: %v", err)
+		}
 	}))
 	defer server.Close()
 

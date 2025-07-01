@@ -150,8 +150,8 @@ func TestProvider_Configure(t *testing.T) {
 
 	// Restore env vars after test
 	t.Cleanup(func() {
-		os.Setenv("POCKETID_BASE_URL", originalBaseURL)
-		os.Setenv("POCKETID_API_TOKEN", originalAPIToken)
+		_ = os.Setenv("POCKETID_BASE_URL", originalBaseURL)
+		_ = os.Setenv("POCKETID_API_TOKEN", originalAPIToken)
 	})
 
 	testCases := []struct {
@@ -290,12 +290,12 @@ func TestProvider_Configure(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Clear env vars
-			os.Unsetenv("POCKETID_BASE_URL")
-			os.Unsetenv("POCKETID_API_TOKEN")
+			_ = os.Unsetenv("POCKETID_BASE_URL")
+			_ = os.Unsetenv("POCKETID_API_TOKEN")
 
 			// Set test env vars
 			for key, value := range tc.envVars {
-				os.Setenv(key, value)
+				_ = os.Setenv(key, value)
 			}
 
 			ctx := context.Background()

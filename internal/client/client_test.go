@@ -95,7 +95,9 @@ func TestClient_CreateClient(t *testing.T) {
 		assert.Equal(t, []string{"https://example.com/callback"}, req.CallbackURLs)
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(expectedClient)
+		if err := json.NewEncoder(w).Encode(expectedClient); err != nil {
+			t.Fatalf("Failed to encode response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -130,7 +132,9 @@ func TestClient_GetClient(t *testing.T) {
 		assert.Equal(t, "test-token", r.Header.Get("X-API-KEY"))
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(expectedClient)
+		if err := json.NewEncoder(w).Encode(expectedClient); err != nil {
+			t.Fatalf("Failed to encode response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -163,7 +167,9 @@ func TestClient_UpdateClient(t *testing.T) {
 		assert.Equal(t, "Updated Client", req.Name)
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(expectedClient)
+		if err := json.NewEncoder(w).Encode(expectedClient); err != nil {
+			t.Fatalf("Failed to encode response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -224,7 +230,9 @@ func TestClient_ListClients(t *testing.T) {
 		assert.Equal(t, "/api/oidc/clients", r.URL.Path)
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(expectedResponse)
+		if err := json.NewEncoder(w).Encode(expectedResponse); err != nil {
+			t.Fatalf("Failed to encode response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -244,7 +252,9 @@ func TestClient_GenerateClientSecret(t *testing.T) {
 		assert.Equal(t, "/api/oidc/clients/test-client-id/secret", r.URL.Path)
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"secret": expectedSecret})
+		if err := json.NewEncoder(w).Encode(map[string]string{"secret": expectedSecret}); err != nil {
+			t.Fatalf("Failed to encode response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -300,7 +310,9 @@ func TestClient_ErrorHandling(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(tt.statusCode)
-				fmt.Fprint(w, tt.responseBody)
+				if _, err := fmt.Fprint(w, tt.responseBody); err != nil {
+					t.Fatalf("Failed to write response: %v", err)
+				}
 			}))
 			defer server.Close()
 
@@ -321,15 +333,19 @@ func TestClient_RetryLogic(t *testing.T) {
 		if attempts < 3 {
 			// Simulate transient errors for first 2 attempts
 			w.WriteHeader(http.StatusServiceUnavailable)
-			fmt.Fprint(w, `{"error": "Service temporarily unavailable"}`)
+			if _, err := fmt.Fprint(w, `{"error": "Service temporarily unavailable"}`); err != nil {
+				t.Fatalf("Failed to write response: %v", err)
+			}
 			return
 		}
 		// Success on third attempt
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(&client.OIDCClient{
+		if err := json.NewEncoder(w).Encode(&client.OIDCClient{
 			ID:   "test-client-id",
 			Name: "Test Client",
-		})
+		}); err != nil {
+			t.Fatalf("Failed to encode response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -349,7 +365,9 @@ func TestClient_RetryExhaustion(t *testing.T) {
 		attempts++
 		// Always return 503
 		w.WriteHeader(http.StatusServiceUnavailable)
-		fmt.Fprint(w, `{"error": "Service unavailable"}`)
+		if _, err := fmt.Fprint(w, `{"error": "Service unavailable"}`); err != nil {
+			t.Fatalf("Failed to write response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -368,7 +386,9 @@ func TestClient_NonRetryableError(t *testing.T) {
 		attempts++
 		// Return 404 which is not retryable
 		w.WriteHeader(http.StatusNotFound)
-		fmt.Fprint(w, `{"error": "Not found"}`)
+		if _, err := fmt.Fprint(w, `{"error": "Not found"}`); err != nil {
+			t.Fatalf("Failed to write response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -422,7 +442,9 @@ func TestClient_CreateUser(t *testing.T) {
 		assert.Equal(t, "test@example.com", req.Email)
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(expectedUser)
+		if err := json.NewEncoder(w).Encode(expectedUser); err != nil {
+			t.Fatalf("Failed to encode response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -460,7 +482,9 @@ func TestClient_CreateUserGroup(t *testing.T) {
 		assert.Equal(t, "Test Group", req.FriendlyName)
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(expectedGroup)
+		if err := json.NewEncoder(w).Encode(expectedGroup); err != nil {
+			t.Fatalf("Failed to encode response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -528,15 +552,19 @@ func TestClient_RateLimitHandling(t *testing.T) {
 			w.Header().Set("Content-Type", "application/json")
 			w.Header().Set("Retry-After", "1") // 1 second retry
 			w.WriteHeader(http.StatusTooManyRequests)
-			fmt.Fprint(w, `{"error": "Rate limit exceeded"}`)
+			if _, err := fmt.Fprint(w, `{"error": "Rate limit exceeded"}`); err != nil {
+				t.Fatalf("Failed to write response: %v", err)
+			}
 			return
 		}
 		// Success on third attempt
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(&client.OIDCClient{
+		if err := json.NewEncoder(w).Encode(&client.OIDCClient{
 			ID:   "test-client-id",
 			Name: "Test Client",
-		})
+		}); err != nil {
+			t.Fatalf("Failed to encode response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -564,15 +592,19 @@ func TestClient_RateLimitWithoutRetryAfter(t *testing.T) {
 			// Simulate rate limit without Retry-After header
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusTooManyRequests)
-			fmt.Fprint(w, `{"error": "Rate limit exceeded"}`)
+			if _, err := fmt.Fprint(w, `{"error": "Rate limit exceeded"}`); err != nil {
+				t.Fatalf("Failed to write response: %v", err)
+			}
 			return
 		}
 		// Success on second attempt
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(&client.OIDCClient{
+		if err := json.NewEncoder(w).Encode(&client.OIDCClient{
 			ID:   "test-client-id",
 			Name: "Test Client",
-		})
+		}); err != nil {
+			t.Fatalf("Failed to encode response: %v", err)
+		}
 	}))
 	defer server.Close()
 

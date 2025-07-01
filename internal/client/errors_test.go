@@ -17,7 +17,9 @@ func TestClient_CreateClient_UnmarshalError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprint(w, `{"invalid json":}`)
+		if _, err := fmt.Fprint(w, `{"invalid json":}`); err != nil {
+			t.Fatalf("Failed to write response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -41,7 +43,9 @@ func TestClient_UpdateClient_UnmarshalError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprint(w, `{"invalid json":}`)
+		if _, err := fmt.Fprint(w, `{"invalid json":}`); err != nil {
+			t.Fatalf("Failed to write response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -65,7 +69,9 @@ func TestClient_ListClients_UnmarshalError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprint(w, `{"data": "should be array"}`)
+		if _, err := fmt.Fprint(w, `{"data": "should be array"}`); err != nil {
+			t.Fatalf("Failed to write response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -82,7 +88,9 @@ func TestClient_GenerateClientSecret_UnmarshalError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprint(w, `{"secret": 123}`) // secret should be string
+		if _, err := fmt.Fprint(w, `{"secret": 123}`); err != nil { // secret should be string
+			t.Fatalf("Failed to write response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -98,7 +106,9 @@ func TestClient_CreateUser_UnmarshalError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprint(w, `{"username": 123}`) // username should be string
+		if _, err := fmt.Fprint(w, `{"username": 123}`); err != nil { // username should be string
+			t.Fatalf("Failed to write response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -120,7 +130,9 @@ func TestClient_UpdateUser_UnmarshalError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprint(w, `{"email": []}`) // email should be string
+		if _, err := fmt.Fprint(w, `{"email": []}`); err != nil { // email should be string
+			t.Fatalf("Failed to write response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -142,7 +154,9 @@ func TestClient_ListUsers_UnmarshalError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprint(w, `{"data": "not an array", "pagination": {}}`)
+		if _, err := fmt.Fprint(w, `{"data": "not an array", "pagination": {}}`); err != nil {
+			t.Fatalf("Failed to write response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -159,7 +173,9 @@ func TestClient_CreateUserGroup_UnmarshalError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprint(w, `{"name": true}`) // name should be string
+		if _, err := fmt.Fprint(w, `{"name": true}`); err != nil { // name should be string
+			t.Fatalf("Failed to write response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -181,7 +197,9 @@ func TestClient_UpdateUserGroup_UnmarshalError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprint(w, `{"friendlyName": 123}`) // friendlyName should be string
+		if _, err := fmt.Fprint(w, `{"friendlyName": 123}`); err != nil { // friendlyName should be string
+			t.Fatalf("Failed to write response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -203,7 +221,9 @@ func TestClient_GetUser_UnmarshalError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprint(w, `{"id": [], "username": "test"}`) // id should be string
+		if _, err := fmt.Fprint(w, `{"id": [], "username": "test"}`); err != nil { // id should be string
+			t.Fatalf("Failed to write response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -220,7 +240,9 @@ func TestClient_GetUserGroup_UnmarshalError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprint(w, `{"id": {}, "name": "test"}`) // id should be string
+		if _, err := fmt.Fprint(w, `{"id": {}, "name": "test"}`); err != nil { // id should be string
+			t.Fatalf("Failed to write response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -237,7 +259,9 @@ func TestClient_ListUserGroups_UnmarshalError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprint(w, `{"data": {}, "pagination": "invalid"}`)
+		if _, err := fmt.Fprint(w, `{"data": {}, "pagination": "invalid"}`); err != nil {
+			t.Fatalf("Failed to write response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -259,11 +283,15 @@ func TestClient_RateLimitWithRetryAfterSeconds(t *testing.T) {
 		if attempts < 2 {
 			w.Header().Set("Retry-After", "2") // 2 seconds
 			w.WriteHeader(http.StatusTooManyRequests)
-			fmt.Fprint(w, `{"error": "Rate limit exceeded"}`)
+			if _, err := fmt.Fprint(w, `{"error": "Rate limit exceeded"}`); err != nil {
+				t.Fatalf("Failed to write response: %v", err)
+			}
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprint(w, `{"id": "test-id", "name": "Test Client"}`)
+		if _, err := fmt.Fprint(w, `{"id": "test-id", "name": "Test Client"}`); err != nil {
+			t.Fatalf("Failed to write response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -288,7 +316,9 @@ func TestClient_RequestTimeout(t *testing.T) {
 		// Sleep longer than client timeout
 		time.Sleep(2 * time.Second)
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprint(w, `{"id": "test-id"}`)
+		if _, err := fmt.Fprint(w, `{"id": "test-id"}`); err != nil {
+			t.Fatalf("Failed to write response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -365,7 +395,9 @@ func TestClient_NonRetryableErrors(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				attempts++
 				w.WriteHeader(tc.statusCode)
-				fmt.Fprintf(w, `{"error": "Error %d"}`, tc.statusCode)
+				if _, err := fmt.Fprintf(w, `{"error": "Error %d"}`, tc.statusCode); err != nil {
+					t.Fatalf("Failed to write response: %v", err)
+				}
 			}))
 			defer server.Close()
 
