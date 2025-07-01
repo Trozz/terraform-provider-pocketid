@@ -73,6 +73,10 @@ release:
     owner: Trozz
     name: terraform-provider-pocketid
 
+  extra_files:
+    - glob: "terraform-registry-manifest.json"
+      name_template: "{{ .ProjectName }}_{{ .Version }}_manifest.json"
+
   # Release notes
   header: |
     ## Terraform Provider for Pocket-ID v{{ .Version }}
@@ -148,9 +152,3 @@ announce:
 # Snapshot configuration (for development builds)
 snapshot:
   name_template: "{{ incpatch .Version }}-dev"
-
-# Source configuration
-source:
-  enabled: true
-  name_template: "{{ .ProjectName }}_{{ .Version }}_source"
-  format: "tar.gz"
