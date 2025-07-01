@@ -8,8 +8,6 @@ updates:
       day: "monday"
       time: "05:00"
     open-pull-requests-limit: 10
-    reviewers:
-      - "Trozz"
     labels:
       - "dependencies"
       - "go"
@@ -41,8 +39,6 @@ updates:
       day: "monday"
       time: "05:00"
     open-pull-requests-limit: 10
-    reviewers:
-      - "Trozz"
     labels:
       - "dependencies"
       - "github-actions"
