@@ -48,7 +48,9 @@ func NewClient(baseURL, apiToken string, skipTLSVerify bool, timeout int64) (*Cl
 	// Configure HTTP client with TLS settings
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: skipTLSVerify,
+			// Allow users to skip TLS verification for development environments
+			// This is controlled by provider configuration and defaults to false
+			InsecureSkipVerify: skipTLSVerify, // #nosec G402 - Legitimate use case for development
 		},
 	}
 
