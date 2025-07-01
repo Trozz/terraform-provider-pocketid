@@ -149,13 +149,38 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Check for Go file changes
+        id: go_changes
+        run: |
+          # Get the latest tag
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          
+          if [ -z "$LATEST_TAG" ]; then
+            echo "No previous tags found, assuming Go files changed"
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            # Check if any Go files changed since the last tag
+            GO_CHANGES=$(git diff --name-only ${LATEST_TAG}..HEAD -- '*.go' 'go.mod' 'go.sum' | wc -l)
+            
+            if [ "$GO_CHANGES" -gt 0 ]; then
+              echo "Go files changed since ${LATEST_TAG}"
+              echo "changed=true" >> $GITHUB_OUTPUT
+              git diff --name-only ${LATEST_TAG}..HEAD -- '*.go' 'go.mod' 'go.sum'
+            else
+              echo "No Go files changed since ${LATEST_TAG}"
+              echo "changed=false" >> $GITHUB_OUTPUT
+            fi
+          fi
+
       - name: Set up Go
+        if: steps.go_changes.outputs.changed == 'true'
         uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
       - name: Import GPG key
+        if: steps.go_changes.outputs.changed == 'true'
         id: import_gpg
         uses: crazy-max/ghaction-import-gpg@v6
         with:
@@ -163,6 +188,7 @@ jobs:
           passphrase: ${{ secrets.GPG_PASSPHRASE }}
 
       - name: Generate snapshot version
+        if: steps.go_changes.outputs.changed == 'true'
         id: version
         run: |
           # Get the latest release tag (exclude pre-release tags)
@@ -186,6 +212,7 @@ jobs:
           echo "version=${NEW_VERSION}" >> $GITHUB_OUTPUT
 
       - name: Run GoReleaser (snapshot)
+        if: steps.go_changes.outputs.changed == 'true'
         uses: goreleaser/goreleaser-action@v6
         with:
           version: latest
@@ -194,6 +221,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Generate pre-release attestations
+        if: steps.go_changes.outputs.changed == 'true'
         uses: actions/attest-build-provenance@v1
         with:
           subject-path: |
@@ -201,12 +229,14 @@ jobs:
             dist/*_checksums.txt
 
       - name: Upload artifacts
+        if: steps.go_changes.outputs.changed == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: pre-release-artifacts
           path: dist/*
 
       - name: Create GitHub pre-release
+        if: steps.go_changes.outputs.changed == 'true'
         uses: softprops/action-gh-release@v1
         with:
           name: "Development Build v${{ steps.version.outputs.version }}"
