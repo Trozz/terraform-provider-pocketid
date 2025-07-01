@@ -1,10 +1,13 @@
 version: "2"
+
 run:
+  timeout: 5m
+  tests: true
   build-tags:
     - acc
-  tests: true
+
 linters:
-  default: none
+  disable-all: true
   enable:
     - errcheck
     - govet
@@ -12,32 +15,22 @@ linters:
     - misspell
     - staticcheck
     - unused
-  exclusions:
-    generated: lax
-    rules:
-      - linters:
-          - errcheck
-        path: _test\.go
-    paths:
-      - third_party$
-      - builtin$
-      - examples$
-issues:
-  max-issues-per-linter: 0
-  max-same-issues: 0
+
 formatters:
   enable:
     - gofmt
     - goimports
-  settings:
-    gofmt:
-      simplify: true
-    goimports:
-      local-prefixes:
-        - github.com/Trozz/terraform-provider-pocketid
-  exclusions:
-    generated: lax
-    paths:
-      - third_party$
-      - builtin$
-      - examples$
+
+linters-settings:
+  gofmt:
+    simplify: true
+  goimports:
+    local-prefixes: github.com/Trozz/terraform-provider-pocketid
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - errcheck

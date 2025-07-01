@@ -34,7 +34,7 @@ jobs:
         run: go mod tidy
 
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v3
+        uses: golangci/golangci-lint-action@v6
         with:
           version: ${{ env.GOLANGCI_LINT_VERSION }}
 
@@ -73,7 +73,7 @@ jobs:
           gotestsum --junitfile junit.xml --format testname -- -v -cover -coverprofile=coverage.out ./internal/...
 
       - name: Upload test results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: test-results
@@ -130,7 +130,7 @@ jobs:
           go build -o "$output" -ldflags "-X main.version=${{ github.ref_name }}" .
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: terraform-provider-pocketid_${{ matrix.os }}_${{ matrix.arch }}
           path: terraform-provider-pocketid*
