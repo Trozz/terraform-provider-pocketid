@@ -21,6 +21,9 @@ before:
         }
       }
       EOF
+    # Ensure dist directory exists and copy manifest there
+    - mkdir -p dist
+    - cp terraform-registry-manifest.json dist/
 
 # Build configuration
 builds:
@@ -59,7 +62,7 @@ checksum:
   name_template: "{{ .ProjectName }}_{{ .Version }}_SHA256SUMS"
   algorithm: sha256
   extra_files:
-    - glob: "terraform-registry-manifest.json"
+    - glob: "dist/terraform-registry-manifest.json"
       name_template: "{{ .ProjectName }}_{{ .Version }}_manifest.json"
 
 # Signing configuration for Terraform Registry
