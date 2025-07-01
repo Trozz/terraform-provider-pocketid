@@ -12,8 +12,7 @@ before:
     - go install github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs@latest
     - tfplugindocs generate
     # Create Terraform Registry manifest
-    - mkdir -p dist
-    - echo '{"version":1,"metadata":{"protocol_versions":["6.0"]}}' > dist/terraform-registry-manifest.json
+    - echo '{"version":1,"metadata":{"protocol_versions":["6.0"]}}' > terraform-registry-manifest.json
 
 # Build configuration
 builds:
@@ -52,7 +51,7 @@ checksum:
   name_template: "{{ .ProjectName }}_{{ .Version }}_SHA256SUMS"
   algorithm: sha256
   extra_files:
-    - glob: "dist/terraform-registry-manifest.json"
+    - glob: "terraform-registry-manifest.json"
       name_template: "{{ .ProjectName }}_{{ .Version }}_manifest.json"
 
 # Signing configuration for Terraform Registry
