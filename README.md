@@ -258,7 +258,7 @@ Contributions are welcome! Please see our [Contributing Guidelines](CONTRIBUTING
 
 ### Reporting Security Issues
 
-Please report security vulnerabilities to [security@example.com](mailto:security@example.com). Do not open public issues for security problems.
+Please report security vulnerabilities to [security@leer.dev](mailto:security@leer.dev). Do not open public issues for security problems.
 
 ### Best Practices
 
