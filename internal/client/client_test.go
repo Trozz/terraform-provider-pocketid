@@ -518,3 +518,71 @@ func TestClient_UpdateClientAllowedUserGroups(t *testing.T) {
 	err = c.UpdateClientAllowedUserGroups("test-client-id", []string{"group1", "group2"})
 	assert.NoError(t, err)
 }
+
+func TestClient_RateLimitHandling(t *testing.T) {
+	attempts := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attempts++
+		if attempts < 3 {
+			// Simulate rate limit for first 2 attempts
+			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("Retry-After", "1") // 1 second retry
+			w.WriteHeader(http.StatusTooManyRequests)
+			fmt.Fprint(w, `{"error": "Rate limit exceeded"}`)
+			return
+		}
+		// Success on third attempt
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(&client.OIDCClient{
+			ID:   "test-client-id",
+			Name: "Test Client",
+		})
+	}))
+	defer server.Close()
+
+	c, err := client.NewClient(server.URL, "test-token", false, 30)
+	require.NoError(t, err)
+
+	start := time.Now()
+	result, err := c.GetClient("test-client-id")
+	elapsed := time.Since(start)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Equal(t, "test-client-id", result.ID)
+	assert.Equal(t, "Test Client", result.Name)
+	assert.Equal(t, 3, attempts)
+	// Should have waited at least 2 seconds (2 retries with 1 second each)
+	assert.True(t, elapsed >= 2*time.Second, "Expected at least 2 seconds elapsed, got %v", elapsed)
+}
+
+func TestClient_RateLimitWithoutRetryAfter(t *testing.T) {
+	attempts := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attempts++
+		if attempts < 2 {
+			// Simulate rate limit without Retry-After header
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusTooManyRequests)
+			fmt.Fprint(w, `{"error": "Rate limit exceeded"}`)
+			return
+		}
+		// Success on second attempt
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(&client.OIDCClient{
+			ID:   "test-client-id",
+			Name: "Test Client",
+		})
+	}))
+	defer server.Close()
+
+	c, err := client.NewClient(server.URL, "test-token", false, 30)
+	require.NoError(t, err)
+
+	result, err := c.GetClient("test-client-id")
+
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Equal(t, "test-client-id", result.ID)
+	assert.Equal(t, 2, attempts)
+}

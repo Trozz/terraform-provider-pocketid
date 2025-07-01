@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -19,6 +20,20 @@ type Client struct {
 	baseURL    string
 	apiToken   string
 	httpClient *http.Client
+}
+
+// RateLimitError represents a 429 rate limit error with optional Retry-After information
+type RateLimitError struct {
+	StatusCode int
+	Message    string
+	RetryAfter string // Can be seconds or HTTP-date
+}
+
+func (e *RateLimitError) Error() string {
+	if e.RetryAfter != "" {
+		return fmt.Sprintf("HTTP %d: %s (Retry-After: %s)", e.StatusCode, e.Message, e.RetryAfter)
+	}
+	return fmt.Sprintf("HTTP %d: %s", e.StatusCode, e.Message)
 }
 
 // NewClient creates a new Pocket-ID API client
@@ -58,9 +73,24 @@ func (c *Client) doRequestWithContext(ctx context.Context, method, endpoint stri
 	var lastErr error
 
 	for attempt := 0; attempt <= maxRetries; attempt++ {
+		var backoff time.Duration
+
 		if attempt > 0 {
 			// Exponential backoff: 1s, 2s, 4s
-			backoff := time.Duration(1<<(attempt-1)) * time.Second
+			backoff = time.Duration(1<<(attempt-1)) * time.Second
+
+			// Special handling for rate limit errors to respect Retry-After header
+			if rateLimitErr, ok := lastErr.(*RateLimitError); ok && rateLimitErr.RetryAfter != "" {
+				retryAfterSeconds := parseRetryAfter(rateLimitErr.RetryAfter)
+				if retryAfterSeconds > 0 {
+					backoff = time.Duration(retryAfterSeconds) * time.Second
+					tflog.Info(ctx, "Rate limited, using Retry-After header", map[string]interface{}{
+						"retry_after":     rateLimitErr.RetryAfter,
+						"backoff_seconds": retryAfterSeconds,
+					})
+				}
+			}
+
 			tflog.Debug(ctx, "Retrying request after backoff", map[string]interface{}{
 				"attempt": attempt,
 				"backoff": backoff.String(),
@@ -117,6 +147,16 @@ func isRetryableError(err error) bool {
 		strings.Contains(errStr, "HTTP 503") ||
 		strings.Contains(errStr, "HTTP 504") ||
 		strings.Contains(errStr, "HTTP 500") {
+		return true
+	}
+
+	// 429 Too Many Requests is retryable (rate limiting)
+	if strings.Contains(errStr, "HTTP 429") {
+		return true
+	}
+
+	// Check if it's a RateLimitError
+	if _, ok := err.(*RateLimitError); ok {
 		return true
 	}
 
@@ -199,16 +239,54 @@ func (c *Client) doSingleRequest(ctx context.Context, method, endpoint string, b
 				"status_code": resp.StatusCode,
 				"raw_body":    string(respBody),
 			})
+			// Handle rate limit errors with Retry-After header
+			if resp.StatusCode == 429 {
+				retryAfter := resp.Header.Get("Retry-After")
+				return nil, &RateLimitError{
+					StatusCode: resp.StatusCode,
+					Message:    string(respBody),
+					RetryAfter: retryAfter,
+				}
+			}
 			return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(respBody))
 		}
 		tflog.Error(ctx, "API Error", map[string]interface{}{
 			"status_code": resp.StatusCode,
 			"error":       errResp.Error,
 		})
+		// Handle rate limit errors with Retry-After header
+		if resp.StatusCode == 429 {
+			retryAfter := resp.Header.Get("Retry-After")
+			return nil, &RateLimitError{
+				StatusCode: resp.StatusCode,
+				Message:    errResp.Error,
+				RetryAfter: retryAfter,
+			}
+		}
 		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, errResp.Error)
 	}
 
 	return respBody, nil
+}
+
+// parseRetryAfter parses the Retry-After header value
+// It can be either a delay in seconds or an HTTP-date
+func parseRetryAfter(retryAfter string) int {
+	// First try to parse as integer seconds
+	if seconds, err := strconv.Atoi(retryAfter); err == nil && seconds > 0 {
+		return seconds
+	}
+
+	// Try to parse as HTTP-date
+	if t, err := http.ParseTime(retryAfter); err == nil {
+		delay := time.Until(t).Seconds()
+		if delay > 0 {
+			return int(delay)
+		}
+	}
+
+	// Default to 60 seconds if we can't parse
+	return 60
 }
 
 // OIDC Client methods
