@@ -1,0 +1,51 @@
+# Terraform state files
+*.tfstate
+*.tfstate.*
+
+# Terraform directories
+**/.terraform/
+
+# Terraform lock files (examples should not commit lock files)
+**/.terraform.lock.hcl
+
+# Terraform plan files
+*.tfplan
+*.tfplan.*
+
+# Crash logs
+crash.log
+crash.*.log
+
+# Variable files that might contain sensitive data
+*.tfvars
+*.tfvars.json
+*.auto.tfvars
+*.auto.tfvars.json
+!example.tfvars
+
+# Override files
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# CLI configuration files
+.terraformrc
+terraform.rc
+
+# Environment files
+.env
+.env.*
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+.DS_Store
+
+# Output files
+*.out
+*.log
+
+# Local testing
+test-output/

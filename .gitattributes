@@ -1,0 +1,123 @@
+# .gitattributes - Git attributes for Terraform Provider for Pocket-ID
+
+# Auto detect text files and perform LF normalization
+* text=auto eol=lf
+
+# Go source files
+*.go text diff=golang
+*.mod text diff=golang
+*.sum text diff=golang
+
+# Terraform files
+*.tf text diff=terraform
+*.tfvars text
+*.tfstate text
+*.tfstate.backup text
+*.hcl text
+
+# Documentation
+*.md text diff=markdown
+*.txt text
+*.rst text
+*.adoc text
+README* text
+LICENSE text
+CHANGELOG* text
+CONTRIBUTING* text
+AUTHORS text
+NOTICE text
+
+# Configuration files
+*.json text
+*.yaml text
+*.yml text
+*.toml text
+*.ini text
+*.cfg text
+*.conf text
+*.config text
+.gitignore text
+.gitattributes text
+.editorconfig text
+.env* text
+Dockerfile* text
+docker-compose*.yml text
+Makefile text
+
+# Shell scripts
+*.sh text eol=lf
+*.bash text eol=lf
+*.zsh text eol=lf
+*.fish text eol=lf
+
+# Batch scripts (Windows)
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Web files
+*.html text diff=html
+*.css text diff=css
+*.js text diff=javascript
+*.ts text diff=javascript
+
+# Certificate files (binary)
+*.pem binary
+*.crt binary
+*.cer binary
+*.der binary
+*.p12 binary
+*.pfx binary
+*.key binary
+
+# Images
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.svg text
+*.webp binary
+
+# Archives
+*.gz binary
+*.tar binary
+*.tgz binary
+*.zip binary
+*.7z binary
+*.rar binary
+
+# Executables
+*.exe binary
+*.dll binary
+*.so binary
+*.dylib binary
+
+# Go specific
+go.mod text diff=golang merge=union
+go.sum text diff=golang merge=union
+
+# Terraform specific
+*.tfstate binary
+*.tfstate.backup binary
+
+# GitHub specific
+.github/**/*.yml text eol=lf
+.github/**/*.yaml text eol=lf
+
+# Ensure these files always have LF line endings
+.gitignore text eol=lf
+.gitattributes text eol=lf
+*.gitignore text eol=lf
+.gitmodules text eol=lf
+
+# Export ignore (files to exclude from archives)
+.github export-ignore
+.gitignore export-ignore
+.gitattributes export-ignore
+/test export-ignore
+/docs export-ignore
+.editorconfig export-ignore
+.golangci.yml export-ignore
+*.test.go export-ignore
+*_test.go export-ignore
