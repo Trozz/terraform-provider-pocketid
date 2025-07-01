@@ -7,7 +7,7 @@ run:
     - acc
 
 linters:
-  disable-all: true
+  default: none
   enable:
     - errcheck
     - govet
@@ -20,17 +20,13 @@ formatters:
   enable:
     - gofmt
     - goimports
-
-linters-settings:
-  gofmt:
-    simplify: true
-  goimports:
-    local-prefixes: github.com/Trozz/terraform-provider-pocketid
+  settings:
+    gofmt:
+      simplify: true
+    goimports:
+      local-prefixes:
+        - github.com/Trozz/terraform-provider-pocketid
 
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0
-  exclude-rules:
-    - path: _test\.go
-      linters:
-        - errcheck
