@@ -201,10 +201,10 @@ This will provide detailed information about API requests and responses, which c
 
 ## Getting Help
 
-- **Provider Issues**: [GitHub Issues](https://github.com/trozz/terraform-provider-pocketid/issues)
+- **Provider Issues**: [GitHub Issues](https://github.com/Trozz/terraform-provider-pocketid/issues)
 - **Pocket-ID Issues**: [Pocket-ID GitHub](https://github.com/pocket-id/pocket-id/issues)
 - **Documentation**: [Provider Documentation](https://registry.terraform.io/providers/trozz/pocketid/latest/docs)
 
 ## Contributing
 
-Contributions are welcome! Please see the [GitHub repository](https://github.com/trozz/terraform-provider-pocketid) for contribution guidelines.
+Contributions are welcome! Please see the [GitHub repository](https://github.com/Trozz/terraform-provider-pocketid) for contribution guidelines.

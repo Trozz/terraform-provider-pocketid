@@ -1,7 +1,7 @@
 # Terraform Provider for Pocket-ID
 
-[![CI](https://github.com/trozz/terraform-pocket-id-provider/actions/workflows/ci.yml/badge.svg)](https://github.com/trozz/terraform-pocket-id-provider/actions/workflows/ci.yml)
-[![Go Report Card](https://goreportcard.com/badge/github.com/trozz/terraform-pocket-id-provider)](https://goreportcard.com/report/github.com/trozz/terraform-pocket-id-provider)
+[![CI](https://github.com/Trozz/terraform-provider-pocketid/actions/workflows/ci.yml/badge.svg)](https://github.com/Trozz/terraform-provider-pocketid/actions/workflows/ci.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/Trozz/terraform-provider-pocketid)](https://goreportcard.com/report/github.com/Trozz/terraform-provider-pocketid)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 The Terraform Provider for [Pocket-ID](https://github.com/pocket-id/pocket-id) enables you to manage OIDC clients, users, and groups in your Pocket-ID instance using Infrastructure as Code.
@@ -43,7 +43,7 @@ terraform {
 
 ### Manual Installation
 
-1. Download the latest release from the [releases page](https://github.com/trozz/terraform-pocket-id-provider/releases)
+1. Download the latest release from the [releases page](https://github.com/Trozz/terraform-provider-pocketid/releases)
 2. Extract the archive
 3. Move the binary to `~/.terraform.d/plugins/registry.terraform.io/trozz/pocketid/${VERSION}/${OS_ARCH}/`
 
@@ -151,8 +151,8 @@ See the [examples](examples/) directory for complete working examples:
 
 ```bash
 # Clone the repository
-git clone https://github.com/trozz/terraform-pocket-id-provider.git
-cd terraform-pocket-id-provider
+git clone https://github.com/Trozz/terraform-provider-pocketid.git
+cd terraform-provider-pocketid
 
 # Install dependencies
 make deps
@@ -231,8 +231,8 @@ Contributions are welcome! Please see our [Contributing Guidelines](CONTRIBUTING
 
 ## Support
 
-- **Issues**: [GitHub Issues](https://github.com/trozz/terraform-pocket-id-provider/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/trozz/terraform-pocket-id-provider/discussions)
+- **Issues**: [GitHub Issues](https://github.com/Trozz/terraform-provider-pocketid/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/Trozz/terraform-provider-pocketid/discussions)
 - **Pocket-ID**: [Pocket-ID Repository](https://github.com/pocket-id/pocket-id)
 
 ## Security

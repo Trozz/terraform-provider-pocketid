@@ -11,7 +11,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 
-	"github.com/trozz/terraform-provider-pocketid/internal/provider"
+	"github.com/Trozz/terraform-provider-pocketid/internal/provider"
 )
 
 // testAccProtoV6ProviderFactories are used to instantiate a provider during

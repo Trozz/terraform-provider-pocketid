@@ -7,7 +7,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/trozz/terraform-provider-pocketid/internal/resources"
+	"github.com/Trozz/terraform-provider-pocketid/internal/resources"
 )
 
 func TestClientResource_Schema(t *testing.T) {

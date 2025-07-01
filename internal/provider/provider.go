@@ -12,9 +12,9 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 
-	"github.com/trozz/terraform-provider-pocketid/internal/client"
-	"github.com/trozz/terraform-provider-pocketid/internal/datasources"
-	"github.com/trozz/terraform-provider-pocketid/internal/resources"
+	"github.com/Trozz/terraform-provider-pocketid/internal/client"
+	"github.com/Trozz/terraform-provider-pocketid/internal/datasources"
+	"github.com/Trozz/terraform-provider-pocketid/internal/resources"
 )
 
 // Ensure the implementation satisfies the expected interfaces

@@ -15,14 +15,14 @@ before:
 # Build configuration
 builds:
   - id: terraform-provider-pocketid
-    binary: '{{ .ProjectName }}_v{{ .Version }}'
+    binary: "{{ .ProjectName }}_v{{ .Version }}"
     env:
       - CGO_ENABLED=0
-    mod_timestamp: '{{ .CommitTimestamp }}'
+    mod_timestamp: "{{ .CommitTimestamp }}"
     flags:
       - -trimpath
     ldflags:
-      - '-s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}'
+      - "-s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}"
     goos:
       - darwin
       - linux
@@ -37,7 +37,7 @@ builds:
 # Archive configuration
 archives:
   - id: terraform-provider-pocketid
-    name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     format: zip
     files:
       - LICENSE
@@ -46,11 +46,11 @@ archives:
 
 # Checksum configuration
 checksum:
-  name_template: '{{ .ProjectName }}_{{ .Version }}_SHA256SUMS'
+  name_template: "{{ .ProjectName }}_{{ .Version }}_SHA256SUMS"
   algorithm: sha256
   extra_files:
-    - glob: 'terraform-registry-manifest.json'
-      name_template: '{{ .ProjectName }}_{{ .Version }}_manifest.json'
+    - glob: "terraform-registry-manifest.json"
+      name_template: "{{ .ProjectName }}_{{ .Version }}_manifest.json"
 
 # Signing configuration for Terraform Registry
 signs:
@@ -58,20 +58,20 @@ signs:
     args:
       - --batch
       - --local-user
-      - '{{ .Env.GPG_FINGERPRINT }}'
+      - "{{ .Env.GPG_FINGERPRINT }}"
       - --output
       - ${signature}
       - --detach-sign
       - ${artifact}
     signature: ${artifact}.sig
     artifacts: checksum
-    stdin: '{{ .Env.GPG_PASSPHRASE }}'
+    stdin: "{{ .Env.GPG_PASSPHRASE }}"
 
 # Release configuration
 release:
   github:
-    owner: trozz
-    name: terraform-pocket-id-provider
+    owner: Trozz
+    name: terraform-provider-pocketid
 
   # Release notes
   header: |
@@ -85,10 +85,10 @@ release:
     ## What's Next?
 
     - Read the [documentation](https://registry.terraform.io/providers/trozz/pocketid/latest/docs)
-    - Report issues on [GitHub](https://github.com/trozz/terraform-pocket-id-provider/issues)
+    - Report issues on [GitHub](https://github.com/Trozz/terraform-provider-pocketid/issues)
     - Join the discussion on [Pocket-ID](https://github.com/pocket-id/pocket-id)
 
-    **Full Changelog**: https://github.com/trozz/terraform-pocket-id-provider/compare/{{ .PreviousTag }}...{{ .Tag }}
+    **Full Changelog**: https://github.com/Trozz/terraform-provider-pocketid/compare/{{ .PreviousTag }}...{{ .Tag }}
 
   # Prerelease configuration
   prerelease: auto
@@ -108,29 +108,29 @@ changelog:
   use: github
   filters:
     exclude:
-      - '^docs:'
-      - '^test:'
-      - '^chore:'
-      - '^build:'
-      - '^ci:'
-      - 'typo'
-      - 'Merge pull request'
-      - 'Merge branch'
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - "^build:"
+      - "^ci:"
+      - "typo"
+      - "Merge pull request"
+      - "Merge branch"
 
   groups:
-    - title: '🚀 Features'
+    - title: "🚀 Features"
       regexp: "^.*feat[(\\w)]*:+.*$"
       order: 100
-    - title: '🐛 Bug Fixes'
+    - title: "🐛 Bug Fixes"
       regexp: "^.*fix[(\\w)]*:+.*$"
       order: 200
-    - title: '🔨 Enhancements'
+    - title: "🔨 Enhancements"
       regexp: "^.*enhance[(\\w)]*:+.*$"
       order: 300
-    - title: '📚 Documentation'
+    - title: "📚 Documentation"
       regexp: "^.*docs[(\\w)]*:+.*$"
       order: 400
-    - title: '🔧 Maintenance'
+    - title: "🔧 Maintenance"
       order: 999
 
 # Terraform Registry manifest
@@ -168,8 +168,8 @@ snapshot:
 # Source configuration
 source:
   enabled: true
-  name_template: '{{ .ProjectName }}_{{ .Version }}_source'
-  format: 'tar.gz'
+  name_template: "{{ .ProjectName }}_{{ .Version }}_source"
+  format: "tar.gz"
 
 # SBOM generation
 sboms:
@@ -181,27 +181,27 @@ dockers:
   - skip_push: true
     dockerfile: .goreleaser.dockerfile
     image_templates:
-      - 'ghcr.io/trozz/{{ .ProjectName }}:{{ .Version }}'
-      - 'ghcr.io/trozz/{{ .ProjectName }}:latest'
+      - "ghcr.io/trozz/{{ .ProjectName }}:{{ .Version }}"
+      - "ghcr.io/trozz/{{ .ProjectName }}:latest"
     build_flag_templates:
       - "--pull"
       - "--label=org.opencontainers.image.created={{.Date}}"
       - "--label=org.opencontainers.image.title={{.ProjectName}}"
       - "--label=org.opencontainers.image.revision={{.FullCommit}}"
       - "--label=org.opencontainers.image.version={{.Version}}"
-      - "--label=org.opencontainers.image.source=https://github.com/trozz/terraform-pocket-id-provider"
+      - "--label=org.opencontainers.image.source=https://github.com/Trozz/terraform-provider-pocketid"
       - "--label=org.opencontainers.image.licenses=MIT"
 
 # Homebrew tap (optional, for macOS users)
 brews:
   - skip_upload: true
     tap:
-      owner: trozz
+      owner: Trozz
       name: homebrew-tap
     folder: Formula
-    homepage: 'https://github.com/trozz/terraform-pocket-id-provider'
-    description: 'Terraform provider for Pocket-ID, a passkey-only OIDC provider'
-    license: 'MIT'
+    homepage: "https://github.com/Trozz/terraform-provider-pocketid"
+    description: "Terraform provider for Pocket-ID, a passkey-only OIDC provider"
+    license: "MIT"
     test: |
       system "#{bin}/terraform-provider-pocketid -version"
     install: |
@@ -209,11 +209,10 @@ brews:
 
 # Nightly builds configuration
 nightly:
-  name_template: '{{ incpatch .Version }}-nightly-{{ .ShortCommit }}'
+  name_template: "{{ incpatch .Version }}-nightly-{{ .ShortCommit }}"
   tag_name: nightly
   publish_release: false
   keep_single_release: true
-
 # GoReleaser Pro features (if available)
 # partial:
 #   by: goos

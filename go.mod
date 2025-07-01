@@ -1,4 +1,4 @@
-module github.com/trozz/terraform-provider-pocketid
+module github.com/Trozz/terraform-provider-pocketid
 
 go 1.24.2
 
