@@ -1,45 +1,43 @@
-# .golangci.yml
-# Minimal configuration to avoid compatibility issues
-
+version: "2"
 run:
-  timeout: 5m
-  tests: true
   build-tags:
     - acc
-
+  tests: true
 linters:
-  disable-all: true
+  default: none
   enable:
-    # Enable only stable, essential linters
     - errcheck
-    - gosimple
     - govet
     - ineffassign
+    - misspell
     - staticcheck
-    - typecheck
     - unused
+  exclusions:
+    generated: lax
+    rules:
+      - linters:
+          - errcheck
+        path: _test\.go
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+formatters:
+  enable:
     - gofmt
     - goimports
-    - misspell
-
-linters-settings:
-  gofmt:
-    simplify: true
-  goimports:
-    local-prefixes: github.com/Trozz/terraform-provider-pocketid
-
-issues:
-  exclude-use-default: false
-  max-same-issues: 0
-  max-issues-per-linter: 0
-
-  # Exclude some linters from running on tests files.
-  exclude-rules:
-    - path: _test\.go
-      linters:
-        - errcheck
-
-output:
-  format: colored-line-number
-  print-issued-lines: true
-  print-linter-name: true
+  settings:
+    gofmt:
+      simplify: true
+    goimports:
+      local-prefixes:
+        - github.com/Trozz/terraform-provider-pocketid
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

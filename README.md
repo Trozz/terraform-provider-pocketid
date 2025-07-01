@@ -2,6 +2,7 @@
 
 [![Terraform Registry](https://img.shields.io/badge/Terraform%20Registry-v0.1.0-blue)](https://registry.terraform.io/providers/trozz/pocketid/latest)
 [![CI](https://github.com/Trozz/terraform-provider-pocketid/actions/workflows/ci.yml/badge.svg)](https://github.com/Trozz/terraform-provider-pocketid/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/Trozz/terraform-provider-pocketid/branch/main/graph/badge.svg)](https://codecov.io/gh/Trozz/terraform-provider-pocketid)
 [![Go Report Card](https://goreportcard.com/badge/github.com/Trozz/terraform-provider-pocketid)](https://goreportcard.com/report/github.com/Trozz/terraform-provider-pocketid)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -197,6 +198,47 @@ Acceptance tests require a manually configured Pocket-ID instance:
    ```
 
 See [TESTING.md](TESTING.md) for detailed testing instructions and strategies.
+
+### Test Analytics
+
+This project uses [Codecov](https://codecov.io) for code coverage and test analytics:
+
+[![codecov](https://codecov.io/gh/Trozz/terraform-provider-pocketid/branch/main/graph/badge.svg)](https://codecov.io/gh/Trozz/terraform-provider-pocketid)
+
+#### Features
+
+- **Code Coverage**: Track test coverage across all packages
+- **Test Analytics**: Monitor test performance and identify flaky tests
+- **Failed Test Reporting**: Get detailed reports on test failures
+- **PR Comments**: Automatic coverage reports on pull requests
+
+#### Running Tests with JUnit Output
+
+For detailed test reporting, use `gotestsum`:
+
+```bash
+# Install gotestsum if not already installed
+go install gotest.tools/gotestsum@latest
+
+# Run tests with JUnit XML output
+make test-junit
+
+# Or run in CI format
+make test-ci
+```
+
+This generates:
+- `coverage.out` - Code coverage report
+- `junit.xml` - JUnit format test results for test analytics
+
+#### Local Coverage Report
+
+Generate an HTML coverage report:
+
+```bash
+make test-coverage
+# Opens coverage.html in your default browser
+```
 
 ### Local Development
 

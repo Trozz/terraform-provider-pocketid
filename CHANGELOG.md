@@ -20,6 +20,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tests for request timeout and context cancellation scenarios
 - Tests for JSON unmarshaling errors and network failures
 - Coverage report documentation (COVERAGE_REPORT.md)
+- Test analytics support with Codecov integration
+  - JUnit XML test result reporting for failed test analysis
+  - Enhanced CI workflow with gotestsum for better test output
+  - Codecov configuration for test analytics and coverage tracking
+  - New make targets: `test-junit` and `test-ci` for JUnit output
 
 ### Improved
 - Enhanced error handling throughout the client package

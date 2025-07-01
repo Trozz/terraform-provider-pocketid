@@ -1,0 +1,89 @@
+# Codecov configuration for Terraform PocketID Provider
+# https://docs.codecov.com/docs/codecovyml-reference
+
+# Coverage configuration
+coverage:
+  precision: 2
+  round: down
+  range: "30...100"
+
+  status:
+    project:
+      default:
+        target: auto
+        threshold: 1%
+        paths:
+          - "internal/"
+        if_not_found: success
+        if_ci_failed: error
+        informational: false
+        only_pulls: false
+
+    patch:
+      default:
+        target: 80%
+        threshold: 10%
+        if_not_found: success
+        if_ci_failed: error
+        informational: false
+        only_pulls: false
+
+# Test analytics configuration
+# https://docs.codecov.com/docs/test-analytics
+test_analytics:
+  enabled: true
+
+# Flags configuration for different test types
+flags:
+  unittests:
+    paths:
+      - internal/
+    carryforward: true
+
+# Comment configuration
+comment:
+  layout: "reach,diff,flags,tree,betaprofiling"
+  behavior: default
+  require_changes: false
+  require_base: true
+  require_head: true
+  show_carryforward_flags: true
+  show_critical_paths: true
+
+  # Test results in PR comments
+  show_test_results: true
+
+# Ignore certain files/paths
+ignore:
+  - "**/*_test.go"
+  - "**/testdata/**"
+  - "examples/**"
+  - "docs/**"
+  - "*.md"
+  - "go.mod"
+  - "go.sum"
+  - ".github/**"
+  - ".gitignore"
+  - "LICENSE"
+  - "Makefile"
+  - ".golangci.yml"
+  - ".goreleaser.yml"
+
+# Parsers configuration
+parsers:
+  junit:
+    branch_detection:
+      conditional: true
+      loop: true
+      method: false
+      macro: false
+
+# GitHub integration
+github_checks:
+  annotations: true
+
+# Codecov CI settings
+codecov:
+  require_ci_to_pass: true
+  notify:
+    wait_for_ci: true

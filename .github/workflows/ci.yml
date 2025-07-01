@@ -13,7 +13,7 @@ on:
       - develop
 
 env:
-  GO_VERSION: "1.21"
+  GO_VERSION: "1.24"
   GOLANGCI_LINT_VERSION: "v1.54"
 
 jobs:
@@ -51,7 +51,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        go-version: ["1.21"]
+        go-version: ["1.24"]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -65,8 +65,19 @@ jobs:
       - name: Download dependencies
         run: go mod download
 
+      - name: Install gotestsum
+        run: go install gotest.tools/gotestsum@latest
+
       - name: Run tests
-        run: go test -v -cover -coverprofile=coverage.out ./internal/...
+        run: |
+          gotestsum --junitfile junit.xml --format testname -- -v -cover -coverprofile=coverage.out ./internal/...
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: test-results
+          path: junit.xml
 
       - name: Upload coverage reports
         uses: codecov/codecov-action@v5
@@ -74,9 +85,11 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           slug: Trozz/terraform-provider-pocketid
-          file: ./coverage.out
+          files: ./coverage.out,./junit.xml
           flags: unittests
           name: codecov-umbrella
+          fail_ci_if_error: true
+          verbose: true
 
   build:
     name: Build

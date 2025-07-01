@@ -51,7 +51,12 @@ install: build ## Build and install the provider locally
 .PHONY: test
 test: ## Run unit tests
 	@echo "$(GREEN)Running unit tests...$(NC)"
-	$(GOTEST) -v -cover -coverprofile=coverage.out ./internal/...
+	@if command -v gotestsum >/dev/null 2>&1; then \
+		echo "$(CYAN)Using gotestsum for enhanced test output...$(NC)"; \
+		gotestsum --junitfile junit.xml --format testname -- -v -cover -coverprofile=coverage.out ./internal/...; \
+	else \
+		$(GOTEST) -v -cover -coverprofile=coverage.out ./internal/...; \
+	fi
 	@echo "$(GREEN)Unit tests complete!$(NC)"
 
 .PHONY: test-coverage
@@ -59,6 +64,19 @@ test-coverage: test ## Run tests and show coverage report
 	@echo "$(GREEN)Generating coverage report...$(NC)"
 	@go tool cover -html=coverage.out -o coverage.html
 	@echo "$(GREEN)Coverage report generated: coverage.html$(NC)"
+	@if [ -f junit.xml ]; then \
+		echo "$(GREEN)JUnit test report generated: junit.xml$(NC)"; \
+	fi
+
+.PHONY: test-junit
+test-junit: ## Run tests with JUnit XML output
+	@echo "$(GREEN)Running tests with JUnit output...$(NC)"
+	@if ! command -v gotestsum >/dev/null 2>&1; then \
+		echo "$(YELLOW)Installing gotestsum...$(NC)"; \
+		go install gotest.tools/gotestsum@latest; \
+	fi
+	@gotestsum --junitfile junit.xml --format testname -- -v -cover -coverprofile=coverage.out ./internal/...
+	@echo "$(GREEN)Tests complete! JUnit report: junit.xml$(NC)"
 
 .PHONY: test-acc
 test-acc: ## Run acceptance tests (requires POCKETID_BASE_URL and POCKETID_API_TOKEN)
@@ -134,7 +152,7 @@ docs-preview: ## Preview documentation in browser
 clean: ## Clean build artifacts
 	@echo "$(GREEN)Cleaning build artifacts...$(NC)"
 	@rm -f $(BINARY_NAME)
-	@rm -f coverage.out coverage.html
+	@rm -f coverage.out coverage.html junit.xml
 	@rm -rf dist/
 	@echo "$(GREEN)Clean complete!$(NC)"
 
@@ -200,6 +218,18 @@ test-integration: ## Run integration tests against live Pocket-ID instance
 	@echo "$(GREEN)Running integration tests...$(NC)"
 	@cd test && terraform init && terraform apply -auto-approve
 	@echo "$(GREEN)Integration tests complete!$(NC)"
+
+.PHONY: test-ci
+test-ci: ## Run tests in CI format with JUnit output
+	@echo "$(GREEN)Running tests in CI format...$(NC)"
+	@if ! command -v gotestsum >/dev/null 2>&1; then \
+		echo "$(YELLOW)Installing gotestsum...$(NC)"; \
+		go install gotest.tools/gotestsum@latest; \
+	fi
+	@gotestsum --junitfile junit.xml --format standard-verbose -- -v -race -cover -coverprofile=coverage.out ./internal/...
+	@echo "$(GREEN)CI tests complete!$(NC)"
+	@echo "  Coverage report: coverage.out"
+	@echo "  JUnit report: junit.xml"
 
 .PHONY: test-cleanup
 test-cleanup: ## Clean up integration test resources
