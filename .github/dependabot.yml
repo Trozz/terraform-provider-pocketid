@@ -1,0 +1,59 @@
+version: 2
+updates:
+  # Enable version updates for Go modules
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "05:00"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "Trozz"
+    labels:
+      - "dependencies"
+      - "go"
+    commit-message:
+      prefix: "chore"
+      prefix-development: "chore"
+      include: "scope"
+    pull-request-branch-name:
+      separator: "/"
+    groups:
+      # Group all patch updates together
+      go-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "patch"
+      # Group minor updates separately  
+      go-minor:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+
+  # Enable version updates for GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "05:00"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "Trozz"
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "chore"
+      prefix-development: "chore"
+      include: "scope"
+    pull-request-branch-name:
+      separator: "/"
+    groups:
+      # Group all GitHub Actions updates together
+      actions:
+        patterns:
+          - "*"
