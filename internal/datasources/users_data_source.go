@@ -43,7 +43,7 @@ type userModel struct {
 	IsAdmin   types.Bool   `tfsdk:"is_admin"`
 	Locale    types.String `tfsdk:"locale"`
 	Disabled  types.Bool   `tfsdk:"disabled"`
-	Groups    types.List   `tfsdk:"groups"`
+	Groups    types.Set    `tfsdk:"groups"`
 }
 
 // Metadata returns the data source type name.
@@ -94,7 +94,7 @@ func (d *usersDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, 
 							Description: "Whether the user account is disabled.",
 							Computed:    true,
 						},
-						"groups": schema.ListAttribute{
+						"groups": schema.SetAttribute{
 							Description: "List of group IDs the user belongs to.",
 							Computed:    true,
 							ElementType: types.StringType,
@@ -168,11 +168,11 @@ func (d *usersDataSource) Read(ctx context.Context, req datasource.ReadRequest, 
 			for _, group := range userResp.UserGroups {
 				groupIDs = append(groupIDs, group.ID)
 			}
-			groups, diags := types.ListValueFrom(ctx, types.StringType, groupIDs)
+			groups, diags := types.SetValueFrom(ctx, types.StringType, groupIDs)
 			resp.Diagnostics.Append(diags...)
 			userState.Groups = groups
 		} else {
-			userState.Groups = types.ListNull(types.StringType)
+			userState.Groups = types.SetNull(types.StringType)
 		}
 
 		state.Users = append(state.Users, userState)
