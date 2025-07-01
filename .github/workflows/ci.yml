@@ -35,7 +35,6 @@ jobs:
         with:
           version: ${{ env.GOLANGCI_LINT_VERSION }}
           args: --timeout 5m
-          working-directory: .
 
       - name: Check code formatting
         run: |
