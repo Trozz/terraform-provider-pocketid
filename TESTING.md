@@ -49,39 +49,114 @@ Acceptance tests verify the full provider functionality against a real Pocket-ID
 
 ## Local Testing Setup
 
-### Step 1: Start Pocket-ID
+### Step 1: Start Pocket-ID with HTTPS (Required for Passkeys)
 
-Using Docker:
+**Important**: Passkeys require a secure context (HTTPS), so you must set up Pocket-ID with TLS certificates.
+
+#### Prerequisites:
+1. A domain name pointing to your test machine (e.g., `pocket-id-test.yourdomain.com`)
+2. Valid TLS certificates for that domain
+3. Docker and Docker Compose installed
+
+#### Setup Instructions:
+
+1. **Get the official Pocket-ID configuration**:
 ```bash
-docker run -d \
-  --name pocket-id-test \
-  -p 8080:80 \
-  -v pocket-id-test-data:/app/backend/data \
-  -e PUBLIC_APP_URL=http://localhost:8080 \
-  ghcr.io/pocket-id/pocket-id:latest
+# Download the official docker-compose.yml
+curl -O https://raw.githubusercontent.com/pocket-id/pocket-id/main/docker-compose.yml
+
+# Download the example environment file
+curl -O https://raw.githubusercontent.com/pocket-id/pocket-id/main/.env.example
+cp .env.example .env
 ```
 
-Or using Docker Compose:
+2. **Create nginx configuration** (`nginx.conf`):
+```nginx
+events {
+    worker_connections 1024;
+}
+
+http {
+    upstream pocket-id {
+        server pocket-id:1411;
+    }
+
+    server {
+        listen 443 ssl;
+        server_name pocket-id-test.yourdomain.com;  # Replace with your domain
+
+        ssl_certificate /etc/nginx/certs/fullchain.pem;      # Path to your cert
+        ssl_certificate_key /etc/nginx/certs/privkey.pem;   # Path to your key
+
+        ssl_protocols TLSv1.2 TLSv1.3;
+        ssl_ciphers HIGH:!aNULL:!MD5;
+        ssl_prefer_server_ciphers on;
+
+        location / {
+            proxy_pass http://pocket-id;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            
+            # WebSocket support
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+        }
+    }
+
+    server {
+        listen 80;
+        server_name pocket-id-test.yourdomain.com;  # Replace with your domain
+        return 301 https://$server_name$request_uri;
+    }
+}
+```
+
+3. **Create or modify docker-compose.yml** to add nginx:
 ```yaml
-# docker-compose.yml
-version: '3.8'
 services:
   pocket-id:
-    image: ghcr.io/pocket-id/pocket-id:latest
-    ports:
-      - "8080:80"
-    environment:
-      - PUBLIC_APP_URL=http://localhost:8080
+    image: ghcr.io/pocket-id/pocket-id:v1
+    restart: unless-stopped
+    env_file: .env
     volumes:
-      - pocket-id-data:/app/backend/data
+      - "./data:/app/data"
+    healthcheck:
+      test: "curl -f http://localhost:1411/healthz"
+      interval: 1m30s
+      timeout: 5s
+      retries: 2
+      start_period: 10s
 
-volumes:
-  pocket-id-data:
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - "./nginx.conf:/etc/nginx/nginx.conf:ro"
+      - "/path/to/your/certs:/etc/nginx/certs:ro"  # Update this path
+    depends_on:
+      - pocket-id
+```
+
+4. **Update the .env file**:
+```bash
+# Edit .env and set your domain
+PUBLIC_APP_URL=https://pocket-id-test.yourdomain.com
+```
+
+5. **Start the services**:
+```bash
+docker-compose up -d
 ```
 
 ### Step 2: Initial Setup
 
-1. **Access Pocket-ID**: Navigate to http://localhost:8080
+1. **Access Pocket-ID**: Navigate to https://pocket-id-test.yourdomain.com (replace with your domain)
 2. **Create Admin User**: 
    - Click "Register" or "Sign Up"
    - Enter username and email
@@ -98,13 +173,13 @@ volumes:
 Set the required environment variables:
 
 ```bash
-export POCKETID_BASE_URL="http://localhost:8080"
+export POCKETID_BASE_URL="https://pocket-id-test.yourdomain.com"
 export POCKETID_API_TOKEN="your-api-key-here"
 ```
 
 Or create a `.env.test` file:
 ```bash
-POCKETID_BASE_URL=http://localhost:8080
+POCKETID_BASE_URL=https://pocket-id-test.yourdomain.com
 POCKETID_API_TOKEN=your-api-key-here
 ```
 
@@ -275,6 +350,28 @@ Maintain test fixtures with:
 - Known API keys for testing
 
 **Note**: This would require coordination with the Pocket-ID project to ensure test fixtures don't compromise security.
+
+### TLS Certificate Options for Testing
+
+For local testing, you have several options for TLS certificates:
+
+1. **Let's Encrypt** (Recommended for public domains):
+   - Use certbot or acme.sh
+   - Requires a public domain and port 80/443 access
+
+2. **Self-signed certificates** (Not recommended):
+   - Won't work properly with passkeys in most browsers
+   - May cause security warnings
+
+3. **mkcert** (Good for local development):
+   - Creates locally-trusted certificates
+   - Works well for `*.localhost` domains
+   - Install: `brew install mkcert` (macOS)
+   - Setup: `mkcert -install && mkcert "pocket-id-test.localhost"`
+
+4. **Caddy** (Alternative to nginx):
+   - Automatic HTTPS with Let's Encrypt
+   - Can replace nginx in the docker-compose setup
 
 ## Contributing
 

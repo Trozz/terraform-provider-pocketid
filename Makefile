@@ -222,10 +222,16 @@ docker-test: ## Run tests in Docker container
 	@docker run --rm -v $(PWD):/workspace -w /workspace golang:1.21 make test
 
 .PHONY: pocket-id-start
-pocket-id-start: ## Start local Pocket-ID instance using Docker
+pocket-id-start: ## Start local Pocket-ID instance using Docker (requires HTTPS setup)
 	@echo "$(GREEN)Starting Pocket-ID instance...$(NC)"
+	@echo "$(YELLOW)Note: Pocket-ID requires HTTPS for passkey support!$(NC)"
+	@echo "$(YELLOW)Please ensure you have:$(NC)"
+	@echo "  1. Updated docker-compose.yml with your domain"
+	@echo "  2. Configured nginx.conf with your certificates"
+	@echo "  3. Set PUBLIC_APP_URL in .env file"
+	@echo "See TESTING.md for detailed setup instructions"
 	@cd pocket-id-source && docker-compose up -d
-	@echo "$(GREEN)Pocket-ID is running at http://localhost:8080$(NC)"
+	@echo "$(GREEN)Pocket-ID is running at your configured HTTPS domain$(NC)"
 
 .PHONY: pocket-id-stop
 pocket-id-stop: ## Stop local Pocket-ID instance
