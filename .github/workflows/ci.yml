@@ -219,9 +219,12 @@ jobs:
       - name: Generate snapshot version
         id: version
         run: |
-          # Get the latest tag
-          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
-          echo "Latest tag: ${LATEST_TAG}"
+          # Get the latest release tag (exclude pre-release tags)
+          LATEST_TAG=$(git tag -l 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n1 || echo "v0.0.0")
+          if [ -z "$LATEST_TAG" ]; then
+            LATEST_TAG="v0.0.0"
+          fi
+          echo "Latest release tag: ${LATEST_TAG}"
           
           # Remove 'v' prefix
           VERSION=${LATEST_TAG#v}
@@ -243,7 +246,6 @@ jobs:
           args: release --snapshot --skip=sign --clean --skip=validate
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GORELEASER_CURRENT_TAG: "v${{ steps.version.outputs.version }}"
 
       - name: Generate pre-release attestations
         uses: actions/attest-build-provenance@v1
