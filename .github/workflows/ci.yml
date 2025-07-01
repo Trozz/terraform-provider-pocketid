@@ -232,59 +232,6 @@ jobs:
 
             Download the appropriate archive for your platform and extract the provider binary.
 
-  cleanup-prereleases:
-    name: Cleanup Old Pre-releases
-    runs-on: ubuntu-latest
-    needs: [pre-release]
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && github.actor != 'dependabot[bot]'
-    permissions:
-      contents: write
-    steps:
-      - name: Cleanup old pre-releases
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const { owner, repo } = context.repo;
-
-            // Get all releases
-            const releases = await github.rest.repos.listReleases({
-              owner,
-              repo,
-              per_page: 100
-            });
-
-            // Filter pre-releases with dev versions
-            const preReleases = releases.data
-              .filter(release => release.prerelease && release.tag_name.includes('-dev.'))
-              .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-
-            // Keep the latest 5 pre-releases
-            const toDelete = preReleases.slice(5);
-
-            console.log(`Found ${preReleases.length} pre-releases, will delete ${toDelete.length}`);
-
-            // Delete old pre-releases
-            for (const release of toDelete) {
-              console.log(`Deleting pre-release: ${release.tag_name}`);
-
-              // Delete the release
-              await github.rest.repos.deleteRelease({
-                owner,
-                repo,
-                release_id: release.id
-              });
-
-              // Delete the tag
-              try {
-                await github.rest.git.deleteRef({
-                  owner,
-                  repo,
-                  ref: `tags/${release.tag_name}`
-                });
-              } catch (error) {
-                console.log(`Failed to delete tag ${release.tag_name}: ${error.message}`);
-              }
-            }
 
   security-scan:
     name: Security Scan
