@@ -255,12 +255,10 @@ func TestResources_Interfaces(t *testing.T) {
 		t.Run(rf.name, func(t *testing.T) {
 			res := rf.factory()
 
-			// Check implements Resource interface
-			_, ok := res.(resource.Resource)
-			assert.True(t, ok, "%s should implement resource.Resource", rf.name)
+			// res is already of type resource.Resource, no need to check
 
 			// Check implements ResourceWithConfigure
-			_, ok = res.(resource.ResourceWithConfigure)
+			_, ok := res.(resource.ResourceWithConfigure)
 			assert.True(t, ok, "%s should implement resource.ResourceWithConfigure", rf.name)
 
 			// Check implements ResourceWithImportState

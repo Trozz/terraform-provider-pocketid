@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
-	"github.com/hashicorp/terraform-plugin-testing/terraform"
 )
 
 func TestAccResourceClient_basic(t *testing.T) {
@@ -179,7 +178,7 @@ func TestAccResourceClient_emptyName(t *testing.T) {
 // Test configuration functions
 
 func testAccResourceClientConfig_basic(name, callbackURL string) string {
-	return fmt.Sprintf(`
+	return testAccProviderConfig() + fmt.Sprintf(`
 resource "pocketid_client" "test" {
   name          = %[1]q
   callback_urls = [%[2]q]
@@ -188,7 +187,7 @@ resource "pocketid_client" "test" {
 }
 
 func testAccResourceClientConfig_public(name string) string {
-	return fmt.Sprintf(`
+	return testAccProviderConfig() + fmt.Sprintf(`
 resource "pocketid_client" "test" {
   name          = %[1]q
   callback_urls = ["https://example.com/callback"]
@@ -267,34 +266,3 @@ resource "pocketid_client" "test" {
 }
 
 // Test helper functions
-
-func testAccCheckClientExists(resourceName string) resource.TestCheckFunc {
-	return func(s *terraform.State) error {
-		rs, ok := s.RootModule().Resources[resourceName]
-		if !ok {
-			return fmt.Errorf("Not found: %s", resourceName)
-		}
-
-		if rs.Primary.ID == "" {
-			return fmt.Errorf("No Client ID is set")
-		}
-
-		// Here you would typically check if the client exists in the API
-		// For now, we just verify the ID is set
-		return nil
-	}
-}
-
-func testAccCheckClientDestroy(s *terraform.State) error {
-	// This function should check that all clients have been destroyed
-	for _, rs := range s.RootModule().Resources {
-		if rs.Type != "pocketid_client" {
-			continue
-		}
-
-		// Here you would typically check if the client still exists in the API
-		// and return an error if it does
-	}
-
-	return nil
-}

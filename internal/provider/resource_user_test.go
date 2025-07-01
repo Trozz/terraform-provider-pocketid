@@ -126,8 +126,9 @@ func testAccCheckUserGroupsSet(resourceName string) resource.TestCheckFunc {
 		// Get all group attributes
 		groupCount := 0
 		groups := make(map[string]bool)
+		groupsRegex := regexp.MustCompile(`^groups\.\d+$`)
 		for key, value := range rs.Primary.Attributes {
-			if matched, _ := regexp.MatchString(`^groups\.\d+$`, key); matched {
+			if groupsRegex.MatchString(key) {
 				groups[value] = true
 				groupCount++
 			}

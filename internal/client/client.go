@@ -213,7 +213,13 @@ func (c *Client) doSingleRequest(ctx context.Context, method, endpoint string, b
 		})
 		return nil, fmt.Errorf("error making request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			tflog.Warn(ctx, "Failed to close response body", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
