@@ -11,6 +11,16 @@ before:
     # Generate documentation
     - go install github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs@latest
     - tfplugindocs generate
+    # Create Terraform Registry manifest
+    - |
+      cat > terraform-registry-manifest.json << 'EOF'
+      {
+        "version": 1,
+        "metadata": {
+          "protocol_versions": ["6.0"]
+        }
+      }
+      EOF
 
 # Build configuration
 builds:
@@ -132,21 +142,6 @@ changelog:
       order: 400
     - title: "🔧 Maintenance"
       order: 999
-
-# Terraform Registry manifest
-# Create the manifest file before the build
-before:
-  hooks:
-    - go mod tidy
-    - |
-      cat > terraform-registry-manifest.json << 'EOF'
-      {
-        "version": 1,
-        "metadata": {
-          "protocol_versions": ["6.0"]
-        }
-      }
-      EOF
 
 # Announce releases
 announce:
