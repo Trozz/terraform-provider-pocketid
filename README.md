@@ -1,5 +1,6 @@
 # Terraform Provider for Pocket-ID
 
+[![Terraform Registry](https://img.shields.io/badge/Terraform%20Registry-pending-yellow)](https://registry.terraform.io/providers/trozz/pocketid/latest)
 [![CI](https://github.com/Trozz/terraform-provider-pocketid/actions/workflows/ci.yml/badge.svg)](https://github.com/Trozz/terraform-provider-pocketid/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/Trozz/terraform-provider-pocketid)](https://goreportcard.com/report/github.com/Trozz/terraform-provider-pocketid)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)

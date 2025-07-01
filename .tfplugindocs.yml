@@ -1,0 +1,61 @@
+# Configuration for tfplugindocs documentation generation
+# https://github.com/hashicorp/terraform-plugin-docs
+
+# The provider name as used in Terraform configurations
+provider-name: pocketid
+
+# Render website docs suitable for deployment to registry.terraform.io
+# Enables special formatting for the Terraform Registry
+website:
+  # Enable website rendering mode
+  enabled: true
+
+  # Provider display name for the registry
+  provider-name: Pocket-ID
+
+  # Skip generating the provider index page (we have a custom one)
+  skip-index: false
+
+# Ignore deprecated resources or data sources from documentation
+ignore-deprecated: true
+
+# Generate documentation for all resources and data sources
+# even if they don't have examples
+generate-all: true
+
+# Custom templates directory (optional)
+# templates-dir: docs/templates
+
+# Example configuration
+examples:
+  # Path to examples directory
+  dir: examples
+
+  # Include resource examples
+  resources: true
+
+  # Include data source examples
+  data-sources: true
+
+  # Include provider examples
+  provider: true
+
+# Sections to include in generated docs
+sections:
+  resources: true
+  data-sources: true
+  guides: true
+
+# Schema rendering options
+schema:
+  # Render required attributes in bold
+  required-bold: true
+
+  # Show attribute descriptions
+  show-descriptions: true
+
+  # Show nested attributes
+  show-nested: true
+
+# Legacy sidebar generation for older Terraform Registry versions
+legacy-sidebar: false
