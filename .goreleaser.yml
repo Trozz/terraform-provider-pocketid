@@ -65,7 +65,7 @@ signs:
       - ${artifact}
     signature: ${artifact}.sig
     artifacts: checksum
-    stdin: "{{ .Env.GPG_PASSPHRASE }}"
+    stdin: "{{ .Env.PASSPHRASE }}"
 
 # Release configuration
 release:
