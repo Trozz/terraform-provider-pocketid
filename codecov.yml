@@ -18,6 +18,56 @@ coverage:
         if_ci_failed: error
         informational: false
         only_pulls: false
+        
+        # Commit status configuration
+        flags:
+          - unittests
+        
+      # Additional status check for overall project health
+      project-health:
+        target: 70%
+        threshold: 5%
+        paths:
+          - "internal/"
+        if_not_found: success
+        if_ci_failed: error
+        informational: false
+        only_pulls: false
+        
+        # Status check settings
+        flags:
+          - unittests
+          
+      # Component-specific status checks
+      client:
+        target: 80%
+        threshold: 5%
+        paths:
+          - "internal/client/**"
+        if_not_found: success
+        if_ci_failed: error
+        informational: false
+        only_pulls: false
+        
+      resources:
+        target: 85%
+        threshold: 5%
+        paths:
+          - "internal/resources/**"
+        if_not_found: success
+        if_ci_failed: error
+        informational: false
+        only_pulls: false
+        
+      datasources:
+        target: 80%
+        threshold: 5%
+        paths:
+          - "internal/datasources/**"
+        if_not_found: success
+        if_ci_failed: error
+        informational: false
+        only_pulls: false
 
     patch:
       default:
@@ -27,11 +77,43 @@ coverage:
         if_ci_failed: error
         informational: false
         only_pulls: false
+        
+        # Commit status configuration
+        flags:
+          - unittests
 
 # Test analytics configuration
 # https://docs.codecov.com/docs/test-analytics
 test_analytics:
   enabled: true
+
+# Components configuration for modular coverage tracking
+# https://docs.codecov.com/docs/components
+components:
+  client:
+    name: "API Client"
+    paths:
+      - "internal/client/**"
+    
+  datasources:
+    name: "Data Sources"
+    paths:
+      - "internal/datasources/**"
+    
+  provider:
+    name: "Provider Core"
+    paths:
+      - "internal/provider/**"
+    
+  resources:
+    name: "Resources"
+    paths:
+      - "internal/resources/**"
+    
+  models:
+    name: "Models"
+    paths:
+      - "internal/models/**"
 
 # Flags configuration for different test types
 flags:
@@ -39,6 +121,12 @@ flags:
     paths:
       - internal/
     carryforward: true
+    components:
+      - client
+      - datasources
+      - provider
+      - resources
+      - models
 
 # Comment configuration
 comment:
@@ -81,6 +169,12 @@ parsers:
 # GitHub integration
 github_checks:
   annotations: true
+  
+# Status checks configuration
+status_checks:
+  default_rules:
+    flag_coverage_not_uploaded_behavior: include
+    carryforward_behavior: include
 
 # Codecov CI settings
 codecov:
