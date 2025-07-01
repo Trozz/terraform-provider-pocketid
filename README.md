@@ -166,18 +166,36 @@ make install
 
 ### Running Tests
 
+**Important Note**: Due to Pocket-ID's security model, acceptance tests cannot be run in CI/CD pipelines. Pocket-ID requires:
+- Manual passkey registration through the web UI
+- Manual API key generation through the admin interface
+- No programmatic way to bootstrap an instance
+
+#### Unit Tests (Automated)
+
 ```bash
-# Run unit tests
+# Run unit tests - these run in CI
 make test
-
-# Run acceptance tests (requires POCKETID_BASE_URL and POCKETID_API_TOKEN)
-export POCKETID_BASE_URL="https://your-pocket-id-instance.com"
-export POCKETID_API_TOKEN="your-api-token"
-make test-acc
-
-# Run all tests
-make test-all
 ```
+
+#### Acceptance Tests (Manual)
+
+Acceptance tests require a manually configured Pocket-ID instance:
+
+1. Start a Pocket-ID instance
+2. Register a user with a passkey through the web UI
+3. Generate an API key in the admin interface
+4. Set environment variables:
+   ```bash
+   export POCKETID_BASE_URL="https://your-pocket-id-instance.com"
+   export POCKETID_API_TOKEN="your-api-token"
+   ```
+5. Run acceptance tests:
+   ```bash
+   make test-acc
+   ```
+
+See [TESTING.md](TESTING.md) for detailed testing instructions and strategies.
 
 ### Local Development
 

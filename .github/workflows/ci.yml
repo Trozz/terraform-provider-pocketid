@@ -6,15 +6,15 @@ on:
       - main
       - develop
     tags:
-      - 'v*'
+      - "v*"
   pull_request:
     branches:
       - main
       - develop
 
 env:
-  GO_VERSION: '1.21'
-  GOLANGCI_LINT_VERSION: 'v1.55'
+  GO_VERSION: "1.21"
+  GOLANGCI_LINT_VERSION: "v1.55"
 
 jobs:
   lint:
@@ -49,7 +49,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        go-version: ['1.20', '1.21']
+        go-version: ["1.20", "1.21"]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -118,64 +118,17 @@ jobs:
           name: terraform-provider-pocketid_${{ matrix.os }}_${{ matrix.arch }}
           path: terraform-provider-pocketid*
 
-  acceptance-tests:
-    name: Acceptance Tests
-    runs-on: ubuntu-latest
-    needs: [lint, test]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    services:
-      pocket-id:
-        image: ghcr.io/pocket-id/pocket-id:latest
-        ports:
-          - 8080:80
-        env:
-          PUBLIC_APP_URL: http://localhost:8080
-        options: >-
-          --health-cmd "curl -f http://localhost/health || exit 1"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache: true
-
-      - name: Wait for Pocket-ID to be ready
-        run: |
-          for i in {1..30}; do
-            if curl -f http://localhost:8080/health; then
-              echo "Pocket-ID is ready"
-              break
-            fi
-            echo "Waiting for Pocket-ID to be ready..."
-            sleep 2
-          done
-
-      - name: Set up Pocket-ID
-        run: |
-          # This would typically involve:
-          # 1. Creating an admin user
-          # 2. Getting an API token
-          # For now, we'll skip this as it requires UI interaction
-          echo "Pocket-ID setup would go here"
-
-      - name: Run acceptance tests
-        env:
-          TF_ACC: "1"
-          POCKETID_BASE_URL: "http://localhost:8080"
-          POCKETID_API_TOKEN: ${{ secrets.TEST_API_TOKEN }}
-        run: |
-          # Skip acceptance tests if no API token is available
-          if [ -z "$POCKETID_API_TOKEN" ]; then
-            echo "Skipping acceptance tests - no API token available"
-            exit 0
-          fi
-          go test -v -timeout 30m ./internal/... -tags=acc
+  # Acceptance tests are not run in CI because Pocket-ID requires:
+  # 1. Manual passkey registration through the UI
+  # 2. Manual API key generation through the UI
+  # 3. No programmatic way to bootstrap an instance
+  #
+  # To run acceptance tests locally:
+  # 1. Start a Pocket-ID instance
+  # 2. Register a user with a passkey
+  # 3. Generate an API key
+  # 4. Set POCKETID_BASE_URL and POCKETID_API_TOKEN
+  # 5. Run: make test-acc
 
   docs:
     name: Documentation
@@ -249,22 +202,22 @@ jobs:
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
-          scan-type: 'fs'
-          scan-ref: '.'
-          format: 'sarif'
-          output: 'trivy-results.sarif'
+          scan-type: "fs"
+          scan-ref: "."
+          format: "sarif"
+          output: "trivy-results.sarif"
 
       - name: Upload Trivy scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v2
         with:
-          sarif_file: 'trivy-results.sarif'
+          sarif_file: "trivy-results.sarif"
 
       - name: Run gosec security scanner
         uses: securego/gosec@master
         with:
-          args: '-fmt sarif -out gosec-results.sarif ./...'
+          args: "-fmt sarif -out gosec-results.sarif ./..."
 
       - name: Upload gosec results
         uses: github/codeql-action/upload-sarif@v2
         with:
-          sarif_file: 'gosec-results.sarif'
+          sarif_file: "gosec-results.sarif"
