@@ -153,4 +153,4 @@ announce:
 
 # Snapshot configuration (for development builds)
 snapshot:
-  name_template: "{{ incpatch .Version }}-dev"
+  version_template: "{{ incpatch .Version }}-dev-{{ .ShortCommit }}"

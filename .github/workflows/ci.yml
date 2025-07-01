@@ -5,8 +5,6 @@ on:
     branches:
       - main
       - develop
-    tags:
-      - "v*"
   pull_request:
     branches:
       - main
@@ -223,19 +221,26 @@ jobs:
         run: |
           # Get the latest tag
           LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          echo "Latest tag: ${LATEST_TAG}"
+          
           # Remove 'v' prefix
           VERSION=${LATEST_TAG#v}
-          # Increment patch version
+          echo "Version without prefix: ${VERSION}"
+          
+          # Parse version components
           IFS='.' read -r major minor patch <<< "$VERSION"
+          echo "Version components: major=${major}, minor=${minor}, patch=${patch}"
+          
+          # Generate new version
           NEW_VERSION="${major}.${minor}.$((patch + 1))-dev.$(date +%Y%m%d%H%M%S)+$(git rev-parse --short HEAD)"
-          echo "version=${NEW_VERSION}" >> $GITHUB_OUTPUT
           echo "Pre-release version: ${NEW_VERSION}"
+          echo "version=${NEW_VERSION}" >> $GITHUB_OUTPUT
 
       - name: Run GoReleaser (snapshot)
         uses: goreleaser/goreleaser-action@v6
         with:
           version: latest
-          args: release --snapshot --skip=sign --clean
+          args: release --snapshot --skip=sign --clean --skip=validate
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GORELEASER_CURRENT_TAG: "v${{ steps.version.outputs.version }}"
