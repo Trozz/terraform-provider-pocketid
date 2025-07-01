@@ -152,5 +152,5 @@ snapshot:
 # Source configuration
 source:
   enabled: true
-  name_template: "{{ .ProjectName }}_{{ .Version }}_source"
+  name_template: "{{ .ProjectName }}_{{ .Version }}_source.tar.gz"
   format: "tar.gz"
