@@ -12,15 +12,7 @@ before:
     - go install github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs@latest
     - tfplugindocs generate
     # Create Terraform Registry manifest
-    - |
-      cat > terraform-registry-manifest.json << 'EOF'
-      {
-        "version": 1,
-        "metadata": {
-          "protocol_versions": ["6.0"]
-        }
-      }
-      EOF
+    - echo '{"version":1,"metadata":{"protocol_versions":["6.0"]}}' > terraform-registry-manifest.json
     # Ensure dist directory exists and copy manifest there
     - mkdir -p dist
     - cp terraform-registry-manifest.json dist/
