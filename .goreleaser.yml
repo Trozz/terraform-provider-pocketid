@@ -135,19 +135,10 @@ changelog:
 
 # Terraform Registry manifest
 publishers:
-  - name: terraform-registry-manifest
+  - name: manifest
     cmd: |
-      cat > terraform-registry-manifest.json << 'EOF'
-      {
-        "version": 1,
-        "metadata": {
-          "protocol_versions": ["6.0"]
-        }
-      }
-      EOF
-    env:
-      - PATH={{ .Env.PATH }}
-    dir: "{{ dir .Path }}"
+      echo '{"version":1,"metadata":{"protocol_versions":["6.0"]}}' > {{ .ArtifactName }}
+    artifact: terraform-registry-manifest.json
 
 # Announce releases
 announce:
@@ -170,49 +161,3 @@ source:
   enabled: true
   name_template: "{{ .ProjectName }}_{{ .Version }}_source"
   format: "tar.gz"
-
-# SBOM generation
-sboms:
-  - artifacts: archive
-    args: ["$artifact", "--output", "cyclonedx-json@1.4=$document"]
-
-# Docker configuration (optional, for containerized testing)
-dockers:
-  - skip_push: true
-    dockerfile: .goreleaser.dockerfile
-    image_templates:
-      - "ghcr.io/trozz/{{ .ProjectName }}:{{ .Version }}"
-      - "ghcr.io/trozz/{{ .ProjectName }}:latest"
-    build_flag_templates:
-      - "--pull"
-      - "--label=org.opencontainers.image.created={{.Date}}"
-      - "--label=org.opencontainers.image.title={{.ProjectName}}"
-      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
-      - "--label=org.opencontainers.image.version={{.Version}}"
-      - "--label=org.opencontainers.image.source=https://github.com/Trozz/terraform-provider-pocketid"
-      - "--label=org.opencontainers.image.licenses=MIT"
-
-# Homebrew tap (optional, for macOS users)
-brews:
-  - skip_upload: true
-    tap:
-      owner: Trozz
-      name: homebrew-tap
-    folder: Formula
-    homepage: "https://github.com/Trozz/terraform-provider-pocketid"
-    description: "Terraform provider for Pocket-ID, a passkey-only OIDC provider"
-    license: "MIT"
-    test: |
-      system "#{bin}/terraform-provider-pocketid -version"
-    install: |
-      bin.install "terraform-provider-pocketid"
-
-# Nightly builds configuration
-nightly:
-  name_template: "{{ incpatch .Version }}-nightly-{{ .ShortCommit }}"
-  tag_name: nightly
-  publish_release: false
-  keep_single_release: true
-# GoReleaser Pro features (if available)
-# partial:
-#   by: goos
