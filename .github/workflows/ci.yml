@@ -68,9 +68,11 @@ jobs:
         run: go test -v -cover -coverprofile=coverage.out ./internal/...
 
       - name: Upload coverage reports
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v5
         if: matrix.go-version == env.GO_VERSION
         with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: Trozz/terraform-provider-pocketid
           file: ./coverage.out
           flags: unittests
           name: codecov-umbrella
