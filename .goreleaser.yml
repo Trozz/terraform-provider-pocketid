@@ -11,8 +11,6 @@ before:
     # Generate documentation
     - go install github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs@latest
     - tfplugindocs generate
-    # Create Terraform Registry manifest
-    - echo '{"version":1,"metadata":{"protocol_versions":["6.0"]}}' > terraform-registry-manifest.json
 
 # Build configuration
 builds:
