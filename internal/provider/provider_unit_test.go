@@ -357,8 +357,8 @@ func TestProvider_DataSources(t *testing.T) {
 
 	dataSources := p.DataSources(ctx)
 
-	// Should have 4 data sources
-	assert.Len(t, dataSources, 4)
+	// Should have 6 data sources
+	assert.Len(t, dataSources, 6)
 
 	// Verify each data source can be created
 	for i, dsFunc := range dataSources {

@@ -1,0 +1,65 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.ProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+## Example Usage
+
+```terraform
+# Get all groups
+data "pocketid_groups" "all" {}
+
+# Use the groups data
+output "all_groups" {
+  value = data.pocketid_groups.all.groups
+}
+
+# Filter groups locally using Terraform expressions
+locals {
+  admin_groups = [
+    for group in data.pocketid_groups.all.groups : group
+    if can(regex("admin", group.name))
+  ]
+}
+
+# Create a map of group names to IDs
+locals {
+  group_name_to_id = {
+    for group in data.pocketid_groups.all.groups :
+    group.name => group.id
+  }
+}
+
+# Use groups in dynamic blocks
+resource "pocketid_client" "multi_group_app" {
+  name = "Multi-Department Application"
+
+  callback_urls = [
+    "https://app.example.com/callback"
+  ]
+
+  # Allow access to specific groups
+  allowed_user_groups = [
+    for group in data.pocketid_groups.all.groups : group.id
+    if contains(["developers", "admins", "managers"], group.name)
+  ]
+}
+
+# Count groups for monitoring
+output "total_groups" {
+  value = length(data.pocketid_groups.all.groups)
+}
+
+# List all group names
+output "group_names" {
+  value = [for g in data.pocketid_groups.all.groups : g.name]
+}
+```
+
+{{ .SchemaMarkdown | trimspace }}

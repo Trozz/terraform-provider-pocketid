@@ -199,6 +199,8 @@ func (p *pocketIDProvider) DataSources(_ context.Context) []func() datasource.Da
 		datasources.NewClientsDataSource,
 		datasources.NewUserDataSource,
 		datasources.NewUsersDataSource,
+		datasources.NewGroupDataSource,
+		datasources.NewGroupsDataSource,
 	}
 }
 
