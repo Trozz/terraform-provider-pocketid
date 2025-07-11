@@ -39,7 +39,7 @@ repos:
         description: Detect secrets in your data.
         entry: bash -c 'trufflehog git file://. --since-commit HEAD --only-verified --fail'
         language: system
-        stages: ["commit", "push"]
+        stages: ["pre-commit", "pre-push"]
 
   # Terraform/HCL formatting
   - repo: https://github.com/antonbabenko/pre-commit-terraform
