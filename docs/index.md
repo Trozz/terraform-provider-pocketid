@@ -3,7 +3,7 @@
 page_title: "pocketid Provider"
 description: |-
   Interact with Pocket-ID OIDC provider. Pocket-ID is a simple and easy-to-use OIDC provider
-that allows users to authenticate with their passkeys to your services.
+  that allows users to authenticate with their passkeys to your services.
 ---
 
 # pocketid Provider

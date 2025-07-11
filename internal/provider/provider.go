@@ -56,7 +56,7 @@ func (p *pocketIDProvider) Metadata(_ context.Context, _ provider.MetadataReques
 // Schema defines the provider-level schema for configuration data.
 func (p *pocketIDProvider) Schema(_ context.Context, _ provider.SchemaRequest, resp *provider.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Interact with Pocket-ID OIDC provider. Pocket-ID is a simple and easy-to-use OIDC provider that allows users to authenticate with their passkeys to your services.",
+		Description: "Interact with Pocket-ID OIDC provider. Pocket-ID is a simple and easy-to-use OIDC provider\nthat allows users to authenticate with their passkeys to your services.",
 		Attributes: map[string]schema.Attribute{
 			"base_url": schema.StringAttribute{
 				Description: "Base URL of the Pocket-ID instance. Can also be set via POCKETID_BASE_URL environment variable.",
