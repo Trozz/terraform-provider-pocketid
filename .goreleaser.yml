@@ -29,12 +29,31 @@ builds:
       - darwin
       - linux
       - windows
+      - freebsd
     goarch:
       - amd64
       - arm64
+      - arm
+      - 386
+    goarm:
+      - "6"
+      - "7"
     ignore:
+      # Windows doesn't support ARM
       - goos: windows
         goarch: arm64
+      - goos: windows
+        goarch: arm
+      # Darwin doesn't support 386 or ARMv6/v7
+      - goos: darwin
+        goarch: 386
+      - goos: darwin
+        goarch: arm
+      # FreeBSD only supports amd64 and 386
+      - goos: freebsd
+        goarch: arm64
+      - goos: freebsd
+        goarch: arm
 
 # Archive configuration
 archives:
