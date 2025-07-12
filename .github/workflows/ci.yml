@@ -26,10 +26,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@v4
 
       - name: Set up Go
-        uses: actions/setup-go@d35c59a47a15971c59b84d0142b480e64dc82820 # v5.5.0
+        uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
@@ -38,7 +38,7 @@ jobs:
         run: go mod tidy
 
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@4afd733f7df4ea0ce0e9f27b8a690afc4bbf97a6 # v8.0.0
+        uses: golangci/golangci-lint-action@v8
         with:
           version: ${{ env.GOLANGCI_LINT_VERSION }}
 
@@ -55,10 +55,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@v4
 
       - name: Set up Go
-        uses: actions/setup-go@d35c59a47a15971c59b84d0142b480e64dc82820 # v5.5.0
+        uses: actions/setup-go@v5
         with:
           go-version: "1.24"
           cache: true
@@ -74,14 +74,14 @@ jobs:
           gotestsum --junitfile junit.xml --format testname -- -v -cover -coverprofile=coverage.out ./internal/...
 
       - name: Upload test results
-        uses: actions/upload-artifact@c7d193f32edcb7bfad88892161225aeda64e9392 # v4.0.0
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: test-results
           path: junit.xml
 
       - name: Upload coverage reports
-        uses: codecov/codecov-action@18283e0b30f8ecb213a87f4c0e2d9d7cbddd1b63 # v5.4.3
+        uses: codecov/codecov-action@v5
         if: matrix.go-version == env.GO_VERSION
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -98,10 +98,10 @@ jobs:
     needs: test
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@v4
 
       - name: Set up Go
-        uses: actions/setup-go@d35c59a47a15971c59b84d0142b480e64dc82820 # v5.5.0
+        uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
@@ -128,7 +128,7 @@ jobs:
           go test -v -timeout 30m -cover -coverprofile=acceptance-coverage.out ./internal/... -tags=acc
 
       - name: Upload acceptance test coverage
-        uses: codecov/codecov-action@18283e0b30f8ecb213a87f4c0e2d9d7cbddd1b63 # v5.4.3
+        uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           slug: Trozz/terraform-provider-pocketid
@@ -152,10 +152,10 @@ jobs:
     needs: test
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@v4
 
       - name: Set up Go
-        uses: actions/setup-go@d35c59a47a15971c59b84d0142b480e64dc82820 # v5.5.0
+        uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
@@ -175,7 +175,7 @@ jobs:
           cp terraform-provider-pocketid "$PROVIDER_DIR/"
 
       - name: Upload provider artifact
-        uses: actions/upload-artifact@c7d193f32edcb7bfad88892161225aeda64e9392 # v4.0.0
+        uses: actions/upload-artifact@v4
         with:
           name: provider-binary
           path: artifact/
@@ -191,15 +191,15 @@ jobs:
         terraform-version: ["1.5.7", "1.6.6", "1.7.5", "1.8.5", "1.9.8"]
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@v4
 
       - name: Setup Terraform ${{ matrix.terraform-version }}
-        uses: hashicorp/setup-terraform@a1502cd9e758c50496cc9ac5308c4843bcd56d36 # v3.0.0
+        uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ matrix.terraform-version }}
 
       - name: Download provider artifact
-        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        uses: actions/download-artifact@v4
         with:
           name: provider-binary
           path: artifact/
@@ -271,7 +271,7 @@ jobs:
       attestations: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -300,7 +300,7 @@ jobs:
 
       - name: Set up Go
         if: steps.go_changes.outputs.changed == 'true'
-        uses: actions/setup-go@d35c59a47a15971c59b84d0142b480e64dc82820 # v5.5.0
+        uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
@@ -308,7 +308,7 @@ jobs:
       - name: Import GPG key
         if: steps.go_changes.outputs.changed == 'true'
         id: import_gpg
-        uses: crazy-max/ghaction-import-gpg@cb9bde2e2525e640591a934b1fd28eef1dcaf5e9 # v6.2.0
+        uses: crazy-max/ghaction-import-gpg@v6
         with:
           gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
           passphrase: ${{ secrets.GPG_PASSPHRASE }}
@@ -339,7 +339,7 @@ jobs:
 
       - name: Run GoReleaser (snapshot)
         if: steps.go_changes.outputs.changed == 'true'
-        uses: goreleaser/goreleaser-action@286f3b13b1b49da4ac219696163fb8c1c93e1200 # v6.0.0
+        uses: goreleaser/goreleaser-action@v6
         with:
           version: latest
           args: release --snapshot --skip=sign --clean --skip=validate
@@ -348,7 +348,7 @@ jobs:
 
       - name: Generate pre-release attestations
         if: steps.go_changes.outputs.changed == 'true'
-        uses: actions/attest-build-provenance@3f24539c302c9096a627e494bcc19816fdc2b0e9 # v2.0.0
+        uses: actions/attest-build-provenance@v2
         with:
           subject-path: |
             dist/*.zip
@@ -356,14 +356,14 @@ jobs:
 
       - name: Upload artifacts
         if: steps.go_changes.outputs.changed == 'true'
-        uses: actions/upload-artifact@c7d193f32edcb7bfad88892161225aeda64e9392 # v4.0.0
+        uses: actions/upload-artifact@v4
         with:
           name: pre-release-artifacts
           path: dist/*
 
       - name: Create GitHub pre-release
         if: steps.go_changes.outputs.changed == 'true'
-        uses: softprops/action-gh-release@72f2c2522d0442d731c5006bcd63d1153867dc62 # v2.3.2
+        uses: softprops/action-gh-release@v2
         with:
           name: "Development Build v${{ steps.version.outputs.version }}"
           tag_name: "v${{ steps.version.outputs.version }}"
@@ -397,7 +397,7 @@ jobs:
     if: always()
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@v4
 
       - name: Check CI Status
         id: check_status
@@ -410,7 +410,7 @@ jobs:
 
       - name: Find Comment
         if: github.event_name == 'pull_request'
-        uses: peter-evans/find-comment@3eae4d37986fb5a8592848f6a574fdf654e61f9e # v3.1.0
+        uses: peter-evans/find-comment@v3
         id: fc
         with:
           issue-number: ${{ github.event.pull_request.number }}
@@ -440,7 +440,7 @@ jobs:
 
       - name: Create or Update PR Comment
         if: steps.generate_comment.outputs.should_comment == 'true'
-        uses: peter-evans/create-or-update-comment@71345be0265236311c031f5c7866368bd1eff043 # v4.0.0
+        uses: peter-evans/create-or-update-comment@v4
         with:
           comment-id: ${{ steps.fc.outputs.comment-id }}
           issue-number: ${{ github.event.pull_request.number }}

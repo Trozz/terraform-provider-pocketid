@@ -13,7 +13,7 @@ jobs:
     name: File Validation
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@v4
 
       - name: Check trailing whitespace
         run: ./scripts/validation/check-trailing-whitespace.sh
@@ -44,10 +44,10 @@ jobs:
     name: Markdown Lint
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@v4
 
       - name: Run markdownlint
-        uses: DavidAnson/markdownlint-cli2-action@a23dae2f5ec3c48a4e54e3afbcfea38e889b0877 # v19.0.0
+        uses: DavidAnson/markdownlint-cli2-action@v19
         with:
           fix: false
           globs: '**/*.md'
@@ -57,10 +57,10 @@ jobs:
     name: Terraform Format
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@v4
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@a1502cd9e758c50496cc9ac5308c4843bcd56d36 # v3.0.0
+        uses: hashicorp/setup-terraform@v3
 
       - name: Terraform Format Check
         id: fmt
@@ -68,7 +68,7 @@ jobs:
         continue-on-error: true
 
       - name: Comment PR on failure
-        uses: actions/github-script@e69ef5462fd455e02edcaf4dd7708eda96b9eda0 # v7.0.0
+        uses: actions/github-script@v7
         if: github.event_name == 'pull_request' && steps.fmt.outcome == 'failure'
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
