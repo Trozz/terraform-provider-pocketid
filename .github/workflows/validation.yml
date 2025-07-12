@@ -8,9 +8,41 @@ permissions:
   pull-requests: write
 
 jobs:
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      markdown: ${{ steps.filter.outputs.markdown }}
+      yaml: ${{ steps.filter.outputs.yaml }}
+      json: ${{ steps.filter.outputs.json }}
+      scripts: ${{ steps.filter.outputs.scripts }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - name: Check for file changes
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            markdown:
+              - '**/*.md'
+              - '.markdownlint.yaml'
+              - '.markdownlint-cli2.yaml'
+            yaml:
+              - '**/*.yml'
+              - '**/*.yaml'
+            json:
+              - '**/*.json'
+              - '**/*.jsonc'
+            scripts:
+              - 'scripts/**'
+
   file-validation:
     runs-on: ubuntu-latest
     name: File Validation
+    needs: changes
+    if: always()
     steps:
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
@@ -25,15 +57,18 @@ jobs:
         run: ./scripts/validation/check-merge-conflicts.sh
 
       - name: Validate YAML files
+        if: needs.changes.outputs.yaml == 'true'
         run: ./scripts/validation/validate-yaml.sh
 
       - name: Validate JSON files
+        if: needs.changes.outputs.json == 'true'
         run: ./scripts/validation/validate-json.sh
 
       - name: Check case conflicts
         run: ./scripts/validation/check-case-conflicts.sh
 
       - name: Check script permissions
+        if: needs.changes.outputs.scripts == 'true'
         run: ./scripts/validation/check-script-permissions.sh
 
       - name: Check line endings
@@ -42,6 +77,8 @@ jobs:
   markdown-lint:
     runs-on: ubuntu-latest
     name: Markdown Lint
+    needs: changes
+    if: needs.changes.outputs.markdown == 'true'
     steps:
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4

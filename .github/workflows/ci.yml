@@ -17,9 +17,35 @@ permissions:
   pull-requests: write
 
 jobs:
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      go: ${{ steps.filter.outputs.go }}
+      scripts: ${{ steps.filter.outputs.scripts }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - name: Check for file changes
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            go:
+              - '**/*.go'
+              - 'go.mod'
+              - 'go.sum'
+              - '.golangci.yml'
+            scripts:
+              - 'scripts/**'
+              - '.github/workflows/ci.yml'
+
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
     steps:
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
@@ -33,12 +59,25 @@ jobs:
       - name: Run go mod tidy
         run: go mod tidy
 
+      - name: Check for Go file changes
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            go:
+              - '**/*.go'
+              - 'go.mod'
+              - 'go.sum'
+              - '.golangci.yml'
+
       - name: Run golangci-lint
+        if: steps.filter.outputs.go == 'true'
         uses: golangci/golangci-lint-action@4afd733a84b1f43292c63897423277bb7f4313a9 # v8
         with:
           version: ${{ env.GOLANGCI_LINT_VERSION }}
 
       - name: Check code formatting
+        if: steps.filter.outputs.go == 'true'
         run: |
           if [ -n "$(gofmt -l .)" ]; then
             echo "The following files need formatting:"
@@ -49,6 +88,8 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
     steps:
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
@@ -91,7 +132,8 @@ jobs:
   acceptance-test:
     name: Acceptance Test
     runs-on: ubuntu-latest
-    needs: test
+    needs: [changes, test]
+    if: needs.changes.outputs.go == 'true'
     steps:
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
@@ -145,7 +187,8 @@ jobs:
   build-provider:
     name: Build Provider
     runs-on: ubuntu-latest
-    needs: test
+    needs: [changes, test]
+    if: needs.changes.outputs.go == 'true'
     steps:
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
@@ -180,7 +223,8 @@ jobs:
   terraform-compatibility:
     name: Terraform Compatibility Test
     runs-on: ubuntu-latest
-    needs: build-provider
+    needs: [changes, build-provider]
+    if: needs.changes.outputs.go == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -262,7 +306,7 @@ jobs:
   ci-status:
     name: CI Status
     runs-on: ubuntu-latest
-    needs: [lint, test, acceptance-test, terraform-compatibility]
+    needs: [changes, lint, test, acceptance-test, terraform-compatibility]
     if: always()
     steps:
       - name: Checkout code
