@@ -16,6 +16,7 @@ jobs:
       yaml: ${{ steps.filter.outputs.yaml }}
       json: ${{ steps.filter.outputs.json }}
       scripts: ${{ steps.filter.outputs.scripts }}
+      terraform: ${{ steps.filter.outputs.terraform }}
     steps:
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
@@ -37,6 +38,10 @@ jobs:
               - '**/*.jsonc'
             scripts:
               - 'scripts/**'
+            terraform:
+              - '**/*.tf'
+              - '**/*.tfvars'
+              - 'examples/**/*.hcl'
 
   file-validation:
     runs-on: ubuntu-latest
@@ -92,6 +97,8 @@ jobs:
   terraform-fmt:
     runs-on: ubuntu-latest
     name: Terraform Format
+    needs: changes
+    if: needs.changes.outputs.terraform == 'true'
     steps:
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
