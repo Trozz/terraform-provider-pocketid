@@ -1,14 +1,19 @@
 #!/bin/bash
 set -e
 
+# Get the directory where this script is located
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+
 # Configuration
 TEST_TOKEN="test-terraform-provider-token-123456789"
 TOKEN_HASH=$(echo -n "$TEST_TOKEN" | sha256sum | cut -d' ' -f1)
-DB_PATH="./test-data/data/pocket-id.db"
-POCKET_ID_BINARY="./test-data/pocket-id"
+TEST_DATA_DIR="$PROJECT_ROOT/test-data"
+DB_PATH="$TEST_DATA_DIR/data/pocket-id.db"
+POCKET_ID_BINARY="$TEST_DATA_DIR/pocket-id"
 
 # Create test data directory
-mkdir -p test-data
+mkdir -p "$TEST_DATA_DIR"
 
 # Download pocket-id binary if not present
 if [ ! -f "$POCKET_ID_BINARY" ]; then
@@ -43,13 +48,13 @@ if [ ! -f "$POCKET_ID_BINARY" ]; then
 fi
 
 # Create data directory for pocket-id
-mkdir -p test-data/data
+mkdir -p "$TEST_DATA_DIR/data"
 
 # Start pocket-id in background
 echo "Starting pocket-id..."
-cd test-data && ./pocket-id > pocket-id.log 2>&1 &
+cd "$TEST_DATA_DIR" && ./pocket-id > pocket-id.log 2>&1 &
 POCKET_ID_PID=$!
-cd ..
+cd "$PROJECT_ROOT"
 
 echo "Pocket-ID started with PID: $POCKET_ID_PID"
 
@@ -60,8 +65,8 @@ sleep 2
 if ! kill -0 $POCKET_ID_PID 2>/dev/null; then
     echo "ERROR: Pocket-ID process died immediately!"
     echo "Checking log file..."
-    if [ -f "./test-data/pocket-id.log" ]; then
-        cat ./test-data/pocket-id.log
+    if [ -f "$TEST_DATA_DIR/pocket-id.log" ]; then
+        cat "$TEST_DATA_DIR/pocket-id.log"
     else
         echo "No log file found!"
     fi
@@ -86,12 +91,12 @@ if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
     echo "Error: Timeout waiting for database migrations."
     echo "Expected database path: $DB_PATH"
     echo "Checking directory contents..."
-    ls -la ./test-data/ || true
-    ls -la ./test-data/data/ || true
+    ls -la "$TEST_DATA_DIR/" || true
+    ls -la "$TEST_DATA_DIR/data/" || true
     if [ ! -f "$DB_PATH" ]; then
         echo "Database file does not exist!"
         echo "Checking pocket-id log..."
-        cat ./test-data/pocket-id.log || true
+        cat "$TEST_DATA_DIR/pocket-id.log" || true
     else
         echo "Tables in database:"
         sqlite3 "$DB_PATH" "SELECT name FROM sqlite_master WHERE type='table';" || true
