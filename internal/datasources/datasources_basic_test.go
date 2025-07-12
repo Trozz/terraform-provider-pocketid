@@ -252,10 +252,12 @@ func TestUserDataSource_Schema(t *testing.T) {
 	// Check specific attribute types
 	idAttr, ok := resp.Schema.Attributes["id"].(schema.StringAttribute)
 	assert.True(t, ok)
-	assert.True(t, idAttr.Required)
+	assert.True(t, idAttr.Optional)
+	assert.True(t, idAttr.Computed)
 
 	usernameAttr, ok := resp.Schema.Attributes["username"].(schema.StringAttribute)
 	assert.True(t, ok)
+	assert.True(t, usernameAttr.Optional)
 	assert.True(t, usernameAttr.Computed)
 
 	groupsAttr, ok := resp.Schema.Attributes["groups"].(schema.SetAttribute)

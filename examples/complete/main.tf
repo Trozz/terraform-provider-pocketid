@@ -166,9 +166,9 @@ data "pocketid_client" "existing_client" {
 # List all clients
 data "pocketid_clients" "all_clients" {}
 
-# Get a specific user
+# Get a specific user by username
 data "pocketid_user" "admin" {
-  id = pocketid_user.admin_user.id
+  username = pocketid_user.admin_user.username
 }
 
 # List all users
