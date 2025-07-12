@@ -358,12 +358,24 @@ jobs:
             echo "status=passed" >> $GITHUB_OUTPUT
           fi
 
-      - name: Create PR Comment
+      - name: Find Comment
+        if: github.event_name == 'pull_request'
+        uses: peter-evans/find-comment@v3
+        id: fc
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-author: 'github-actions[bot]'
+          body-includes: <!-- CI-STATUS -->
+
+      - name: Create or Update PR Comment
         if: github.event_name == 'pull_request' && failure()
         uses: peter-evans/create-or-update-comment@v4
         with:
+          comment-id: ${{ steps.fc.outputs.comment-id }}
           issue-number: ${{ github.event.pull_request.number }}
+          edit-mode: replace
           body: |
+            <!-- CI-STATUS -->
             ## ❌ CI Pipeline Failed
 
             The CI pipeline has encountered failures. Please review the results below:
@@ -385,12 +397,15 @@ jobs:
             - **Acceptance test failures**: Check if Pocket-ID service is properly configured
             </details>
 
-      - name: Create Success PR Comment
+      - name: Create or Update Success PR Comment
         if: github.event_name == 'pull_request' && success() && needs.security-scan.result != 'success'
         uses: peter-evans/create-or-update-comment@v4
         with:
+          comment-id: ${{ steps.fc.outputs.comment-id }}
           issue-number: ${{ github.event.pull_request.number }}
+          edit-mode: replace
           body: |
+            <!-- CI-STATUS -->
             ## ✅ CI Pipeline Passed (with warnings)
 
             All required checks have passed, but there are security warnings to review:
