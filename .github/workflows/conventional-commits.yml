@@ -2,15 +2,9 @@ name: Conventional Commits
 
 on:
   workflow_call:
-  pull_request:
-    types:
-      - opened
-      - edited
-      - synchronize
-    branches: [ main ]
 
 permissions:
-  pull-requests: read
+  pull-requests: write
 
 jobs:
   conventional-commits:

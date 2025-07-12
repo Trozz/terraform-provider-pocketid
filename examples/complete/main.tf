@@ -160,7 +160,7 @@ resource "pocketid_user" "regular_user" {
 
 # Get a specific client by ID
 data "pocketid_client" "existing_client" {
-  client_id = pocketid_client.web_app.id
+  id = pocketid_client.web_app.id
 }
 
 # List all clients
@@ -168,16 +168,14 @@ data "pocketid_clients" "all_clients" {}
 
 # Get a specific user
 data "pocketid_user" "admin" {
-  username = pocketid_user.admin_user.username
+  id = pocketid_user.admin_user.id
 }
 
 # List all users
 data "pocketid_users" "all_users" {}
 
-# List users in a specific group
-data "pocketid_users" "developers" {
-  group_id = pocketid_group.developers.id
-}
+# List all users (filtering by group not supported in data source)
+data "pocketid_users" "developers" {}
 
 # Outputs
 

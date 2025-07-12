@@ -11,7 +11,8 @@ on:
     branches: [ main ]
 
 permissions:
-  pull-requests: read
+  contents: read
+  pull-requests: write
 
 jobs:
   conventional-commits:
