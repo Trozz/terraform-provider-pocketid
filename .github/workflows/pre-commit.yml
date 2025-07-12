@@ -13,14 +13,23 @@ on:
 permissions:
   contents: read
   pull-requests: write
+  security-events: write
 
 jobs:
   conventional-commits:
     uses: ./.github/workflows/conventional-commits.yml
     if: github.event_name == 'pull_request'
+    permissions:
+      pull-requests: write
 
   validation:
     uses: ./.github/workflows/validation.yml
+    permissions:
+      contents: read
+      pull-requests: write
 
   security:
     uses: ./.github/workflows/security.yml
+    permissions:
+      contents: read
+      security-events: write
