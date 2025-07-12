@@ -14,6 +14,28 @@ echo "Waiting for Pocket-ID database..."
 while [ ! -f "$DB_PATH" ]; do
     sleep 1
 done
+
+# Wait for migrations to complete by checking if api_tokens table exists
+echo "Waiting for database migrations to complete..."
+MAX_RETRIES=30
+RETRY_COUNT=0
+while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+    if sqlite3 "$DB_PATH" "SELECT name FROM sqlite_master WHERE type='table' AND name='api_tokens';" 2>/dev/null | grep -q "api_tokens"; then
+        echo "Database migrations complete!"
+        break
+    fi
+    echo "Waiting for api_tokens table to be created... (attempt $((RETRY_COUNT + 1))/$MAX_RETRIES)"
+    sleep 2
+    RETRY_COUNT=$((RETRY_COUNT + 1))
+done
+
+if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
+    echo "Error: Timeout waiting for database migrations. Tables in database:"
+    sqlite3 "$DB_PATH" "SELECT name FROM sqlite_master WHERE type='table';" || true
+    exit 1
+fi
+
+# Additional safety delay
 sleep 2
 
 # Initialize test data

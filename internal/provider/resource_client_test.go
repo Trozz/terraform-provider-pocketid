@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 )
 
 func TestAccResourceClient_basic(t *testing.T) {
@@ -265,4 +266,89 @@ resource "pocketid_client" "test" {
 `
 }
 
+func TestAccResourceClient_updateCallbackURLs(t *testing.T) {
+	resourceName := "pocketid_client.test"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Create with one callback URL
+			{
+				Config: testAccResourceClientConfig_basic("test-client", "https://example.com/callback"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "callback_urls.#", "1"),
+				),
+			},
+			// Add more callback URLs
+			{
+				Config: testAccResourceClientConfig_multipleCallbacks("test-client"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "callback_urls.#", "3"),
+				),
+			},
+			// Remove callback URLs
+			{
+				Config: testAccResourceClientConfig_basic("test-client", "https://example.com/callback"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "callback_urls.#", "1"),
+				),
+			},
+		},
+	})
+}
+
+func TestAccResourceClient_generateSecret(t *testing.T) {
+	resourceName := "pocketid_client.test"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Create client and verify secret is set
+			{
+				Config: testAccResourceClientConfig_basic("test-client", "https://example.com/callback"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet(resourceName, "client_secret"),
+					testAccCheckClientSecretNotEmpty(resourceName),
+				),
+			},
+		},
+	})
+}
+
+func TestAccResourceClient_longName(t *testing.T) {
+	resourceName := "pocketid_client.test"
+	longName := "This is a very long client name that might exceed typical length limits and tests the system's ability to handle long strings"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccResourceClientConfig_basic(longName, "https://example.com/callback"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "name", longName),
+				),
+			},
+		},
+	})
+}
+
 // Test helper functions
+
+func testAccCheckClientSecretNotEmpty(resourceName string) resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+		rs, ok := s.RootModule().Resources[resourceName]
+		if !ok {
+			return fmt.Errorf("resource not found: %s", resourceName)
+		}
+
+		secret := rs.Primary.Attributes["client_secret"]
+		if secret == "" {
+			return fmt.Errorf("client_secret is empty")
+		}
+
+		return nil
+	}
+}

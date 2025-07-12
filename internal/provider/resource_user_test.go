@@ -157,13 +157,13 @@ resource "pocketid_user" "test" {
 func testAccResourceUserConfig_withGroups(username, email string) string {
 	return fmt.Sprintf(`
 resource "pocketid_group" "test1" {
-  name        = "test-group-1"
-  description = "Test group 1"
+  name          = "test-group-1"
+  friendly_name = "Test group 1"
 }
 
 resource "pocketid_group" "test2" {
-  name        = "test-group-2"
-  description = "Test group 2"
+  name          = "test-group-2"
+  friendly_name = "Test group 2"
 }
 
 resource "pocketid_user" "test" {
@@ -183,13 +183,13 @@ resource "pocketid_user" "test" {
 func testAccResourceUserConfig_withSingleGroup(username, email string) string {
 	return fmt.Sprintf(`
 resource "pocketid_group" "test1" {
-  name        = "test-group-1"
-  description = "Test group 1"
+  name          = "test-group-1"
+  friendly_name = "Test group 1"
 }
 
 resource "pocketid_group" "test2" {
-  name        = "test-group-2"
-  description = "Test group 2"
+  name          = "test-group-2"
+  friendly_name = "Test group 2"
 }
 
 resource "pocketid_user" "test" {
@@ -213,6 +213,171 @@ resource "pocketid_user" "test" {
   first_name = "Test"
   last_name  = "User"
   disabled   = true
+}
+`, username, email)
+}
+
+func TestAccResourceUser_adminUser(t *testing.T) {
+	resourceName := "pocketid_user.test"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Create admin user
+			{
+				Config: testAccResourceUserConfig_admin("admin-user", "admin@example.com"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "username", "admin-user"),
+					resource.TestCheckResourceAttr(resourceName, "is_admin", "true"),
+				),
+			},
+			// Remove admin privileges
+			{
+				Config: testAccResourceUserConfig_basic("admin-user", "admin@example.com"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "is_admin", "false"),
+				),
+			},
+		},
+	})
+}
+
+func TestAccResourceUser_withLocale(t *testing.T) {
+	resourceName := "pocketid_user.test"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Create user with locale
+			{
+				Config: testAccResourceUserConfig_withLocale("locale-user", "locale@example.com", "fr-FR"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "username", "locale-user"),
+					resource.TestCheckResourceAttr(resourceName, "locale", "fr-FR"),
+				),
+			},
+			// Update locale
+			{
+				Config: testAccResourceUserConfig_withLocale("locale-user", "locale@example.com", "en-US"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "locale", "en-US"),
+				),
+			},
+		},
+	})
+}
+
+func TestAccResourceUser_invalidEmail(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config:      testAccResourceUserConfig_basic("test-user", "invalid-email"),
+				ExpectError: regexp.MustCompile("Invalid Attribute Value Match"),
+			},
+		},
+	})
+}
+
+func TestAccResourceUser_duplicateUsername(t *testing.T) {
+	username := "duplicate-user"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Create first user
+			{
+				Config: testAccResourceUserConfig_duplicate(username, "user1@example.com", "first"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("pocketid_user.first", "username", username),
+				),
+			},
+			// Attempt to create duplicate user
+			{
+				Config:      testAccResourceUserConfig_duplicate(username, "user2@example.com", "second"),
+				ExpectError: regexp.MustCompile("user already exists"),
+			},
+		},
+	})
+}
+
+func TestAccResourceUser_updateImmutableField(t *testing.T) {
+	resourceName := "pocketid_user.test"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Create user
+			{
+				Config: testAccResourceUserConfig_basic("original-username", "test@example.com"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "username", "original-username"),
+				),
+			},
+			// Attempt to update username (should recreate resource)
+			{
+				Config: testAccResourceUserConfig_basic("new-username", "test@example.com"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "username", "new-username"),
+				),
+			},
+		},
+	})
+}
+
+func testAccResourceUserConfig_admin(username, email string) string {
+	return fmt.Sprintf(`
+resource "pocketid_user" "test" {
+  username   = %[1]q
+  email      = %[2]q
+  first_name = "Test"
+  last_name  = "User"
+  is_admin   = true
+}
+`, username, email)
+}
+
+func testAccResourceUserConfig_withLocale(username, email, locale string) string {
+	return fmt.Sprintf(`
+resource "pocketid_user" "test" {
+  username   = %[1]q
+  email      = %[2]q
+  first_name = "Test"
+  last_name  = "User"
+  locale     = %[3]q
+}
+`, username, email, locale)
+}
+
+func testAccResourceUserConfig_duplicate(username, email, label string) string {
+	if label == "first" {
+		return fmt.Sprintf(`
+resource "pocketid_user" "first" {
+  username   = %[1]q
+  email      = %[2]q
+  first_name = "Test"
+  last_name  = "User"
+}
+`, username, email)
+	}
+	return fmt.Sprintf(`
+resource "pocketid_user" "first" {
+  username   = %[1]q
+  email      = "user1@example.com"
+  first_name = "Test"
+  last_name  = "User"
+}
+
+resource "pocketid_user" "second" {
+  username   = %[1]q
+  email      = %[2]q
+  first_name = "Test"
+  last_name  = "User2"
 }
 `, username, email)
 }

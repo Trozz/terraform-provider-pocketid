@@ -128,13 +128,13 @@ jobs:
           chmod +x ./scripts/prepare-test-db.sh
           ./scripts/prepare-test-db.sh
 
-      - name: Run acceptance tests
+      - name: Run acceptance tests with coverage
         env:
           POCKETID_BASE_URL: http://localhost:1411
           POCKETID_API_TOKEN: test-terraform-provider-token-123456789
           TF_ACC: 1
         run: |
-          go test -v -timeout 30m ./internal/... -tags=acc
+          go test -v -timeout 30m -cover -coverprofile=acceptance-coverage.out ./internal/... -tags=acc
 
       - name: Test provider binary with Terraform
         env:
@@ -150,6 +150,17 @@ jobs:
           terraform plan
           terraform apply -auto-approve
           terraform destroy -auto-approve
+
+      - name: Upload acceptance test coverage
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: Trozz/terraform-provider-pocketid
+          files: ./acceptance-coverage.out
+          flags: acceptancetests
+          name: codecov-acceptance
+          fail_ci_if_error: true
+          verbose: true
 
       - name: Stop test environment
         if: always()
