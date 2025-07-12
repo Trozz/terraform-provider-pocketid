@@ -1,0 +1,10 @@
+# markdownlint-cli2 configuration
+# https://github.com/DavidAnson/markdownlint-cli2
+
+# Ignore patterns
+ignores:
+  - "docs/**/*.md"
+  - ".github/**/*.md"
+
+# Use .markdownlint.yaml for rules configuration
+config: .markdownlint.yaml
