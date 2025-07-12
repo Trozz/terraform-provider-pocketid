@@ -5,9 +5,50 @@ set -e
 TEST_TOKEN="test-terraform-provider-token-123456789"
 TOKEN_HASH=$(echo -n "$TEST_TOKEN" | sha256sum | cut -d' ' -f1)
 DB_PATH="./test-data/pocket-id.db"
+POCKET_ID_BINARY="./test-data/pocket-id"
 
 # Create test data directory
 mkdir -p test-data
+
+# Download pocket-id binary if not present
+if [ ! -f "$POCKET_ID_BINARY" ]; then
+    echo "Downloading pocket-id binary..."
+    # Detect OS and architecture
+    OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+    ARCH=$(uname -m)
+
+    # Map architecture names
+    case "$ARCH" in
+        x86_64) ARCH="amd64" ;;
+        aarch64|arm64) ARCH="arm64" ;;
+    esac
+
+    # Map OS names for pocket-id releases
+    case "$OS" in
+        darwin) OS="macos" ;;
+    esac
+
+    # Get latest release version
+    LATEST_VERSION=$(curl -s https://api.github.com/repos/pocket-id/pocket-id/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+    if [ -z "$LATEST_VERSION" ]; then
+        echo "Failed to get latest version, using v1.6.2"
+        LATEST_VERSION="v1.6.2"
+    fi
+
+    DOWNLOAD_URL="https://github.com/pocket-id/pocket-id/releases/download/${LATEST_VERSION}/pocket-id-${OS}-${ARCH}"
+    echo "Downloading from: $DOWNLOAD_URL"
+
+    curl -L -o "$POCKET_ID_BINARY" "$DOWNLOAD_URL"
+    chmod +x "$POCKET_ID_BINARY"
+fi
+
+# Start pocket-id in background
+echo "Starting pocket-id..."
+cd test-data && ./pocket-id > pocket-id.log 2>&1 &
+POCKET_ID_PID=$!
+cd ..
+
+echo "Pocket-ID started with PID: $POCKET_ID_PID"
 
 # Wait for database to exist and migrations to complete
 echo "Waiting for Pocket-ID database and migrations..."
@@ -33,10 +74,6 @@ if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
     fi
     exit 1
 fi
-
-# Stop Pocket-ID to avoid database read-only mode
-echo "Stopping Pocket-ID service..."
-docker compose -f docker-compose.test.yml stop pocket-id
 
 # Initialize test data
 # First check if an admin user exists
@@ -68,6 +105,7 @@ EOF
 fi
 
 # Now create the API key
+echo "Creating API key..."
 sqlite3 "$DB_PATH" <<EOF
 INSERT OR REPLACE INTO api_keys (
     id,
@@ -89,8 +127,16 @@ EOF
 echo "Test token initialized:"
 echo "  POCKETID_API_TOKEN=$TEST_TOKEN"
 
-# Restart Pocket-ID service
-echo "Restarting Pocket-ID service..."
-docker compose -f docker-compose.test.yml start pocket-id
+# Wait for pocket-id to be ready
+echo "Waiting for pocket-id to be ready..."
+for i in {1..10}; do
+    if curl -s http://localhost:1411/ > /dev/null 2>&1; then
+        echo "Pocket-ID is ready!"
+        break
+    fi
+    echo "Waiting for pocket-id to start... (attempt $i/10)"
+    sleep 1
+done
 
 echo "Pocket-ID test environment ready!"
+echo "PID: $POCKET_ID_PID"

@@ -109,22 +109,16 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
-      - name: Start Pocket-ID test environment
+      - name: Setup and start Pocket-ID test environment
         run: |
-          docker compose -f docker-compose.test.yml up -d
-          # Wait for container to be healthy
-          for i in {1..30}; do
-            if docker compose -f docker-compose.test.yml ps | grep -q "healthy"; then
-              echo "Pocket-ID is healthy!"
-              break
-            fi
-            echo "Waiting for Pocket-ID to be healthy..."
-            sleep 2
-          done
-          sleep 5
+          # Install SQLite (needed for database operations)
+          if [[ "$RUNNER_OS" == "Linux" ]]; then
+            sudo apt-get update && sudo apt-get install -y sqlite3
+          elif [[ "$RUNNER_OS" == "macOS" ]]; then
+            brew install sqlite3 || true
+          fi
 
-      - name: Initialize test database
-        run: |
+          # Make script executable and run it
           chmod +x ./scripts/prepare-test-db.sh
           ./scripts/prepare-test-db.sh
 
@@ -165,7 +159,9 @@ jobs:
       - name: Stop test environment
         if: always()
         run: |
-          docker compose -f docker-compose.test.yml down
+          # Kill pocket-id process
+          pkill -f pocket-id || true
+          # Clean up test data
           rm -rf test-data
 
   pre-release:
