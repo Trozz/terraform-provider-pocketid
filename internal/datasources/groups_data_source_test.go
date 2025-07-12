@@ -55,7 +55,7 @@ func TestAccGroupsDataSource(t *testing.T) {
 						// Test map output by checking specific keys exist
 						resource.TestCheckOutput("has_admin_global", "true"),
 						resource.TestCheckOutput("has_dev_team", "true"),
-						resource.TestCheckOutput("map_size", "4"), // 4 groups created
+						// Don't check exact map size as it includes all groups in the system
 						resource.TestCheckOutput("admin_global_id_not_empty", "true"),
 					),
 				},
@@ -98,22 +98,22 @@ data "pocketid_groups" "all" {
 func testAccGroupsDataSourceConfig_CreateFilterableGroups() string {
 	return `
 resource "pocketid_group" "admin_global" {
-  name          = "test_admin_global"
+  name          = "test_filter_admin_global"
   friendly_name = "Global Administrators"
 }
 
 resource "pocketid_group" "admin_local" {
-  name          = "test_admin_local"
+  name          = "test_filter_admin_local"
   friendly_name = "Local Administrators"
 }
 
 resource "pocketid_group" "dev_team" {
-  name          = "test_dev_team"
+  name          = "test_filter_dev_team"
   friendly_name = "Development Team"
 }
 
 resource "pocketid_group" "support" {
-  name          = "test_support"
+  name          = "test_filter_support"
   friendly_name = "Support Team"
 }
 `
@@ -133,12 +133,12 @@ data "pocketid_groups" "all" {
 locals {
   admin_groups = [
     for group in data.pocketid_groups.all.groups : group
-    if can(regex("admin", group.name))
+    if can(regex("filter_admin", group.name))
   ]
 
   dev_groups = [
     for group in data.pocketid_groups.all.groups : group
-    if can(regex("dev", group.name))
+    if can(regex("filter_dev", group.name))
   ]
 
   group_name_to_id = {
@@ -160,11 +160,11 @@ output "group_map" {
 }
 
 output "has_admin_global" {
-  value = contains(keys(local.group_name_to_id), "test_admin_global")
+  value = contains(keys(local.group_name_to_id), "test_filter_admin_global")
 }
 
 output "has_dev_team" {
-  value = contains(keys(local.group_name_to_id), "test_dev_team")
+  value = contains(keys(local.group_name_to_id), "test_filter_dev_team")
 }
 
 output "map_size" {
@@ -172,7 +172,7 @@ output "map_size" {
 }
 
 output "admin_global_id_not_empty" {
-  value = local.group_name_to_id["test_admin_global"] != ""
+  value = local.group_name_to_id["test_filter_admin_global"] != ""
 }
 `
 }
