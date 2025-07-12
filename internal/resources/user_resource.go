@@ -252,8 +252,23 @@ func (r *userResource) Create(ctx context.Context, req resource.CreateRequest, r
 			return
 		}
 
-		// Update the disabled field from the response
+		// Update all fields from the updated response to ensure consistency
+		plan.ID = types.StringValue(updatedUser.ID)
+		plan.Username = types.StringValue(updatedUser.Username)
+		plan.Email = types.StringValue(updatedUser.Email)
+		plan.FirstName = types.StringValue(updatedUser.FirstName)
+		plan.LastName = types.StringValue(updatedUser.LastName)
+		plan.IsAdmin = types.BoolValue(updatedUser.IsAdmin)
 		plan.Disabled = types.BoolValue(updatedUser.Disabled)
+
+		// Handle locale from updated response
+		if updatedUser.Locale != nil && *updatedUser.Locale != "" {
+			plan.Locale = types.StringValue(*updatedUser.Locale)
+		} else if plan.Locale.ValueString() != "" {
+			// Keep the planned value if API returns empty but plan had a value
+		} else {
+			plan.Locale = types.StringNull()
+		}
 	}
 
 	// Set the state
