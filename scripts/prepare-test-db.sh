@@ -4,7 +4,7 @@ set -e
 # Configuration
 TEST_TOKEN="test-terraform-provider-token-123456789"
 TOKEN_HASH=$(echo -n "$TEST_TOKEN" | sha256sum | cut -d' ' -f1)
-DB_PATH="./test-data/pocket-id.db"
+DB_PATH="./test-data/data/pocket-id.db"
 POCKET_ID_BINARY="./test-data/pocket-id"
 
 # Create test data directory
