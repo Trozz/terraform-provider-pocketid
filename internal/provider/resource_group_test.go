@@ -78,7 +78,7 @@ func TestAccResourceGroup_emptyFriendlyName(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				Config:      testAccResourceGroupConfig_emptyFriendlyName(groupName),
-				ExpectError: regexp.MustCompile("FriendlyName is required"),
+				ExpectError: regexp.MustCompile("Attribute friendly_name string length must be between 1 and 50"),
 			},
 		},
 	})
@@ -134,7 +134,7 @@ func TestAccResourceGroup_longFriendlyName(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				Config:      testAccResourceGroupConfig_basic(groupName, longFriendlyName),
-				ExpectError: regexp.MustCompile("FriendlyName must be at most 50 characters long"),
+				ExpectError: regexp.MustCompile("Attribute friendly_name string length must be between 1 and 50"),
 			},
 		},
 	})

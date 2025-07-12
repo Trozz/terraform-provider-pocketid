@@ -170,7 +170,7 @@ func TestAccResourceClient_emptyName(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				Config:      testAccResourceClientConfig_emptyName(),
-				ExpectError: regexp.MustCompile("Name is required"),
+				ExpectError: regexp.MustCompile("Attribute name string length must be between 1 and 50"),
 			},
 		},
 	})
@@ -326,7 +326,7 @@ func TestAccResourceClient_longName(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				Config:      testAccResourceClientConfig_basic(longName, "https://example.com/callback"),
-				ExpectError: regexp.MustCompile("Name must be at most 50 characters long"),
+				ExpectError: regexp.MustCompile("Attribute name string length must be between 1 and 50"),
 			},
 		},
 	})
