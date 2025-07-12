@@ -5,6 +5,7 @@ This checklist ensures a smooth release process for new versions of the provider
 ## Pre-Release Checklist
 
 ### Code Quality
+
 - [ ] All unit tests pass locally (`make test`)
 - [ ] All acceptance tests pass locally (`make test-acc`)
 - [ ] No linting errors (`make lint`)
@@ -12,6 +13,7 @@ This checklist ensures a smooth release process for new versions of the provider
 - [ ] All PR feedback has been addressed
 
 ### Documentation
+
 - [ ] CHANGELOG.md is updated with all changes
 - [ ] README.md is up to date
 - [ ] Resource documentation is complete
@@ -21,6 +23,7 @@ This checklist ensures a smooth release process for new versions of the provider
 - [ ] Review generated documentation for accuracy
 
 ### Version Preparation
+
 - [ ] Decide on version number following semantic versioning
   - [ ] MAJOR version for incompatible API changes
   - [ ] MINOR version for backwards-compatible functionality
@@ -29,6 +32,7 @@ This checklist ensures a smooth release process for new versions of the provider
 - [ ] Review and update compatibility matrix if needed
 
 ### Testing
+
 - [ ] Test upgrade path from previous version
 - [ ] Test with minimum supported Terraform version
 - [ ] Test with latest Terraform version
@@ -40,11 +44,13 @@ This checklist ensures a smooth release process for new versions of the provider
 ## Release Process
 
 ### 1. Final Checks
+
 - [ ] Ensure main branch is up to date
 - [ ] No uncommitted changes (`git status`)
 - [ ] All CI checks are passing on main branch
 
 ### 2. Create Release Tag
+
 ```bash
 # For a new release (e.g., v0.1.0)
 git tag -a v0.1.0 -m "Release v0.1.0"
@@ -57,12 +63,14 @@ git push origin v0.1.0
 ```
 
 ### 3. Monitor Release Workflow
+
 - [ ] Check GitHub Actions release workflow is running
 - [ ] Verify GPG signing is successful
 - [ ] Confirm all platform binaries are built
 - [ ] Check that release assets are properly uploaded
 
 ### 4. Verify GitHub Release
+
 - [ ] Release appears on GitHub releases page
 - [ ] Release notes are properly formatted
 - [ ] All required assets are present:
@@ -73,16 +81,19 @@ git push origin v0.1.0
 - [ ] Download and verify one binary works
 
 ### 5. Terraform Registry (First Time Only)
+
 - [ ] Sign in to Terraform Registry
 - [ ] Publish provider following PUBLISHING.md
 - [ ] Verify webhook is created
 - [ ] Confirm provider page is live
 
 ### 6. Verify Registry Release
+
 - [ ] New version appears on Terraform Registry
 - [ ] Documentation is properly rendered
 - [ ] Installation instructions are correct
 - [ ] Test installation with new version:
+
 ```hcl
 terraform {
   required_providers {
@@ -97,24 +108,28 @@ terraform {
 ## Post-Release Checklist
 
 ### Communication
+
 - [ ] Create GitHub discussion/announcement
 - [ ] Update any pinned issues
 - [ ] Notify Pocket-ID community (if applicable)
 - [ ] Update project board/milestones
 
 ### Documentation Updates
+
 - [ ] Update README.md badge from "pending" to active
 - [ ] Update installation examples to use Registry source
 - [ ] Archive any outdated documentation
 - [ ] Update compatibility matrix
 
 ### Monitoring
+
 - [ ] Monitor GitHub issues for problems
 - [ ] Check Terraform Registry for any issues
 - [ ] Watch for user feedback
 - [ ] Track download statistics
 
 ### Housekeeping
+
 - [ ] Close milestone for this release
 - [ ] Create milestone for next release
 - [ ] Update project board
@@ -134,8 +149,8 @@ If issues are discovered after release:
 
 ## Emergency Contacts
 
-- Terraform Registry Support: terraform-registry@hashicorp.com
-- GitHub Support: https://support.github.com
+- Terraform Registry Support: <terraform-registry@hashicorp.com>
+- GitHub Support: <https://support.github.com>
 - GPG Key Issues: Check PUBLISHING.md troubleshooting
 
 ## Version History

@@ -1,21 +1,25 @@
 # Complete Pocket-ID Provider Example
 
-This example demonstrates a complete setup of the Pocket-ID Terraform provider, showcasing all available resources and data sources.
+This example demonstrates a complete setup of the Pocket-ID Terraform provider, showcasing all available resources and
+data sources.
 
 ## What This Example Creates
 
 ### Groups
+
 - **developers** - Development team with access to development resources
 - **admins** - System administrators with full access
 - **users** - Regular users with basic access
 
 ### OIDC Clients
+
 - **SPA Application** - Public client for single-page applications
 - **Web Application** - Confidential client with group restrictions
 - **Mobile Application** - Public client for mobile apps
 - **Admin Portal** - Restricted client for administrators only
 
 ### Users
+
 - **Admin User** - System administrator
 - **Developer Lead** - Developer with admin access
 - **Developer** - Regular developer
@@ -33,35 +37,41 @@ This example demonstrates a complete setup of the Pocket-ID Terraform provider, 
 1. **Set up your variables**
 
    Create a `terraform.tfvars` file:
+
    ```hcl
    pocketid_base_url  = "https://auth.example.com"
    pocketid_api_token = "your-api-token-here"
    ```
 
    Or use environment variables:
+
    ```bash
    export TF_VAR_pocketid_base_url="https://auth.example.com"
    export TF_VAR_pocketid_api_token="your-api-token-here"
    ```
 
 2. **Initialize Terraform**
+
    ```bash
    terraform init
    ```
 
 3. **Review the plan**
+
    ```bash
    terraform plan
    ```
 
 4. **Apply the configuration**
+
    ```bash
    terraform apply
    ```
 
 5. **Save the client secrets**
-   
+
    After applying, save the client secrets securely:
+
    ```bash
    terraform output -raw web_app_client_secret > web_app_secret.txt
    terraform output -raw admin_portal_client_secret > admin_portal_secret.txt
@@ -73,7 +83,7 @@ This example demonstrates a complete setup of the Pocket-ID Terraform provider, 
 
 ### Resource Hierarchy
 
-```
+```text
 Groups
 ├── developers
 ├── admins
@@ -116,6 +126,7 @@ The configuration provides several outputs:
 - `developers_count` - Number of users in developers group
 
 View all outputs:
+
 ```bash
 terraform output
 ```
@@ -125,6 +136,7 @@ terraform output
 ### Passkey Registration
 
 After creating users, they must:
+
 1. Visit your Pocket-ID instance URL
 2. Log in with their username
 3. Register a passkey through the web interface
@@ -150,6 +162,7 @@ Users cannot authenticate until they complete passkey registration!
 ### Adding More Users
 
 Add to the `test_users` local variable:
+
 ```hcl
 locals {
   test_users = {
@@ -162,6 +175,7 @@ locals {
 ### Creating Department Groups
 
 Add new groups:
+
 ```hcl
 resource "pocketid_group" "engineering" {
   name          = "engineering"
@@ -177,6 +191,7 @@ resource "pocketid_group" "sales" {
 ### Adding Environment-Specific Clients
 
 Create clients for different environments:
+
 ```hcl
 resource "pocketid_client" "staging_app" {
   name = "Staging Application"
@@ -193,7 +208,8 @@ resource "pocketid_client" "staging_app" {
 ## Testing the Setup
 
 1. **Test SPA Authentication**
-   ```
+
+   ```text
    https://auth.example.com/authorize?
      client_id=<spa_client_id>&
      redirect_uri=https://spa.example.com/callback&
@@ -212,6 +228,7 @@ resource "pocketid_client" "staging_app" {
 ## Clean Up
 
 To remove all created resources:
+
 ```bash
 terraform destroy
 ```
@@ -221,18 +238,22 @@ terraform destroy
 ## Troubleshooting
 
 ### "User cannot authenticate"
+
 - Ensure the user has registered their passkey
 - Check if the user is in the correct groups for restricted clients
 
 ### "Invalid redirect URI"
+
 - Verify the callback URL exactly matches one in the client configuration
 - Check for trailing slashes or protocol mismatches
 
 ### "Client not found"
+
 - Ensure terraform apply completed successfully
 - Check the client ID in the outputs
 
 ### Rate Limiting
+
 - If you encounter rate limits, add delays between resource creation
 - Consider creating resources in smaller batches
 

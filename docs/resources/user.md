@@ -11,7 +11,8 @@ description: |-
 
 Manages a user in Pocket-ID.
 
-~> **Important** Users must complete passkey registration through the Pocket-ID web interface. This resource only creates the user account; authentication setup must be done separately.
+~> **Important** Users must complete passkey registration through the Pocket-ID web interface. This resource only creates
+the user account; authentication setup must be done separately.
 
 ## Example Usage
 

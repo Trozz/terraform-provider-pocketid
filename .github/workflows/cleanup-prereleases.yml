@@ -32,7 +32,7 @@ jobs:
             const { owner, repo } = context.repo;
             const keepCount = parseInt(context.payload.inputs?.keep_count || '5');
             const dryRun = context.payload.inputs?.dry_run === 'true';
-            
+
             console.log(`Configuration: Keep ${keepCount} pre-releases, Dry run: ${dryRun}`);
 
             // Get all releases

@@ -6,11 +6,13 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/Trozz/terraform-provider-pocketid)](https://goreportcard.com/report/github.com/Trozz/terraform-provider-pocketid)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-The Terraform Provider for [Pocket-ID](https://github.com/pocket-id/pocket-id) enables you to manage OIDC clients, users, and groups in your Pocket-ID instance using Infrastructure as Code.
+The Terraform Provider for [Pocket-ID](https://github.com/pocket-id/pocket-id) enables you to manage OIDC clients,
+users, and groups in your Pocket-ID instance using Infrastructure as Code.
 
 ## What is Pocket-ID?
 
-Pocket-ID is a simple, self-hosted OpenID Connect (OIDC) provider that uses passkeys for authentication instead of passwords. This makes it more secure and user-friendly than traditional authentication methods.
+Pocket-ID is a simple, self-hosted OpenID Connect (OIDC) provider that uses passkeys for authentication instead of
+passwords. This makes it more secure and user-friendly than traditional authentication methods.
 
 ## Features
 
@@ -182,6 +184,7 @@ make install
 ### Running Tests
 
 **Important Note**: Due to Pocket-ID's security model, acceptance tests cannot be run in CI/CD pipelines. Pocket-ID requires:
+
 - Manual passkey registration through the web UI
 - Manual API key generation through the admin interface
 - No programmatic way to bootstrap an instance
@@ -201,11 +204,14 @@ Acceptance tests require a manually configured Pocket-ID instance:
 2. Register a user with a passkey through the web UI
 3. Generate an API key in the admin interface
 4. Set environment variables:
+
    ```bash
    export POCKETID_BASE_URL="https://your-pocket-id-instance.com"
    export POCKETID_API_TOKEN="your-api-token"
    ```
+
 5. Run acceptance tests:
+
    ```bash
    make test-acc
    ```
@@ -241,6 +247,7 @@ make test-ci
 ```
 
 This generates:
+
 - `coverage.out` - Code coverage report
 - `junit.xml` - JUnit format test results for test analytics
 
@@ -256,11 +263,13 @@ make test-coverage
 ### Local Development
 
 1. Start a local Pocket-ID instance:
+
    ```bash
    make pocket-id-start
    ```
 
 2. Build and install the provider:
+
    ```bash
    make dev
    ```
@@ -270,6 +279,7 @@ make test-coverage
 ### Debugging
 
 Enable debug logging:
+
 ```bash
 export TF_LOG=DEBUG
 terraform apply
@@ -313,7 +323,8 @@ Contributions are welcome! Please see our [Contributing Guidelines](CONTRIBUTING
 
 ### Reporting Security Issues
 
-Please report security vulnerabilities to [security@leer.dev](mailto:security@leer.dev). Do not open public issues for security problems.
+Please report security vulnerabilities to [security@leer.dev](mailto:security@leer.dev). Do not open public issues for
+security problems.
 
 ### Best Practices
 

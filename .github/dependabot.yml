@@ -24,7 +24,7 @@ updates:
           - "*"
         update-types:
           - "patch"
-      # Group minor updates separately  
+      # Group minor updates separately
       go-minor:
         patterns:
           - "*"
