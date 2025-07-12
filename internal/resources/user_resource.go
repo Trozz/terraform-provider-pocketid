@@ -151,7 +151,7 @@ func (r *userResource) Create(ctx context.Context, req resource.CreateRequest, r
 		FirstName: plan.FirstName.ValueString(),
 		LastName:  plan.LastName.ValueString(),
 		IsAdmin:   plan.IsAdmin.ValueBool(),
-		Disabled:  plan.Disabled.ValueBool(),
+		// Don't set Disabled during creation as the API doesn't support it
 	}
 
 	// Handle locale if provided
