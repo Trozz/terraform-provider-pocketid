@@ -216,7 +216,7 @@ example-plan: ## Run terraform plan on complete example
 .PHONY: test-integration
 test-integration: ## Run integration tests against live Pocket-ID instance
 	@echo "$(GREEN)Running integration tests...$(NC)"
-	@cd test && terraform init && terraform apply -auto-approve
+	@cd examples/complete && terraform init && terraform apply -auto-approve
 	@echo "$(GREEN)Integration tests complete!$(NC)"
 
 .PHONY: test-ci
@@ -234,7 +234,7 @@ test-ci: ## Run tests in CI format with JUnit output
 .PHONY: test-cleanup
 test-cleanup: ## Clean up integration test resources
 	@echo "$(GREEN)Cleaning up test resources...$(NC)"
-	@cd test && terraform destroy -auto-approve
+	@cd examples/complete && terraform destroy -auto-approve || true
 	@echo "$(GREEN)Test cleanup complete!$(NC)"
 
 .PHONY: setup-hooks
@@ -251,27 +251,50 @@ docker-test: ## Run tests in Docker container
 	@echo "$(GREEN)Running tests in Docker...$(NC)"
 	@docker run --rm -v $(PWD):/workspace -w /workspace golang:1.21 make test
 
-.PHONY: pocket-id-start
-pocket-id-start: ## Start local Pocket-ID instance using Docker (requires HTTPS setup)
-	@echo "$(GREEN)Starting Pocket-ID instance...$(NC)"
-	@echo "$(YELLOW)Note: Pocket-ID requires HTTPS for passkey support!$(NC)"
-	@echo "$(YELLOW)Please ensure you have:$(NC)"
-	@echo "  1. Updated docker-compose.yml with your domain"
-	@echo "  2. Configured nginx.conf with your certificates"
-	@echo "  3. Set PUBLIC_APP_URL in .env file"
-	@echo "See TESTING.md for detailed setup instructions"
-	@cd pocket-id-source && docker-compose up -d
-	@echo "$(GREEN)Pocket-ID is running at your configured HTTPS domain$(NC)"
+.PHONY: test-env-start
+test-env-start: ## Start Pocket-ID test environment
+	@echo "$(GREEN)Starting Pocket-ID test environment...$(NC)"
+	@docker-compose -f docker-compose.test.yml up -d
+	@echo "$(YELLOW)Waiting for Pocket-ID to be ready...$(NC)"
+	@sleep 10
+	@./scripts/prepare-test-db.sh
+	@echo "$(GREEN)Test environment ready!$(NC)"
+	@echo "  POCKETID_BASE_URL=http://localhost:1411"
+	@echo "  POCKETID_API_TOKEN=test-terraform-provider-token-123456789"
 
-.PHONY: pocket-id-stop
-pocket-id-stop: ## Stop local Pocket-ID instance
-	@echo "$(GREEN)Stopping Pocket-ID instance...$(NC)"
-	@cd pocket-id-source && docker-compose down
-	@echo "$(GREEN)Pocket-ID stopped$(NC)"
+.PHONY: test-env-stop
+test-env-stop: ## Stop Pocket-ID test environment
+	@echo "$(GREEN)Stopping Pocket-ID test environment...$(NC)"
+	@docker-compose -f docker-compose.test.yml down
+	@rm -rf test-data
+	@echo "$(GREEN)Test environment stopped$(NC)"
 
-.PHONY: pocket-id-logs
-pocket-id-logs: ## Show Pocket-ID logs
-	@cd pocket-id-source && docker-compose logs -f
+.PHONY: test-env-logs
+test-env-logs: ## Show Pocket-ID test environment logs
+	@docker-compose -f docker-compose.test.yml logs -f
+
+.PHONY: test-acc-local
+test-acc-local: test-env-start ## Run acceptance tests with local Pocket-ID
+	@export POCKETID_BASE_URL=http://localhost:1411 && \
+	export POCKETID_API_TOKEN=test-terraform-provider-token-123456789 && \
+	$(MAKE) test-acc
+
+.PHONY: test-provider-local
+test-provider-local: install test-env-start ## Test provider binary with Terraform examples
+	@echo "$(GREEN)Testing provider with Terraform examples...$(NC)"
+	@export POCKETID_BASE_URL=http://localhost:1411 && \
+	export POCKETID_API_TOKEN=test-terraform-provider-token-123456789 && \
+	cd examples/complete && \
+	terraform init && \
+	terraform plan && \
+	terraform apply -auto-approve && \
+	terraform destroy -auto-approve
+	@$(MAKE) test-env-stop
+	@echo "$(GREEN)Provider testing complete!$(NC)"
+
+.PHONY: test-full
+test-full: test test-acc-local test-provider-local ## Run all tests including provider binary test
+	@echo "$(GREEN)All tests completed successfully!$(NC)"
 
 # Debug helpers
 .PHONY: debug-env

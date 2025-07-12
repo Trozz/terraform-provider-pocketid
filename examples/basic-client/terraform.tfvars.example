@@ -1,0 +1,18 @@
+# Pocket-ID Configuration
+base_url  = "https://pocket-id.example.com"
+api_token = "your-api-token-here"
+
+# Client Configuration
+client_name = "My Web Application"
+
+# OAuth2 callback URLs - Update these for your application
+callback_urls = [
+  "http://localhost:3000/auth/callback",
+  "https://myapp.example.com/auth/callback"
+]
+
+# Logout callback URLs
+logout_callback_urls = [
+  "http://localhost:3000",
+  "https://myapp.example.com"
+]

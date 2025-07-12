@@ -1,0 +1,16 @@
+# Pocket-ID Configuration
+base_url  = "https://pocket-id.example.com"
+api_token = "your-api-token-here"
+
+# SPA Configuration
+app_name = "My React App"
+
+# URLs where your SPA is hosted
+# The provider will automatically append /auth/callback for OAuth callbacks
+app_urls = [
+  "http://localhost:3000",      # Development
+  "https://app.example.com"     # Production
+]
+
+# Optional: Restrict access to specific groups
+# allowed_groups = ["users", "beta-testers"]

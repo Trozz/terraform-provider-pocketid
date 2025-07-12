@@ -1,0 +1,26 @@
+services:
+  pocket-id:
+    image: ghcr.io/pocket-id/pocket-id:v1
+    container_name: pocket-id-test
+    restart: "no"
+    environment:
+      # Public URL for the OIDC provider
+      APP_URL: http://localhost:1411
+      # Trust proxy headers (not needed for local testing)
+      TRUST_PROXY: "false"
+      # MaxMind license key (not needed for testing)
+      MAXMIND_LICENSE_KEY: ""
+      # Process permissions
+      PUID: "1000"
+      PGID: "1000"
+    ports:
+      - "1411:1411"
+    volumes:
+      # Mount the test data directory for persistence
+      - ./test-data:/app/data
+    healthcheck:
+      test: ["CMD", "/app/pocket-id", "healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s

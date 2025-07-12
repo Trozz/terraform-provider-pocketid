@@ -1,0 +1,12 @@
+# Pocket-ID Configuration
+base_url  = "https://pocket-id.example.com"
+api_token = "your-api-token-here"
+
+# Admin User Configuration
+admin_username = "terraform.admin"
+admin_email    = "admin@example.com"
+
+# Note: You can customize the users and groups by editing main.tf
+# The example creates:
+# - 3 groups: developers, admins, support
+# - 5 users with various roles and permissions

@@ -18,6 +18,7 @@ permissions:
   contents: read
   security-events: write
   actions: read
+  pull-requests: write
 
 jobs:
   lint:
@@ -94,22 +95,72 @@ jobs:
           fail_ci_if_error: true
           verbose: true
 
-  # Acceptance tests are not run in CI because Pocket-ID requires:
-  # 1. Manual passkey registration through the UI
-  # 2. Manual API key generation through the UI
-  # 3. No programmatic way to bootstrap an instance
-  #
-  # To run acceptance tests locally:
-  # 1. Start a Pocket-ID instance
-  # 2. Register a user with a passkey
-  # 3. Generate an API key
-  # 4. Set POCKETID_BASE_URL and POCKETID_API_TOKEN
-  # 5. Run: make test-acc
+  acceptance-test:
+    name: Acceptance Test
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Start Pocket-ID test environment
+        run: |
+          docker-compose -f docker-compose.test.yml up -d
+          # Wait for container to be healthy
+          for i in {1..30}; do
+            if docker-compose -f docker-compose.test.yml ps | grep -q "healthy"; then
+              echo "Pocket-ID is healthy!"
+              break
+            fi
+            echo "Waiting for Pocket-ID to be healthy..."
+            sleep 2
+          done
+          sleep 5
+
+      - name: Initialize test database
+        run: |
+          chmod +x ./scripts/prepare-test-db.sh
+          ./scripts/prepare-test-db.sh
+
+      - name: Run acceptance tests
+        env:
+          POCKETID_BASE_URL: http://localhost:1411
+          POCKETID_API_TOKEN: test-terraform-provider-token-123456789
+          TF_ACC: 1
+        run: |
+          go test -v -timeout 30m ./internal/... -tags=acc
+
+      - name: Test provider binary with Terraform
+        env:
+          POCKETID_BASE_URL: http://localhost:1411
+          POCKETID_API_TOKEN: test-terraform-provider-token-123456789
+        run: |
+          # Build and install provider
+          make install
+
+          # Test with example configurations
+          cd examples/complete
+          terraform init
+          terraform plan
+          terraform apply -auto-approve
+          terraform destroy -auto-approve
+
+      - name: Stop test environment
+        if: always()
+        run: |
+          docker-compose -f docker-compose.test.yml down
+          rm -rf test-data
 
   pre-release:
     name: Pre-release
     runs-on: ubuntu-latest
-    needs: [lint, test]
+    needs: [lint, test, acceptance-test]
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && github.actor != 'dependabot[bot]'
     permissions:
       contents: write
@@ -238,7 +289,8 @@ jobs:
   security-scan:
     name: Security Scan
     runs-on: ubuntu-latest
-    needs: [lint, test]
+    needs: [lint, test, acceptance-test]
+    continue-on-error: true
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -265,3 +317,78 @@ jobs:
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: "gosec-results.sarif"
+
+  # Job to consolidate status for PR checks
+  ci-status:
+    name: CI Status
+    runs-on: ubuntu-latest
+    needs: [lint, test, acceptance-test, security-scan]
+    if: always()
+    steps:
+      - name: Check CI Status
+        id: check_status
+        run: |
+          if [ "${{ needs.lint.result }}" != "success" ] || \
+             [ "${{ needs.test.result }}" != "success" ] || \
+             [ "${{ needs.acceptance-test.result }}" != "success" ]; then
+            echo "::error::One or more CI jobs failed"
+            echo "Lint: ${{ needs.lint.result }}"
+            echo "Test: ${{ needs.test.result }}"
+            echo "Acceptance Test: ${{ needs.acceptance-test.result }}"
+            echo "Security Scan: ${{ needs.security-scan.result }}"
+            echo "status=failed" >> $GITHUB_OUTPUT
+            exit 1
+          else
+            echo "All CI jobs passed successfully!"
+            echo "Lint: ${{ needs.lint.result }}"
+            echo "Test: ${{ needs.test.result }}"
+            echo "Acceptance Test: ${{ needs.acceptance-test.result }}"
+            echo "Security Scan: ${{ needs.security-scan.result }}"
+            echo "status=passed" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create PR Comment
+        if: github.event_name == 'pull_request' && failure()
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            ## ❌ CI Pipeline Failed
+
+            The CI pipeline has encountered failures. Please review the results below:
+
+            | Job | Status |
+            |-----|--------|
+            | 🔍 **Lint** | ${{ needs.lint.result == 'success' && '✅ Passed' || '❌ Failed' }} |
+            | 🧪 **Test** | ${{ needs.test.result == 'success' && '✅ Passed' || '❌ Failed' }} |
+            | 🔬 **Acceptance Test** | ${{ needs.acceptance-test.result == 'success' && '✅ Passed' || '❌ Failed' }} |
+            | 🛡️ **Security Scan** | ${{ needs.security-scan.result == 'success' && '✅ Passed' || needs.security-scan.result == 'skipped' && '⏭️ Skipped' || '⚠️ Failed (non-blocking)' }} |
+
+            Please check the [workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for detailed logs.
+
+            <details>
+            <summary>💡 Troubleshooting Tips</summary>
+
+            - **Lint failures**: Run `make lint` locally to see formatting issues
+            - **Test failures**: Run `make test` to reproduce test failures
+            - **Acceptance test failures**: Check if Pocket-ID service is properly configured
+            </details>
+
+      - name: Create Success PR Comment
+        if: github.event_name == 'pull_request' && success() && needs.security-scan.result != 'success'
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            ## ✅ CI Pipeline Passed (with warnings)
+
+            All required checks have passed, but there are security warnings to review:
+
+            | Job | Status |
+            |-----|--------|
+            | 🔍 **Lint** | ✅ Passed |
+            | 🧪 **Test** | ✅ Passed |
+            | 🔬 **Acceptance Test** | ✅ Passed |
+            | 🛡️ **Security Scan** | ⚠️ Failed (non-blocking) |
+
+            Please review the [security scan results](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for potential vulnerabilities.
