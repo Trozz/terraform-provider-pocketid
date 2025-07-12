@@ -130,21 +130,6 @@ jobs:
         run: |
           go test -v -timeout 30m -cover -coverprofile=acceptance-coverage.out ./internal/... -tags=acc
 
-      - name: Test provider binary with Terraform
-        env:
-          POCKETID_BASE_URL: http://localhost:1411
-          POCKETID_API_TOKEN: test-terraform-provider-token-123456789
-        run: |
-          # Build and install provider
-          make install
-
-          # Test with example configurations
-          cd examples/complete
-          terraform init
-          terraform plan
-          terraform apply -auto-approve
-          terraform destroy -auto-approve
-
       - name: Upload acceptance test coverage
         uses: codecov/codecov-action@v5
         with:
@@ -164,10 +149,114 @@ jobs:
           # Clean up test data
           rm -rf test-data
 
+  build-provider:
+    name: Build Provider
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Build provider binary
+        run: |
+          # Build the provider
+          go build -o terraform-provider-pocketid .
+
+          # Create directory structure for artifact
+          mkdir -p artifact
+          cp terraform-provider-pocketid artifact/
+
+          # Also create a proper plugin directory structure
+          PROVIDER_DIR="artifact/terraform.d/plugins/registry.terraform.io/trozz/pocketid/0.1.0/linux_amd64"
+          mkdir -p "$PROVIDER_DIR"
+          cp terraform-provider-pocketid "$PROVIDER_DIR/"
+
+      - name: Upload provider artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: provider-binary
+          path: artifact/
+          retention-days: 1
+
+  terraform-compatibility:
+    name: Terraform Compatibility Test
+    runs-on: ubuntu-latest
+    needs: build-provider
+    strategy:
+      fail-fast: false
+      matrix:
+        terraform-version: ["1.5.7", "1.6.6", "1.7.5", "1.8.5", "1.9.8"]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform ${{ matrix.terraform-version }}
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ matrix.terraform-version }}
+
+      - name: Download provider artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: provider-binary
+          path: artifact/
+
+      - name: Install provider locally
+        run: |
+          # Copy the plugin directory to the Terraform plugin cache
+          mkdir -p ~/.terraform.d/plugins
+          cp -r artifact/terraform.d/plugins/* ~/.terraform.d/plugins/
+
+          # Make the provider executable
+          chmod +x ~/.terraform.d/plugins/registry.terraform.io/trozz/pocketid/0.1.0/linux_amd64/terraform-provider-pocketid
+
+          # Verify installation
+          ls -la ~/.terraform.d/plugins/registry.terraform.io/trozz/pocketid/0.1.0/linux_amd64/
+
+      - name: Setup and start Pocket-ID test environment
+        run: |
+          # Install SQLite (needed for database operations)
+          if [[ "$RUNNER_OS" == "Linux" ]]; then
+            sudo apt-get update && sudo apt-get install -y sqlite3
+          elif [[ "$RUNNER_OS" == "macOS" ]]; then
+            brew install sqlite3 || true
+          fi
+
+          # Make script executable and run it
+          chmod +x ./scripts/prepare-test-db.sh
+          ./scripts/prepare-test-db.sh
+
+      - name: Test provider with Terraform ${{ matrix.terraform-version }}
+        env:
+          POCKETID_BASE_URL: http://localhost:1411
+          POCKETID_API_TOKEN: test-terraform-provider-token-123456789
+        run: |
+          # Test with example configurations
+          cd examples/complete
+          terraform version
+          terraform init
+          terraform plan
+          terraform apply -auto-approve
+          terraform destroy -auto-approve
+
+      - name: Stop test environment
+        if: always()
+        run: |
+          # Kill pocket-id process
+          pkill -f pocket-id || true
+          # Clean up test data
+          rm -rf test-data
+
   pre-release:
     name: Pre-release
     runs-on: ubuntu-latest
-    needs: [lint, test, acceptance-test]
+    needs: [lint, test, acceptance-test, terraform-compatibility]
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && github.actor != 'dependabot[bot]'
     permissions:
       contents: write
@@ -296,7 +385,7 @@ jobs:
   security-scan:
     name: Security Scan
     runs-on: ubuntu-latest
-    needs: [lint, test, acceptance-test]
+    needs: [lint, test, acceptance-test, terraform-compatibility]
     continue-on-error: true
     steps:
       - name: Checkout code
@@ -329,7 +418,7 @@ jobs:
   ci-status:
     name: CI Status
     runs-on: ubuntu-latest
-    needs: [lint, test, acceptance-test, security-scan]
+    needs: [lint, test, acceptance-test, terraform-compatibility, security-scan]
     if: always()
     steps:
       - name: Check CI Status
@@ -337,11 +426,13 @@ jobs:
         run: |
           if [ "${{ needs.lint.result }}" != "success" ] || \
              [ "${{ needs.test.result }}" != "success" ] || \
-             [ "${{ needs.acceptance-test.result }}" != "success" ]; then
+             [ "${{ needs.acceptance-test.result }}" != "success" ] || \
+             [ "${{ needs.terraform-compatibility.result }}" != "success" ]; then
             echo "::error::One or more CI jobs failed"
             echo "Lint: ${{ needs.lint.result }}"
             echo "Test: ${{ needs.test.result }}"
             echo "Acceptance Test: ${{ needs.acceptance-test.result }}"
+            echo "Terraform Compatibility: ${{ needs.terraform-compatibility.result }}"
             echo "Security Scan: ${{ needs.security-scan.result }}"
             echo "status=failed" >> $GITHUB_OUTPUT
             exit 1
@@ -350,6 +441,7 @@ jobs:
             echo "Lint: ${{ needs.lint.result }}"
             echo "Test: ${{ needs.test.result }}"
             echo "Acceptance Test: ${{ needs.acceptance-test.result }}"
+            echo "Terraform Compatibility: ${{ needs.terraform-compatibility.result }}"
             echo "Security Scan: ${{ needs.security-scan.result }}"
             echo "status=passed" >> $GITHUB_OUTPUT
           fi
@@ -381,6 +473,7 @@ jobs:
             | 🔍 **Lint** | ${{ needs.lint.result == 'success' && '✅ Passed' || '❌ Failed' }} |
             | 🧪 **Test** | ${{ needs.test.result == 'success' && '✅ Passed' || '❌ Failed' }} |
             | 🔬 **Acceptance Test** | ${{ needs.acceptance-test.result == 'success' && '✅ Passed' || '❌ Failed' }} |
+            | 🔧 **Terraform Compatibility** | ${{ needs.terraform-compatibility.result == 'success' && '✅ Passed' || '❌ Failed' }} |
             | 🛡️ **Security Scan** | ${{ needs.security-scan.result == 'success' && '✅ Passed' || needs.security-scan.result == 'skipped' && '⏭️ Skipped' || '⚠️ Failed (non-blocking)' }} |
 
             Please check the [workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for detailed logs.
@@ -411,6 +504,7 @@ jobs:
             | 🔍 **Lint** | ✅ Passed |
             | 🧪 **Test** | ✅ Passed |
             | 🔬 **Acceptance Test** | ✅ Passed |
+            | 🔧 **Terraform Compatibility** | ✅ Passed |
             | 🛡️ **Security Scan** | ⚠️ Failed (non-blocking) |
 
             Please review the [security scan results](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for potential vulnerabilities.
