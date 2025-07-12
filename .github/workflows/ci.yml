@@ -111,10 +111,10 @@ jobs:
 
       - name: Start Pocket-ID test environment
         run: |
-          docker-compose -f docker-compose.test.yml up -d
+          docker compose -f docker-compose.test.yml up -d
           # Wait for container to be healthy
           for i in {1..30}; do
-            if docker-compose -f docker-compose.test.yml ps | grep -q "healthy"; then
+            if docker compose -f docker-compose.test.yml ps | grep -q "healthy"; then
               echo "Pocket-ID is healthy!"
               break
             fi
@@ -154,7 +154,7 @@ jobs:
       - name: Stop test environment
         if: always()
         run: |
-          docker-compose -f docker-compose.test.yml down
+          docker compose -f docker-compose.test.yml down
           rm -rf test-data
 
   pre-release:

@@ -20,7 +20,7 @@ if ! command -v docker &> /dev/null; then
     exit 1
 fi
 
-if ! command -v docker-compose &> /dev/null; then
+if ! command -v docker compose &> /dev/null; then
     echo -e "${RED}Error: Docker Compose is not installed. Please install Docker Compose first.${NC}"
     exit 1
 fi
@@ -82,7 +82,7 @@ http {
 }
 EOF
 
-# Create docker-compose override for nginx
+# Create docker compose override for nginx
 echo -e "${GREEN}Creating docker-compose.override.yml for nginx...${NC}"
 cat > docker-compose.override.yml << 'EOF'
 services:
@@ -136,7 +136,7 @@ echo
 echo -e "${GREEN}=== Next Steps ===${NC}"
 echo
 echo "1. Complete the configuration steps above"
-echo "2. Start Pocket-ID: docker-compose up -d"
+echo "2. Start Pocket-ID: docker compose up -d"
 echo "3. Access Pocket-ID at https://your-domain.com"
 echo "4. Create an admin user and register a passkey"
 echo "5. Generate an API key in Settings → API Keys"
