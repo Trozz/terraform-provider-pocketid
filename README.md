@@ -134,7 +134,7 @@ resource "pocketid_user" "john_doe" {
 
 - `pocketid_client` - Queries a single OIDC client
 - `pocketid_clients` - Lists all OIDC clients
-- `pocketid_user` - Queries a single user
+- `pocketid_user` - Queries a single user by ID or username
 - `pocketid_users` - Lists users with optional filtering
 
 ## Documentation

@@ -43,6 +43,15 @@ output "user_is_admin" {
 data "pocketid_user" "existing" {
   id = "123e4567-e89b-12d3-a456-426614174000"
 }
+
+# Example of fetching a user by username
+data "pocketid_user" "by_username" {
+  username = "admin"
+}
+
+output "admin_user_id" {
+  value = data.pocketid_user.by_username.id
+}
 ```
 
 {{ .SchemaMarkdown | trimspace }}
