@@ -11,6 +11,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
+	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 
 	"github.com/Trozz/terraform-provider-pocketid/internal/provider"
@@ -35,75 +36,77 @@ func testAccPreCheck(t *testing.T) {
 	}
 }
 
-func TestAccGroupDataSource(t *testing.T) {
-	t.Run("lookup by ID", func(t *testing.T) {
-		resource.Test(t, resource.TestCase{
-			PreCheck:                 func() { testAccPreCheck(t) },
-			ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-			Steps: []resource.TestStep{
-				// First create a group
-				{
-					Config: testAccGroupDataSourceConfig_CreateGroup("test_group", "Test Group"),
-				},
-				// Then look it up by ID
-				{
-					Config: testAccGroupDataSourceConfig_LookupByID("test_group", "Test Group"),
-					Check: resource.ComposeAggregateTestCheckFunc(
-						resource.TestCheckResourceAttr("data.pocketid_group.test", "name", "test_group"),
-						resource.TestCheckResourceAttr("data.pocketid_group.test", "friendly_name", "Test Group"),
-						resource.TestCheckResourceAttrSet("data.pocketid_group.test", "id"),
-					),
-				},
-			},
-		})
-	})
+func TestAccGroupDataSource_LookupByID(t *testing.T) {
+	rName := acctest.RandomWithPrefix("tf-acc-test")
 
-	t.Run("lookup by name", func(t *testing.T) {
-		resource.Test(t, resource.TestCase{
-			PreCheck:                 func() { testAccPreCheck(t) },
-			ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-			Steps: []resource.TestStep{
-				// First create a group
-				{
-					Config: testAccGroupDataSourceConfig_CreateGroup("test_group_name", "Test Group By Name"),
-				},
-				// Then look it up by name
-				{
-					Config: testAccGroupDataSourceConfig_LookupByName("test_group_name", "Test Group By Name"),
-					Check: resource.ComposeAggregateTestCheckFunc(
-						resource.TestCheckResourceAttr("data.pocketid_group.test", "name", "test_group_name"),
-						resource.TestCheckResourceAttr("data.pocketid_group.test", "friendly_name", "Test Group By Name"),
-						resource.TestCheckResourceAttrSet("data.pocketid_group.test", "id"),
-					),
-				},
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// First create a group
+			{
+				Config: testAccGroupDataSourceConfig_CreateGroup(rName, "Test Group"),
 			},
-		})
+			// Then look it up by ID
+			{
+				Config: testAccGroupDataSourceConfig_LookupByID(rName, "Test Group"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("data.pocketid_group.test", "name", rName),
+					resource.TestCheckResourceAttr("data.pocketid_group.test", "friendly_name", "Test Group"),
+					resource.TestCheckResourceAttrSet("data.pocketid_group.test", "id"),
+				),
+			},
+		},
 	})
+}
 
-	t.Run("error when neither ID nor name provided", func(t *testing.T) {
-		resource.Test(t, resource.TestCase{
-			PreCheck:                 func() { testAccPreCheck(t) },
-			ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-			Steps: []resource.TestStep{
-				{
-					Config:      testAccGroupDataSourceConfig_NoIdentifier(),
-					ExpectError: regexp.MustCompile(`Either 'id' or 'name' must be provided`),
-				},
+func TestAccGroupDataSource_LookupByName(t *testing.T) {
+	rName := acctest.RandomWithPrefix("tf-acc-test")
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// First create a group
+			{
+				Config: testAccGroupDataSourceConfig_CreateGroup(rName, "Test Group By Name"),
 			},
-		})
+			// Then look it up by name
+			{
+				Config: testAccGroupDataSourceConfig_LookupByName(rName, "Test Group By Name"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("data.pocketid_group.test", "name", rName),
+					resource.TestCheckResourceAttr("data.pocketid_group.test", "friendly_name", "Test Group By Name"),
+					resource.TestCheckResourceAttrSet("data.pocketid_group.test", "id"),
+				),
+			},
+		},
 	})
+}
 
-	t.Run("error when group not found", func(t *testing.T) {
-		resource.Test(t, resource.TestCase{
-			PreCheck:                 func() { testAccPreCheck(t) },
-			ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-			Steps: []resource.TestStep{
-				{
-					Config:      testAccGroupDataSourceConfig_NotFound(),
-					ExpectError: regexp.MustCompile(`No group found`),
-				},
+func TestAccGroupDataSource_ErrorWhenNoIdentifier(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config:      testAccGroupDataSourceConfig_NoIdentifier(),
+				ExpectError: regexp.MustCompile(`Either 'id' or 'name' must be provided`),
 			},
-		})
+		},
+	})
+}
+
+func TestAccGroupDataSource_ErrorWhenNotFound(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config:      testAccGroupDataSourceConfig_NotFound(),
+				ExpectError: regexp.MustCompile(`No group found`),
+			},
+		},
 	})
 }
 
