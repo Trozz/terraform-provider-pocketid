@@ -1,6 +1,7 @@
 {
   // Ignore auto-generated documentation
   "ignores": [
-    "docs/**/*.md"
+    "docs/**/*.md",
+    ".github/**/*.md"
   ]
 }
