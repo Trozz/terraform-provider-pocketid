@@ -272,3 +272,8 @@ test/
 # Debug files
 debug/
 *.debug
+
+# Ignore test-data folder as this is used for local and CI testing
+# It should be generated dynamically
+test-data/
+.serena/

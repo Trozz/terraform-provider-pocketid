@@ -96,15 +96,22 @@ func TestAccResourceUser_disabled(t *testing.T) {
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
-			// Create disabled user
+			// Create user (API limitation: cannot create as disabled)
+			{
+				Config: testAccResourceUserConfig_basic("disabled-user", "disabled@example.com"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "username", "disabled-user"),
+					resource.TestCheckResourceAttr(resourceName, "disabled", "false"),
+				),
+			},
+			// Update to disable user
 			{
 				Config: testAccResourceUserConfig_disabled("disabled-user", "disabled@example.com"),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr(resourceName, "username", "disabled-user"),
 					resource.TestCheckResourceAttr(resourceName, "disabled", "true"),
 				),
 			},
-			// Enable user
+			// Enable user again
 			{
 				Config: testAccResourceUserConfig_basic("disabled-user", "disabled@example.com"),
 				Check: resource.ComposeAggregateTestCheckFunc(
@@ -276,7 +283,7 @@ func TestAccResourceUser_invalidEmail(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				Config:      testAccResourceUserConfig_basic("test-user", "invalid-email"),
-				ExpectError: regexp.MustCompile("Invalid Attribute Value Match"),
+				ExpectError: regexp.MustCompile("Email must be a valid email address"),
 			},
 		},
 	})
@@ -299,7 +306,7 @@ func TestAccResourceUser_duplicateUsername(t *testing.T) {
 			// Attempt to create duplicate user
 			{
 				Config:      testAccResourceUserConfig_duplicate(username, "user2@example.com", "second"),
-				ExpectError: regexp.MustCompile("user already exists"),
+				ExpectError: regexp.MustCompile("Username is already in use"),
 			},
 		},
 	})

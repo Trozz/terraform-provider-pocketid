@@ -1,10 +1,6 @@
 name: CI
 
 on:
-  push:
-    branches:
-      - main
-      - develop
   pull_request:
     branches:
       - main
@@ -21,15 +17,41 @@ permissions:
   pull-requests: write
 
 jobs:
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      go: ${{ steps.filter.outputs.go }}
+      scripts: ${{ steps.filter.outputs.scripts }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - name: Check for file changes
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            go:
+              - '**/*.go'
+              - 'go.mod'
+              - 'go.sum'
+              - '.golangci.yml'
+            scripts:
+              - 'scripts/**'
+              - '.github/workflows/ci.yml'
+
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
@@ -37,12 +59,25 @@ jobs:
       - name: Run go mod tidy
         run: go mod tidy
 
+      - name: Check for Go file changes
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            go:
+              - '**/*.go'
+              - 'go.mod'
+              - 'go.sum'
+              - '.golangci.yml'
+
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v8
+        if: steps.filter.outputs.go == 'true'
+        uses: golangci/golangci-lint-action@4afd733a84b1f43292c63897423277bb7f4313a9 # v8
         with:
           version: ${{ env.GOLANGCI_LINT_VERSION }}
 
       - name: Check code formatting
+        if: steps.filter.outputs.go == 'true'
         run: |
           if [ -n "$(gofmt -l .)" ]; then
             echo "The following files need formatting:"
@@ -53,17 +88,16 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        go-version: ["1.24"]
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5
         with:
-          go-version: ${{ matrix.go-version }}
+          go-version: "1.24"
           cache: true
 
       - name: Download dependencies
@@ -77,14 +111,14 @@ jobs:
           gotestsum --junitfile junit.xml --format testname -- -v -cover -coverprofile=coverage.out ./internal/...
 
       - name: Upload test results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
           name: test-results
           path: junit.xml
 
       - name: Upload coverage reports
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@18283e04ce6e62d37312384ff67231eb8fd56d24 # v5
         if: matrix.go-version == env.GO_VERSION
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -98,33 +132,28 @@ jobs:
   acceptance-test:
     name: Acceptance Test
     runs-on: ubuntu-latest
-    needs: test
+    needs: [changes, test]
+    if: needs.changes.outputs.go == 'true'
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
-      - name: Start Pocket-ID test environment
+      - name: Setup and start Pocket-ID test environment
         run: |
-          docker compose -f docker-compose.test.yml up -d
-          # Wait for container to be healthy
-          for i in {1..30}; do
-            if docker compose -f docker-compose.test.yml ps | grep -q "healthy"; then
-              echo "Pocket-ID is healthy!"
-              break
-            fi
-            echo "Waiting for Pocket-ID to be healthy..."
-            sleep 2
-          done
-          sleep 5
+          # Install SQLite (needed for database operations)
+          if [[ "$RUNNER_OS" == "Linux" ]]; then
+            sudo apt-get update && sudo apt-get install -y sqlite3
+          elif [[ "$RUNNER_OS" == "macOS" ]]; then
+            brew install sqlite3 || true
+          fi
 
-      - name: Initialize test database
-        run: |
+          # Make script executable and run it
           chmod +x ./scripts/prepare-test-db.sh
           ./scripts/prepare-test-db.sh
 
@@ -136,23 +165,8 @@ jobs:
         run: |
           go test -v -timeout 30m -cover -coverprofile=acceptance-coverage.out ./internal/... -tags=acc
 
-      - name: Test provider binary with Terraform
-        env:
-          POCKETID_BASE_URL: http://localhost:1411
-          POCKETID_API_TOKEN: test-terraform-provider-token-123456789
-        run: |
-          # Build and install provider
-          make install
-
-          # Test with example configurations
-          cd examples/complete
-          terraform init
-          terraform plan
-          terraform apply -auto-approve
-          terraform destroy -auto-approve
-
       - name: Upload acceptance test coverage
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@18283e04ce6e62d37312384ff67231eb8fd56d24 # v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           slug: Trozz/terraform-provider-pocketid
@@ -165,241 +179,183 @@ jobs:
       - name: Stop test environment
         if: always()
         run: |
-          docker compose -f docker-compose.test.yml down
+          # Kill pocket-id process
+          pkill -f pocket-id || true
+          # Clean up test data
           rm -rf test-data
 
-  pre-release:
-    name: Pre-release
+  build-provider:
+    name: Build Provider
     runs-on: ubuntu-latest
-    needs: [lint, test, acceptance-test]
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && github.actor != 'dependabot[bot]'
-    permissions:
-      contents: write
-      id-token: write
-      attestations: write
+    needs: [changes, test]
+    if: needs.changes.outputs.go == 'true'
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Check for Go file changes
-        id: go_changes
-        run: |
-          # Get the latest tag
-          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-
-          if [ -z "$LATEST_TAG" ]; then
-            echo "No previous tags found, assuming Go files changed"
-            echo "changed=true" >> $GITHUB_OUTPUT
-          else
-            # Check if any Go files changed since the last tag
-            GO_CHANGES=$(git diff --name-only ${LATEST_TAG}..HEAD -- '*.go' 'go.mod' 'go.sum' | wc -l)
-
-            if [ "$GO_CHANGES" -gt 0 ]; then
-              echo "Go files changed since ${LATEST_TAG}"
-              echo "changed=true" >> $GITHUB_OUTPUT
-              git diff --name-only ${LATEST_TAG}..HEAD -- '*.go' 'go.mod' 'go.sum'
-            else
-              echo "No Go files changed since ${LATEST_TAG}"
-              echo "changed=false" >> $GITHUB_OUTPUT
-            fi
-          fi
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
       - name: Set up Go
-        if: steps.go_changes.outputs.changed == 'true'
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
-      - name: Import GPG key
-        if: steps.go_changes.outputs.changed == 'true'
-        id: import_gpg
-        uses: crazy-max/ghaction-import-gpg@v6
-        with:
-          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
-          passphrase: ${{ secrets.GPG_PASSPHRASE }}
-
-      - name: Generate snapshot version
-        if: steps.go_changes.outputs.changed == 'true'
-        id: version
+      - name: Build provider binary
         run: |
-          # Get the latest release tag (exclude pre-release tags)
-          LATEST_TAG=$(git tag -l 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n1 || echo "v0.0.0")
-          if [ -z "$LATEST_TAG" ]; then
-            LATEST_TAG="v0.0.0"
-          fi
-          echo "Latest release tag: ${LATEST_TAG}"
+          # Build the provider
+          go build -o terraform-provider-pocketid .
 
-          # Remove 'v' prefix
-          VERSION=${LATEST_TAG#v}
-          echo "Version without prefix: ${VERSION}"
+          # Create directory structure for artifact
+          mkdir -p artifact
+          cp terraform-provider-pocketid artifact/
 
-          # Parse version components
-          IFS='.' read -r major minor patch <<< "$VERSION"
-          echo "Version components: major=${major}, minor=${minor}, patch=${patch}"
+          # Also create a proper plugin directory structure
+          PROVIDER_DIR="artifact/terraform.d/plugins/registry.terraform.io/trozz/pocketid/0.1.0/linux_amd64"
+          mkdir -p "$PROVIDER_DIR"
+          cp terraform-provider-pocketid "$PROVIDER_DIR/"
 
-          # Generate new version
-          NEW_VERSION="${major}.${minor}.$((patch + 1))-dev.$(date +%Y%m%d%H%M%S)+$(git rev-parse --short HEAD)"
-          echo "Pre-release version: ${NEW_VERSION}"
-          echo "version=${NEW_VERSION}" >> $GITHUB_OUTPUT
-
-      - name: Run GoReleaser (snapshot)
-        if: steps.go_changes.outputs.changed == 'true'
-        uses: goreleaser/goreleaser-action@v6
+      - name: Upload provider artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          version: latest
-          args: release --snapshot --skip=sign --clean --skip=validate
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          name: provider-binary
+          path: artifact/
+          retention-days: 1
 
-      - name: Generate pre-release attestations
-        if: steps.go_changes.outputs.changed == 'true'
-        uses: actions/attest-build-provenance@v2
-        with:
-          subject-path: |
-            dist/*.zip
-            dist/*_checksums.txt
-
-      - name: Upload artifacts
-        if: steps.go_changes.outputs.changed == 'true'
-        uses: actions/upload-artifact@v4
-        with:
-          name: pre-release-artifacts
-          path: dist/*
-
-      - name: Create GitHub pre-release
-        if: steps.go_changes.outputs.changed == 'true'
-        uses: softprops/action-gh-release@v2
-        with:
-          name: "Development Build v${{ steps.version.outputs.version }}"
-          tag_name: "v${{ steps.version.outputs.version }}"
-          prerelease: true
-          draft: false
-          files: |
-            dist/*.zip
-            dist/*_checksums.txt
-          body: |
-            ## Development Build
-
-            This is an automated development build from commit ${{ github.sha }}.
-
-            **⚠️ This is a pre-release version and should not be used in production.**
-
-            ### Commit Information
-            - SHA: ${{ github.sha }}
-            - Author: ${{ github.actor }}
-            - Message: ${{ github.event.head_commit.message }}
-
-            ### Installation
-
-            Download the appropriate archive for your platform and extract the provider binary.
-
-
-  security-scan:
-    name: Security Scan
+  terraform-compatibility:
+    name: Terraform Compatibility Test
     runs-on: ubuntu-latest
-    needs: [lint, test, acceptance-test]
-    continue-on-error: true
+    needs: [changes, build-provider]
+    if: needs.changes.outputs.go == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        terraform-version: ["1.5.7", "1.6.6", "1.7.5", "1.8.5", "1.9.8"]
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
+      - name: Setup Terraform ${{ matrix.terraform-version }}
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
         with:
-          scan-type: "fs"
-          scan-ref: "."
-          format: "sarif"
-          output: "trivy-results.sarif"
+          terraform_version: ${{ matrix.terraform-version }}
 
-      - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
+      - name: Download provider artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          sarif_file: "trivy-results.sarif"
+          name: provider-binary
+          path: artifact/
 
-      - name: Run gosec security scanner
-        uses: securego/gosec@master
-        with:
-          args: "-fmt sarif -out gosec-results.sarif ./..."
+      - name: Install provider locally
+        run: |
+          # Copy the plugin directory to the Terraform plugin cache
+          mkdir -p ~/.terraform.d/plugins
+          cp -r artifact/terraform.d/plugins/* ~/.terraform.d/plugins/
 
-      - name: Upload gosec results
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: "gosec-results.sarif"
+          # Make the provider executable
+          chmod +x ~/.terraform.d/plugins/registry.terraform.io/trozz/pocketid/0.1.0/linux_amd64/terraform-provider-pocketid
+
+          # Verify installation
+          ls -la ~/.terraform.d/plugins/registry.terraform.io/trozz/pocketid/0.1.0/linux_amd64/
+
+      - name: Setup and start Pocket-ID test environment
+        run: |
+          # Install SQLite (needed for database operations)
+          if [[ "$RUNNER_OS" == "Linux" ]]; then
+            sudo apt-get update && sudo apt-get install -y sqlite3
+          elif [[ "$RUNNER_OS" == "macOS" ]]; then
+            brew install sqlite3 || true
+          fi
+
+          # Make script executable and run it
+          chmod +x ./scripts/prepare-test-db.sh
+          ./scripts/prepare-test-db.sh
+
+      - name: Test provider with Terraform ${{ matrix.terraform-version }}
+        env:
+          POCKETID_BASE_URL: http://localhost:1411
+          POCKETID_API_TOKEN: test-terraform-provider-token-123456789
+        run: |
+          # Test with example configurations
+          cd examples/complete
+          terraform version
+          terraform init
+
+          # Pass environment variables as Terraform variables
+          terraform plan \
+            -var="pocketid_base_url=$POCKETID_BASE_URL" \
+            -var="pocketid_api_token=$POCKETID_API_TOKEN"
+
+          terraform apply -auto-approve \
+            -var="pocketid_base_url=$POCKETID_BASE_URL" \
+            -var="pocketid_api_token=$POCKETID_API_TOKEN"
+
+          terraform destroy -auto-approve \
+            -var="pocketid_base_url=$POCKETID_BASE_URL" \
+            -var="pocketid_api_token=$POCKETID_API_TOKEN"
+
+      - name: Stop test environment
+        if: always()
+        run: |
+          # Kill pocket-id process
+          pkill -f pocket-id || true
+          # Clean up test data
+          rm -rf test-data
+
+
 
   # Job to consolidate status for PR checks
   ci-status:
     name: CI Status
     runs-on: ubuntu-latest
-    needs: [lint, test, acceptance-test, security-scan]
+    needs: [changes, lint, test, acceptance-test, terraform-compatibility]
     if: always()
     steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
       - name: Check CI Status
         id: check_status
+        env:
+          LINT_RESULT: ${{ needs.lint.result }}
+          TEST_RESULT: ${{ needs.test.result }}
+          ACCEPTANCE_RESULT: ${{ needs.acceptance-test.result }}
+          TERRAFORM_RESULT: ${{ needs.terraform-compatibility.result }}
+        run: ./scripts/ci-status-check.sh
+
+      - name: Find Comment
+        if: github.event_name == 'pull_request'
+        uses: peter-evans/find-comment@3eae4d37986fb5a8592848f6a574fdf654e61f9e # v3
+        id: fc
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-author: 'github-actions[bot]'
+          body-includes: <!-- CI-STATUS -->
+
+      - name: Generate PR Comment
+        if: github.event_name == 'pull_request'
+        id: generate_comment
+        env:
+          STATUS: ${{ steps.check_status.outputs.status }}
+          LINT_RESULT: ${{ needs.lint.result }}
+          TEST_RESULT: ${{ needs.test.result }}
+          ACCEPTANCE_RESULT: ${{ needs.acceptance-test.result }}
+          TERRAFORM_RESULT: ${{ needs.terraform-compatibility.result }}
+          WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          if [ "${{ needs.lint.result }}" != "success" ] || \
-             [ "${{ needs.test.result }}" != "success" ] || \
-             [ "${{ needs.acceptance-test.result }}" != "success" ]; then
-            echo "::error::One or more CI jobs failed"
-            echo "Lint: ${{ needs.lint.result }}"
-            echo "Test: ${{ needs.test.result }}"
-            echo "Acceptance Test: ${{ needs.acceptance-test.result }}"
-            echo "Security Scan: ${{ needs.security-scan.result }}"
-            echo "status=failed" >> $GITHUB_OUTPUT
-            exit 1
+          comment=$(./scripts/generate-ci-comment.sh)
+          if [ "$comment" != "NO_COMMENT" ]; then
+            echo "comment<<EOF" >> $GITHUB_OUTPUT
+            echo "$comment" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+            echo "should_comment=true" >> $GITHUB_OUTPUT
           else
-            echo "All CI jobs passed successfully!"
-            echo "Lint: ${{ needs.lint.result }}"
-            echo "Test: ${{ needs.test.result }}"
-            echo "Acceptance Test: ${{ needs.acceptance-test.result }}"
-            echo "Security Scan: ${{ needs.security-scan.result }}"
-            echo "status=passed" >> $GITHUB_OUTPUT
+            echo "should_comment=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Create PR Comment
-        if: github.event_name == 'pull_request' && failure()
-        uses: peter-evans/create-or-update-comment@v4
+      - name: Create or Update PR Comment
+        if: steps.generate_comment.outputs.should_comment == 'true'
+        uses: peter-evans/create-or-update-comment@71345be0265236311c031f5c7866368bd1eff043 # v4
         with:
+          comment-id: ${{ steps.fc.outputs.comment-id }}
           issue-number: ${{ github.event.pull_request.number }}
-          body: |
-            ## ❌ CI Pipeline Failed
-
-            The CI pipeline has encountered failures. Please review the results below:
-
-            | Job | Status |
-            |-----|--------|
-            | 🔍 **Lint** | ${{ needs.lint.result == 'success' && '✅ Passed' || '❌ Failed' }} |
-            | 🧪 **Test** | ${{ needs.test.result == 'success' && '✅ Passed' || '❌ Failed' }} |
-            | 🔬 **Acceptance Test** | ${{ needs.acceptance-test.result == 'success' && '✅ Passed' || '❌ Failed' }} |
-            | 🛡️ **Security Scan** | ${{ needs.security-scan.result == 'success' && '✅ Passed' || needs.security-scan.result == 'skipped' && '⏭️ Skipped' || '⚠️ Failed (non-blocking)' }} |
-
-            Please check the [workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for detailed logs.
-
-            <details>
-            <summary>💡 Troubleshooting Tips</summary>
-
-            - **Lint failures**: Run `make lint` locally to see formatting issues
-            - **Test failures**: Run `make test` to reproduce test failures
-            - **Acceptance test failures**: Check if Pocket-ID service is properly configured
-            </details>
-
-      - name: Create Success PR Comment
-        if: github.event_name == 'pull_request' && success() && needs.security-scan.result != 'success'
-        uses: peter-evans/create-or-update-comment@v4
-        with:
-          issue-number: ${{ github.event.pull_request.number }}
-          body: |
-            ## ✅ CI Pipeline Passed (with warnings)
-
-            All required checks have passed, but there are security warnings to review:
-
-            | Job | Status |
-            |-----|--------|
-            | 🔍 **Lint** | ✅ Passed |
-            | 🧪 **Test** | ✅ Passed |
-            | 🔬 **Acceptance Test** | ✅ Passed |
-            | 🛡️ **Security Scan** | ⚠️ Failed (non-blocking) |
-
-            Please review the [security scan results](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for potential vulnerabilities.
+          edit-mode: replace
+          body: ${{ steps.generate_comment.outputs.comment }}

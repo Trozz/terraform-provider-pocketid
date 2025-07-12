@@ -100,8 +100,7 @@ output "department_groups" {
 ### Required
 
 - `friendly_name` (String) The friendly display name of the user group.
-- `name` (String) The unique name identifier of the user group. This is used as the technical identifier and will be
-  included in tokens.
+- `name` (String) The unique name identifier of the user group. This is used as the technical identifier and will be included in tokens.
 
 ### Read-Only
 

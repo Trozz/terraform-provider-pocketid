@@ -391,6 +391,21 @@ func TestProvider_Configure_EdgeCases(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("all_null_values", func(t *testing.T) {
+		// Save and clear environment variables to ensure test isolation
+		oldBaseURL := os.Getenv("POCKETID_BASE_URL")
+		oldAPIToken := os.Getenv("POCKETID_API_TOKEN")
+		_ = os.Unsetenv("POCKETID_BASE_URL")
+		_ = os.Unsetenv("POCKETID_API_TOKEN")
+		defer func() {
+			// Restore original environment variables
+			if oldBaseURL != "" {
+				_ = os.Setenv("POCKETID_BASE_URL", oldBaseURL)
+			}
+			if oldAPIToken != "" {
+				_ = os.Setenv("POCKETID_API_TOKEN", oldAPIToken)
+			}
+		}()
+
 		p := pocketidprovider.New("test")()
 
 		// Get schema first
@@ -425,11 +440,13 @@ func TestProvider_Configure_EdgeCases(t *testing.T) {
 		resp := &provider.ConfigureResponse{}
 
 		p.Configure(ctx, req, resp)
-		assert.True(t, resp.Diagnostics.HasError())
-		if len(resp.Diagnostics.Errors()) > 0 {
-			assert.Contains(t, resp.Diagnostics.Errors()[0].Summary(), "Missing Pocket-ID Base URL")
-		} else {
-			t.Error("Expected at least one error diagnostic")
+		assert.True(t, resp.Diagnostics.HasError(), "Expected provider configuration to fail with null values")
+
+		// Check that we have at least one error before accessing it
+		errors := resp.Diagnostics.Errors()
+		assert.NotEmpty(t, errors, "Expected at least one error diagnostic")
+		if len(errors) > 0 {
+			assert.Contains(t, errors[0].Summary(), "Missing Pocket-ID Base URL")
 		}
 	})
 }

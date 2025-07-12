@@ -50,16 +50,19 @@ func (d *userDataSource) Metadata(_ context.Context, req datasource.MetadataRequ
 func (d *userDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Description:         "Fetches a user from Pocket-ID.",
-		MarkdownDescription: "Fetches a user from Pocket-ID by their ID.",
+		MarkdownDescription: "Fetches a user from Pocket-ID by their ID or username. Exactly one of `id` or `username` must be specified.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				Description:         "The ID of the user to fetch.",
-				MarkdownDescription: "The ID of the user to fetch.",
-				Required:            true,
+				Description:         "The ID of the user to fetch. Exactly one of `id` or `username` must be specified.",
+				MarkdownDescription: "The ID of the user to fetch. Exactly one of `id` or `username` must be specified.",
+				Optional:            true,
+				Computed:            true,
 			},
 			"username": schema.StringAttribute{
-				Description: "The username of the user.",
-				Computed:    true,
+				Description:         "The username of the user to fetch. Exactly one of `id` or `username` must be specified.",
+				MarkdownDescription: "The username of the user to fetch. Exactly one of `id` or `username` must be specified.",
+				Optional:            true,
+				Computed:            true,
 			},
 			"email": schema.StringAttribute{
 				Description: "The email address of the user.",
@@ -122,18 +125,72 @@ func (d *userDataSource) Read(ctx context.Context, req datasource.ReadRequest, r
 		return
 	}
 
-	tflog.Debug(ctx, "Reading user data source", map[string]any{
-		"id": config.ID.ValueString(),
-	})
+	// Validate that exactly one of ID or username is provided
+	hasID := !config.ID.IsNull() && !config.ID.IsUnknown()
+	hasUsername := !config.Username.IsNull() && !config.Username.IsUnknown()
 
-	// Get user from API
-	userResp, err := d.client.GetUser(config.ID.ValueString())
-	if err != nil {
+	if !hasID && !hasUsername {
 		resp.Diagnostics.AddError(
-			"Error reading user",
-			"Could not read user ID "+config.ID.ValueString()+": "+err.Error(),
+			"Missing Required Argument",
+			"Exactly one of 'id' or 'username' must be specified.",
 		)
 		return
+	}
+
+	if hasID && hasUsername {
+		resp.Diagnostics.AddError(
+			"Conflicting Arguments",
+			"Only one of 'id' or 'username' can be specified, not both.",
+		)
+		return
+	}
+
+	var userResp *client.User
+	var err error
+
+	// Fetch user based on provided identifier
+	if hasID {
+		tflog.Debug(ctx, "Reading user data source by ID", map[string]any{
+			"id": config.ID.ValueString(),
+		})
+		userResp, err = d.client.GetUser(config.ID.ValueString())
+		if err != nil {
+			resp.Diagnostics.AddError(
+				"Error reading user",
+				"Could not read user ID "+config.ID.ValueString()+": "+err.Error(),
+			)
+			return
+		}
+	} else {
+		// Lookup by username - we need to list all users and find the matching one
+		tflog.Debug(ctx, "Reading user data source by username", map[string]any{
+			"username": config.Username.ValueString(),
+		})
+
+		usersResp, err := d.client.ListUsers()
+		if err != nil {
+			resp.Diagnostics.AddError(
+				"Error listing users",
+				"Could not list users to find username "+config.Username.ValueString()+": "+err.Error(),
+			)
+			return
+		}
+
+		// Find the user with matching username
+		for _, user := range usersResp.Data {
+			if user.Username == config.Username.ValueString() {
+				userResp = &user
+				break
+			}
+		}
+
+		if userResp == nil {
+			resp.Diagnostics.AddError(
+				"User Not Found",
+				"No user found with username: "+config.Username.ValueString(),
+			)
+			return
+		}
 	}
 
 	// Map response to model

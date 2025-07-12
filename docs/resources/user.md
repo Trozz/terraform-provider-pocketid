@@ -11,8 +11,7 @@ description: |-
 
 Manages a user in Pocket-ID.
 
-~> **Important** Users must complete passkey registration through the Pocket-ID web interface. This resource only creates
-   the user account; authentication setup must be done separately.
+~> **Important** Users must complete passkey registration through the Pocket-ID web interface. This resource only creates the user account; authentication setup must be done separately.
 
 ## Example Usage
 
@@ -97,7 +96,7 @@ resource "pocketid_user" "team" {
 
 ### Optional
 
-- `disabled` (Boolean) Whether the user account is disabled. Defaults to false.
+- `disabled` (Boolean) Whether the user account is disabled. Defaults to false. Note: Due to API limitations, this field cannot be set during user creation. To create a disabled user, first create the user and then update it to set disabled to true.
 - `first_name` (String) The first name of the user.
 - `groups` (Set of String) List of group IDs the user belongs to.
 - `is_admin` (Boolean) Whether the user has administrator privileges. Defaults to false.
