@@ -1,0 +1,6 @@
+{
+  // Ignore auto-generated documentation
+  "ignores": [
+    "docs/**/*.md"
+  ]
+}
