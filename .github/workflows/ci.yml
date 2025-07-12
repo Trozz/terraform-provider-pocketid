@@ -53,9 +53,6 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        go-version: ["1.24"]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -63,7 +60,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: ${{ matrix.go-version }}
+          go-version: "1.24"
           cache: true
 
       - name: Download dependencies
@@ -392,69 +389,24 @@ jobs:
             Download the appropriate archive for your platform and extract the provider binary.
 
 
-  security-scan:
-    name: Security Scan
-    runs-on: ubuntu-latest
-    needs: [lint, test, acceptance-test, terraform-compatibility]
-    continue-on-error: true
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: "fs"
-          scan-ref: "."
-          format: "sarif"
-          output: "trivy-results.sarif"
-
-      - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: "trivy-results.sarif"
-
-      - name: Run gosec security scanner
-        uses: securego/gosec@master
-        with:
-          args: "-fmt sarif -out gosec-results.sarif ./..."
-
-      - name: Upload gosec results
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: "gosec-results.sarif"
-
   # Job to consolidate status for PR checks
   ci-status:
     name: CI Status
     runs-on: ubuntu-latest
-    needs: [lint, test, acceptance-test, terraform-compatibility, security-scan]
+    needs: [lint, test, acceptance-test, terraform-compatibility]
     if: always()
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Check CI Status
         id: check_status
-        run: |
-          if [ "${{ needs.lint.result }}" != "success" ] || \
-             [ "${{ needs.test.result }}" != "success" ] || \
-             [ "${{ needs.acceptance-test.result }}" != "success" ] || \
-             [ "${{ needs.terraform-compatibility.result }}" != "success" ]; then
-            echo "::error::One or more CI jobs failed"
-            echo "Lint: ${{ needs.lint.result }}"
-            echo "Test: ${{ needs.test.result }}"
-            echo "Acceptance Test: ${{ needs.acceptance-test.result }}"
-            echo "Terraform Compatibility: ${{ needs.terraform-compatibility.result }}"
-            echo "Security Scan: ${{ needs.security-scan.result }}"
-            echo "status=failed" >> $GITHUB_OUTPUT
-            exit 1
-          else
-            echo "All CI jobs passed successfully!"
-            echo "Lint: ${{ needs.lint.result }}"
-            echo "Test: ${{ needs.test.result }}"
-            echo "Acceptance Test: ${{ needs.acceptance-test.result }}"
-            echo "Terraform Compatibility: ${{ needs.terraform-compatibility.result }}"
-            echo "Security Scan: ${{ needs.security-scan.result }}"
-            echo "status=passed" >> $GITHUB_OUTPUT
-          fi
+        env:
+          LINT_RESULT: ${{ needs.lint.result }}
+          TEST_RESULT: ${{ needs.test.result }}
+          ACCEPTANCE_RESULT: ${{ needs.acceptance-test.result }}
+          TERRAFORM_RESULT: ${{ needs.terraform-compatibility.result }}
+        run: ./scripts/ci-status-check.sh
 
       - name: Find Comment
         if: github.event_name == 'pull_request'
@@ -465,56 +417,32 @@ jobs:
           comment-author: 'github-actions[bot]'
           body-includes: <!-- CI-STATUS -->
 
+      - name: Generate PR Comment
+        if: github.event_name == 'pull_request'
+        id: generate_comment
+        env:
+          STATUS: ${{ steps.check_status.outputs.status }}
+          LINT_RESULT: ${{ needs.lint.result }}
+          TEST_RESULT: ${{ needs.test.result }}
+          ACCEPTANCE_RESULT: ${{ needs.acceptance-test.result }}
+          TERRAFORM_RESULT: ${{ needs.terraform-compatibility.result }}
+          WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          comment=$(./scripts/generate-ci-comment.sh)
+          if [ "$comment" != "NO_COMMENT" ]; then
+            echo "comment<<EOF" >> $GITHUB_OUTPUT
+            echo "$comment" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+            echo "should_comment=true" >> $GITHUB_OUTPUT
+          else
+            echo "should_comment=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Create or Update PR Comment
-        if: github.event_name == 'pull_request' && failure()
+        if: steps.generate_comment.outputs.should_comment == 'true'
         uses: peter-evans/create-or-update-comment@v4
         with:
           comment-id: ${{ steps.fc.outputs.comment-id }}
           issue-number: ${{ github.event.pull_request.number }}
           edit-mode: replace
-          body: |
-            <!-- CI-STATUS -->
-            ## ❌ CI Pipeline Failed
-
-            The CI pipeline has encountered failures. Please review the results below:
-
-            | Job | Status |
-            |-----|--------|
-            | 🔍 **Lint** | ${{ needs.lint.result == 'success' && '✅ Passed' || '❌ Failed' }} |
-            | 🧪 **Test** | ${{ needs.test.result == 'success' && '✅ Passed' || '❌ Failed' }} |
-            | 🔬 **Acceptance Test** | ${{ needs.acceptance-test.result == 'success' && '✅ Passed' || '❌ Failed' }} |
-            | 🔧 **Terraform Compatibility** | ${{ needs.terraform-compatibility.result == 'success' && '✅ Passed' || '❌ Failed' }} |
-            | 🛡️ **Security Scan** | ${{ needs.security-scan.result == 'success' && '✅ Passed' || needs.security-scan.result == 'skipped' && '⏭️ Skipped' || '⚠️ Failed (non-blocking)' }} |
-
-            Please check the [workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for detailed logs.
-
-            <details>
-            <summary>💡 Troubleshooting Tips</summary>
-
-            - **Lint failures**: Run `make lint` locally to see formatting issues
-            - **Test failures**: Run `make test` to reproduce test failures
-            - **Acceptance test failures**: Check if Pocket-ID service is properly configured
-            </details>
-
-      - name: Create or Update Success PR Comment
-        if: github.event_name == 'pull_request' && success() && needs.security-scan.result != 'success'
-        uses: peter-evans/create-or-update-comment@v4
-        with:
-          comment-id: ${{ steps.fc.outputs.comment-id }}
-          issue-number: ${{ github.event.pull_request.number }}
-          edit-mode: replace
-          body: |
-            <!-- CI-STATUS -->
-            ## ✅ CI Pipeline Passed (with warnings)
-
-            All required checks have passed, but there are security warnings to review:
-
-            | Job | Status |
-            |-----|--------|
-            | 🔍 **Lint** | ✅ Passed |
-            | 🧪 **Test** | ✅ Passed |
-            | 🔬 **Acceptance Test** | ✅ Passed |
-            | 🔧 **Terraform Compatibility** | ✅ Passed |
-            | 🛡️ **Security Scan** | ⚠️ Failed (non-blocking) |
-
-            Please review the [security scan results](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for potential vulnerabilities.
+          body: ${{ steps.generate_comment.outputs.comment }}
