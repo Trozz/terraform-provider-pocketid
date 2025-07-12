@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 
@@ -61,10 +63,16 @@ func (r *groupResource) Schema(_ context.Context, _ resource.SchemaRequest, resp
 				Description:         "The unique name identifier of the user group. This is used as the technical identifier.",
 				MarkdownDescription: "The unique name identifier of the user group. This is used as the technical identifier and will be included in tokens.",
 				Required:            true,
+				Validators: []validator.String{
+					stringvalidator.LengthAtLeast(1),
+				},
 			},
 			"friendly_name": schema.StringAttribute{
 				Description: "The friendly display name of the user group.",
 				Required:    true,
+				Validators: []validator.String{
+					stringvalidator.LengthBetween(1, 50),
+				},
 			},
 		},
 	}

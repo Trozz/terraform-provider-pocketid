@@ -11,8 +11,8 @@ services:
       # MaxMind license key (not needed for testing)
       MAXMIND_LICENSE_KEY: ""
       # Process permissions
-      PUID: "1000"
-      PGID: "1000"
+      PUID: "1001"
+      PGID: "1001"
     ports:
       - "1411:1411"
     volumes:

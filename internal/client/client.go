@@ -459,6 +459,10 @@ func (c *Client) ListUsers() (*PaginatedResponse[User], error) {
 
 // UpdateUserGroups updates the groups a user belongs to
 func (c *Client) UpdateUserGroups(userID string, groupIDs []string) error {
+	// Ensure groupIDs is never nil to serialize as empty array instead of null
+	if groupIDs == nil {
+		groupIDs = []string{}
+	}
 	req := UpdateUserGroupsRequest{UserGroupIDs: groupIDs}
 	_, err := c.doRequest("PUT", fmt.Sprintf("/api/users/%s/user-groups", userID), req)
 	return err
