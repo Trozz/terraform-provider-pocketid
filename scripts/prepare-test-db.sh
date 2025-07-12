@@ -38,6 +38,10 @@ fi
 # Additional safety delay
 sleep 2
 
+# Stop Pocket-ID to avoid database read-only mode
+echo "Stopping Pocket-ID service..."
+docker compose -f docker-compose.test.yml stop pocket-id
+
 # Initialize test data
 sqlite3 "$DB_PATH" <<EOF
 INSERT OR REPLACE INTO api_keys (
@@ -55,3 +59,7 @@ EOF
 
 echo "Test token initialized:"
 echo "  POCKETID_API_TOKEN=$TEST_TOKEN"
+
+# Restart Pocket-ID service
+echo "Restarting Pocket-ID service..."
+docker compose -f docker-compose.test.yml start pocket-id
