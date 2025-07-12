@@ -42,6 +42,9 @@ if [ ! -f "$POCKET_ID_BINARY" ]; then
     chmod +x "$POCKET_ID_BINARY"
 fi
 
+# Create data directory for pocket-id
+mkdir -p test-data/data
+
 # Start pocket-id in background
 echo "Starting pocket-id..."
 cd test-data && ./pocket-id > pocket-id.log 2>&1 &
@@ -49,6 +52,21 @@ POCKET_ID_PID=$!
 cd ..
 
 echo "Pocket-ID started with PID: $POCKET_ID_PID"
+
+# Give pocket-id a moment to start
+sleep 2
+
+# Check if the process is still running
+if ! kill -0 $POCKET_ID_PID 2>/dev/null; then
+    echo "ERROR: Pocket-ID process died immediately!"
+    echo "Checking log file..."
+    if [ -f "./test-data/pocket-id.log" ]; then
+        cat ./test-data/pocket-id.log
+    else
+        echo "No log file found!"
+    fi
+    exit 1
+fi
 
 # Wait for database to exist and migrations to complete
 echo "Waiting for Pocket-ID database and migrations..."
@@ -66,8 +84,14 @@ done
 
 if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
     echo "Error: Timeout waiting for database migrations."
+    echo "Expected database path: $DB_PATH"
+    echo "Checking directory contents..."
+    ls -la ./test-data/ || true
+    ls -la ./test-data/data/ || true
     if [ ! -f "$DB_PATH" ]; then
         echo "Database file does not exist!"
+        echo "Checking pocket-id log..."
+        cat ./test-data/pocket-id.log || true
     else
         echo "Tables in database:"
         sqlite3 "$DB_PATH" "SELECT name FROM sqlite_master WHERE type='table';" || true
