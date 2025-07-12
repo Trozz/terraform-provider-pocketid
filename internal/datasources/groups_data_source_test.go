@@ -52,8 +52,11 @@ func TestAccGroupsDataSource(t *testing.T) {
 						// Check filtered outputs using TestCheckOutput
 						resource.TestCheckOutput("admin_groups_count", "2"),
 						resource.TestCheckOutput("dev_groups_count", "1"),
-						// For map outputs, we can't use TestCheckOutput directly
-						// The map should have 4 entries (4 groups created)
+						// Test map output by checking specific keys exist
+						resource.TestCheckOutput("has_admin_global", "true"),
+						resource.TestCheckOutput("has_dev_team", "true"),
+						resource.TestCheckOutput("map_size", "4"), // 4 groups created
+						resource.TestCheckOutput("admin_global_id_not_empty", "true"),
 					),
 				},
 			},
@@ -154,6 +157,22 @@ output "dev_groups_count" {
 
 output "group_map" {
   value = local.group_name_to_id
+}
+
+output "has_admin_global" {
+  value = contains(keys(local.group_name_to_id), "test_admin_global")
+}
+
+output "has_dev_team" {
+  value = contains(keys(local.group_name_to_id), "test_dev_team")
+}
+
+output "map_size" {
+  value = length(local.group_name_to_id)
+}
+
+output "admin_global_id_not_empty" {
+  value = local.group_name_to_id["test_admin_global"] != ""
 }
 `
 }
