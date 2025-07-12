@@ -241,9 +241,19 @@ jobs:
           cd examples/complete
           terraform version
           terraform init
-          terraform plan
-          terraform apply -auto-approve
-          terraform destroy -auto-approve
+
+          # Pass environment variables as Terraform variables
+          terraform plan \
+            -var="pocketid_base_url=$POCKETID_BASE_URL" \
+            -var="pocketid_api_token=$POCKETID_API_TOKEN"
+
+          terraform apply -auto-approve \
+            -var="pocketid_base_url=$POCKETID_BASE_URL" \
+            -var="pocketid_api_token=$POCKETID_API_TOKEN"
+
+          terraform destroy -auto-approve \
+            -var="pocketid_base_url=$POCKETID_BASE_URL" \
+            -var="pocketid_api_token=$POCKETID_API_TOKEN"
 
       - name: Stop test environment
         if: always()
