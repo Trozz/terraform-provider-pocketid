@@ -70,7 +70,6 @@ func TestAccResourceGroup_withSpecialCharacters(t *testing.T) {
 }
 
 func TestAccResourceGroup_emptyFriendlyName(t *testing.T) {
-	resourceName := "pocketid_group.test"
 	groupName := "test-group-empty-friendly"
 
 	resource.Test(t, resource.TestCase{
@@ -78,11 +77,8 @@ func TestAccResourceGroup_emptyFriendlyName(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccResourceGroupConfig_emptyFriendlyName(groupName),
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr(resourceName, "name", groupName),
-					resource.TestCheckResourceAttr(resourceName, "friendly_name", ""),
-				),
+				Config:      testAccResourceGroupConfig_emptyFriendlyName(groupName),
+				ExpectError: regexp.MustCompile("FriendlyName is required"),
 			},
 		},
 	})
@@ -119,14 +115,13 @@ func TestAccResourceGroup_duplicateName(t *testing.T) {
 			// Attempt to create duplicate group
 			{
 				Config:      testAccResourceGroupConfig_duplicate(groupName, friendlyName, "second"),
-				ExpectError: regexp.MustCompile("group already exists"),
+				ExpectError: regexp.MustCompile("Name is already in use"),
 			},
 		},
 	})
 }
 
 func TestAccResourceGroup_longFriendlyName(t *testing.T) {
-	resourceName := "pocketid_group.test"
 	groupName := "test-long-friendly-name"
 	// Create a 256+ character friendly name
 	longFriendlyName := "This is a very long friendly name that exceeds the typical length limits that might be imposed by the system. " +
@@ -138,11 +133,8 @@ func TestAccResourceGroup_longFriendlyName(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccResourceGroupConfig_basic(groupName, longFriendlyName),
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr(resourceName, "name", groupName),
-					resource.TestCheckResourceAttr(resourceName, "friendly_name", longFriendlyName),
-				),
+				Config:      testAccResourceGroupConfig_basic(groupName, longFriendlyName),
+				ExpectError: regexp.MustCompile("FriendlyName must be at most 50 characters long"),
 			},
 		},
 	})

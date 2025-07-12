@@ -170,8 +170,24 @@ func (r *userResource) Create(ctx context.Context, req resource.CreateRequest, r
 		"id": userResp.ID,
 	})
 
-	// Set state values
+	// Set state values from API response
 	plan.ID = types.StringValue(userResp.ID)
+	plan.Username = types.StringValue(userResp.Username)
+	plan.Email = types.StringValue(userResp.Email)
+	plan.FirstName = types.StringValue(userResp.FirstName)
+	plan.LastName = types.StringValue(userResp.LastName)
+	plan.IsAdmin = types.BoolValue(userResp.IsAdmin)
+	plan.Disabled = types.BoolValue(userResp.Disabled)
+
+	// Handle locale
+	if userResp.Locale != nil && *userResp.Locale != "" {
+		plan.Locale = types.StringValue(*userResp.Locale)
+	} else if plan.Locale.ValueString() != "" {
+		// Keep the planned value if API returns empty but plan had a value
+		// This handles cases where the API might not return locale in create response
+	} else {
+		plan.Locale = types.StringNull()
+	}
 
 	// Handle user groups
 	if !plan.Groups.IsNull() && !plan.Groups.IsUnknown() {

@@ -276,7 +276,7 @@ func TestAccResourceUser_invalidEmail(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				Config:      testAccResourceUserConfig_basic("test-user", "invalid-email"),
-				ExpectError: regexp.MustCompile("Invalid Attribute Value Match"),
+				ExpectError: regexp.MustCompile("Email must be a valid email address"),
 			},
 		},
 	})
@@ -299,7 +299,7 @@ func TestAccResourceUser_duplicateUsername(t *testing.T) {
 			// Attempt to create duplicate user
 			{
 				Config:      testAccResourceUserConfig_duplicate(username, "user2@example.com", "second"),
-				ExpectError: regexp.MustCompile("user already exists"),
+				ExpectError: regexp.MustCompile("Username is already in use"),
 			},
 		},
 	})

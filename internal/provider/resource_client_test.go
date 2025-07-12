@@ -170,7 +170,7 @@ func TestAccResourceClient_emptyName(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				Config:      testAccResourceClientConfig_emptyName(),
-				ExpectError: regexp.MustCompile("name is required"),
+				ExpectError: regexp.MustCompile("Name is required"),
 			},
 		},
 	})
@@ -318,7 +318,6 @@ func TestAccResourceClient_generateSecret(t *testing.T) {
 }
 
 func TestAccResourceClient_longName(t *testing.T) {
-	resourceName := "pocketid_client.test"
 	longName := "This is a very long client name that might exceed typical length limits and tests the system's ability to handle long strings"
 
 	resource.Test(t, resource.TestCase{
@@ -326,10 +325,8 @@ func TestAccResourceClient_longName(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccResourceClientConfig_basic(longName, "https://example.com/callback"),
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr(resourceName, "name", longName),
-				),
+				Config:      testAccResourceClientConfig_basic(longName, "https://example.com/callback"),
+				ExpectError: regexp.MustCompile("Name must be at most 50 characters long"),
 			},
 		},
 	})
