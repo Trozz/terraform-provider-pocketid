@@ -531,3 +531,52 @@ func (c *Client) ListUserGroups() (*PaginatedResponse[UserGroup], error) {
 
 	return &result, nil
 }
+
+// OneTimeAccessToken represents a one-time access token
+type OneTimeAccessToken struct {
+	Token     string    `json:"token"`
+	UserID    string    `json:"user_id"`
+	ExpiresAt time.Time `json:"expires_at"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// OneTimeAccessTokenRequest represents a request to create a one-time access token
+type OneTimeAccessTokenRequest struct {
+	ExpiresAt *time.Time `json:"expires_at,omitempty"`
+}
+
+// GetOneTimeAccessToken retrieves the one-time access token for a user
+func (c *Client) GetOneTimeAccessToken(userID string) (*OneTimeAccessToken, error) {
+	body, err := c.doRequest("GET", fmt.Sprintf("/api/users/%s/one-time-access-token", userID), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var token OneTimeAccessToken
+	if err := json.Unmarshal(body, &token); err != nil {
+		return nil, fmt.Errorf("error unmarshaling response: %w", err)
+	}
+
+	return &token, nil
+}
+
+// CreateOneTimeAccessToken creates a new one-time access token for a user
+func (c *Client) CreateOneTimeAccessToken(userID string, req *OneTimeAccessTokenRequest) (*OneTimeAccessToken, error) {
+	body, err := c.doRequest("POST", fmt.Sprintf("/api/users/%s/one-time-access-token", userID), req)
+	if err != nil {
+		return nil, err
+	}
+
+	var token OneTimeAccessToken
+	if err := json.Unmarshal(body, &token); err != nil {
+		return nil, fmt.Errorf("error unmarshaling response: %w", err)
+	}
+
+	return &token, nil
+}
+
+// DeleteOneTimeAccessToken deletes the one-time access token for a user
+func (c *Client) DeleteOneTimeAccessToken(userID string) error {
+	_, err := c.doRequest("DELETE", fmt.Sprintf("/api/users/%s/one-time-access-token", userID), nil)
+	return err
+}

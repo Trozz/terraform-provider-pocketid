@@ -375,8 +375,8 @@ func TestProvider_Resources(t *testing.T) {
 
 	resources := p.Resources(ctx)
 
-	// Should have 3 resources
-	assert.Len(t, resources, 3)
+	// Should have 4 resources
+	assert.Len(t, resources, 4)
 
 	// Verify each resource can be created
 	for i, resFunc := range resources {
@@ -426,7 +426,11 @@ func TestProvider_Configure_EdgeCases(t *testing.T) {
 
 		p.Configure(ctx, req, resp)
 		assert.True(t, resp.Diagnostics.HasError())
-		assert.Contains(t, resp.Diagnostics.Errors()[0].Summary(), "Missing Pocket-ID Base URL")
+		if len(resp.Diagnostics.Errors()) > 0 {
+			assert.Contains(t, resp.Diagnostics.Errors()[0].Summary(), "Missing Pocket-ID Base URL")
+		} else {
+			t.Error("Expected at least one error diagnostic")
+		}
 	})
 }
 

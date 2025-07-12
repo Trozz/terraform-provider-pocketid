@@ -131,8 +131,8 @@ output "spa_client_id" {
 
 ### Optional
 
-- `allowed_user_groups` (List of String) List of user group IDs that are allowed to use this client. If empty, all users
-  can use this client.
+- `allowed_user_groups` (List of String) List of user group IDs that are allowed to use this client. If empty, all
+  users can use this client.
 - `is_public` (Boolean) Whether this is a public client (no client secret). Defaults to false.
 - `logout_callback_urls` (List of String) List of allowed logout callback URLs for the OIDC client.
 - `pkce_enabled` (Boolean) Whether PKCE is enabled for this client. Defaults to true.
