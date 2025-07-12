@@ -102,7 +102,7 @@ func (r *userResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 				Optional:    true,
 			},
 			"disabled": schema.BoolAttribute{
-				Description: "Whether the user account is disabled. Defaults to false.",
+				Description: "Whether the user account is disabled. Defaults to false. Note: Due to API limitations, this field cannot be set during user creation. To create a disabled user, first create the user and then update it to set disabled to true.",
 				Optional:    true,
 				Computed:    true,
 				Default:     booldefault.StaticBool(false),
@@ -186,7 +186,19 @@ func (r *userResource) Create(ctx context.Context, req resource.CreateRequest, r
 	plan.FirstName = types.StringValue(userResp.FirstName)
 	plan.LastName = types.StringValue(userResp.LastName)
 	plan.IsAdmin = types.BoolValue(userResp.IsAdmin)
-	plan.Disabled = types.BoolValue(userResp.Disabled)
+
+	// The API always returns disabled=false for newly created users, regardless of the request
+	// If the plan requested disabled=true, we need to inform the user about this limitation
+	if plan.Disabled.ValueBool() && !userResp.Disabled {
+		resp.Diagnostics.AddWarning(
+			"API Limitation",
+			"The Pocket-ID API does not support creating disabled users. The user was created but remains enabled. To disable the user, please run 'terraform apply' again or update the user manually.",
+		)
+		// Set the actual value from the API to maintain consistency
+		plan.Disabled = types.BoolValue(false)
+	} else {
+		plan.Disabled = types.BoolValue(userResp.Disabled)
+	}
 
 	// Handle locale
 	if userResp.Locale != nil && *userResp.Locale != "" {
@@ -217,57 +229,6 @@ func (r *userResource) Create(ctx context.Context, req resource.CreateRequest, r
 				)
 				return
 			}
-		}
-	}
-
-	// If user should be disabled and API returned false, update the user
-	if plan.Disabled.ValueBool() && !userResp.Disabled {
-		tflog.Debug(ctx, "Updating user to set disabled status", map[string]any{
-			"userID":   userResp.ID,
-			"disabled": true,
-		})
-
-		updateReq := client.UserCreateRequest{
-			Username:  userResp.Username,
-			Email:     userResp.Email,
-			FirstName: userResp.FirstName,
-			LastName:  userResp.LastName,
-			IsAdmin:   userResp.IsAdmin,
-			Disabled:  true,
-		}
-
-		// Include locale if it exists
-		if userResp.Locale != nil {
-			updateReq.Locale = userResp.Locale
-		}
-
-		updatedUser, err := r.client.UpdateUser(userResp.ID, &updateReq)
-		if err != nil {
-			// Try to clean up the created user
-			_ = r.client.DeleteUser(userResp.ID)
-			resp.Diagnostics.AddError(
-				"Error updating user disabled status",
-				"Could not update user disabled status, the user was deleted. Error: "+err.Error(),
-			)
-			return
-		}
-
-		// Update all fields from the updated response to ensure consistency
-		plan.ID = types.StringValue(updatedUser.ID)
-		plan.Username = types.StringValue(updatedUser.Username)
-		plan.Email = types.StringValue(updatedUser.Email)
-		plan.FirstName = types.StringValue(updatedUser.FirstName)
-		plan.LastName = types.StringValue(updatedUser.LastName)
-		plan.IsAdmin = types.BoolValue(updatedUser.IsAdmin)
-		plan.Disabled = types.BoolValue(updatedUser.Disabled)
-
-		// Handle locale from updated response
-		if updatedUser.Locale != nil && *updatedUser.Locale != "" {
-			plan.Locale = types.StringValue(*updatedUser.Locale)
-		} else if plan.Locale.ValueString() != "" {
-			// Keep the planned value if API returns empty but plan had a value
-		} else {
-			plan.Locale = types.StringNull()
 		}
 	}
 
