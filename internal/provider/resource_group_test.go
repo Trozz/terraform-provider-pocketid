@@ -8,13 +8,15 @@ import (
 	"regexp"
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 )
 
 func TestAccResourceGroup_basic(t *testing.T) {
 	resourceName := "pocketid_group.test"
-	groupName := "test-group"
+	rName := acctest.RandomWithPrefix("tf-acc-test")
+	groupName := rName + "-group"
 	friendlyName := "Test Group"
 
 	resource.Test(t, resource.TestCase{
@@ -51,7 +53,8 @@ func TestAccResourceGroup_basic(t *testing.T) {
 
 func TestAccResourceGroup_withSpecialCharacters(t *testing.T) {
 	resourceName := "pocketid_group.test"
-	groupName := "test-group-special"
+	rName := acctest.RandomWithPrefix("tf-acc-test")
+	groupName := rName + "-special"
 	friendlyName := "Test Group with Special Characters: @#$%"
 
 	resource.Test(t, resource.TestCase{
@@ -70,7 +73,8 @@ func TestAccResourceGroup_withSpecialCharacters(t *testing.T) {
 }
 
 func TestAccResourceGroup_emptyFriendlyName(t *testing.T) {
-	groupName := "test-group-empty-friendly"
+	rName := acctest.RandomWithPrefix("tf-acc-test")
+	groupName := rName + "-empty-friendly"
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
@@ -98,7 +102,8 @@ func TestAccResourceGroup_invalidName(t *testing.T) {
 }
 
 func TestAccResourceGroup_duplicateName(t *testing.T) {
-	groupName := "test-duplicate-group"
+	rName := acctest.RandomWithPrefix("tf-acc-test")
+	groupName := rName + "-duplicate"
 	friendlyName := "Duplicate Test Group"
 
 	resource.Test(t, resource.TestCase{
@@ -122,7 +127,8 @@ func TestAccResourceGroup_duplicateName(t *testing.T) {
 }
 
 func TestAccResourceGroup_longFriendlyName(t *testing.T) {
-	groupName := "test-long-friendly-name"
+	rName := acctest.RandomWithPrefix("tf-acc-test")
+	groupName := rName + "-long-friendly"
 	// Create a 256+ character friendly name
 	longFriendlyName := "This is a very long friendly name that exceeds the typical length limits that might be imposed by the system. " +
 		"It contains multiple sentences and goes on and on to test whether the system properly handles long text inputs. " +
@@ -141,21 +147,22 @@ func TestAccResourceGroup_longFriendlyName(t *testing.T) {
 }
 
 func TestAccResourceGroup_multipleGroups(t *testing.T) {
+	rName := acctest.RandomWithPrefix("tf-acc-test")
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccResourceGroupConfig_multiple(),
+				Config: testAccResourceGroupConfig_multipleWithPrefix(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					// Check first group
-					resource.TestCheckResourceAttr("pocketid_group.developers", "name", "developers"),
+					resource.TestCheckResourceAttr("pocketid_group.developers", "name", rName+"-developers"),
 					resource.TestCheckResourceAttr("pocketid_group.developers", "friendly_name", "Development Team"),
 					// Check second group
-					resource.TestCheckResourceAttr("pocketid_group.admins", "name", "admins"),
+					resource.TestCheckResourceAttr("pocketid_group.admins", "name", rName+"-admins"),
 					resource.TestCheckResourceAttr("pocketid_group.admins", "friendly_name", "Administrators"),
 					// Check third group
-					resource.TestCheckResourceAttr("pocketid_group.users", "name", "users"),
+					resource.TestCheckResourceAttr("pocketid_group.users", "name", rName+"-users"),
 					resource.TestCheckResourceAttr("pocketid_group.users", "friendly_name", "Regular Users"),
 				),
 			},
@@ -222,21 +229,21 @@ resource "pocketid_group" "second" {
 `, name, friendlyName)
 }
 
-func testAccResourceGroupConfig_multiple() string {
-	return `
+func testAccResourceGroupConfig_multipleWithPrefix(rName string) string {
+	return fmt.Sprintf(`
 resource "pocketid_group" "developers" {
-  name          = "developers"
+  name          = "%s-developers"
   friendly_name = "Development Team"
 }
 
 resource "pocketid_group" "admins" {
-  name          = "admins"
+  name          = "%s-admins"
   friendly_name = "Administrators"
 }
 
 resource "pocketid_group" "users" {
-  name          = "users"
+  name          = "%s-users"
   friendly_name = "Regular Users"
 }
-`
+`, rName, rName, rName)
 }
