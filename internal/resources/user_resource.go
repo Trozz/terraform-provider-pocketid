@@ -3,13 +3,16 @@ package resources
 import (
 	"context"
 	"fmt"
+	"regexp"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 
@@ -73,6 +76,12 @@ func (r *userResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 			"email": schema.StringAttribute{
 				Description: "The email address of the user.",
 				Required:    true,
+				Validators: []validator.String{
+					stringvalidator.RegexMatches(
+						regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`),
+						"Email must be a valid email address",
+					),
+				},
 			},
 			"first_name": schema.StringAttribute{
 				Description: "The first name of the user.",
@@ -209,6 +218,42 @@ func (r *userResource) Create(ctx context.Context, req resource.CreateRequest, r
 				return
 			}
 		}
+	}
+
+	// If user should be disabled and API returned false, update the user
+	if plan.Disabled.ValueBool() && !userResp.Disabled {
+		tflog.Debug(ctx, "Updating user to set disabled status", map[string]any{
+			"userID":   userResp.ID,
+			"disabled": true,
+		})
+
+		updateReq := client.UserCreateRequest{
+			Username:  userResp.Username,
+			Email:     userResp.Email,
+			FirstName: userResp.FirstName,
+			LastName:  userResp.LastName,
+			IsAdmin:   userResp.IsAdmin,
+			Disabled:  true,
+		}
+
+		// Include locale if it exists
+		if userResp.Locale != nil {
+			updateReq.Locale = userResp.Locale
+		}
+
+		updatedUser, err := r.client.UpdateUser(userResp.ID, &updateReq)
+		if err != nil {
+			// Try to clean up the created user
+			_ = r.client.DeleteUser(userResp.ID)
+			resp.Diagnostics.AddError(
+				"Error updating user disabled status",
+				"Could not update user disabled status, the user was deleted. Error: "+err.Error(),
+			)
+			return
+		}
+
+		// Update the disabled field from the response
+		plan.Disabled = types.BoolValue(updatedUser.Disabled)
 	}
 
 	// Set the state
