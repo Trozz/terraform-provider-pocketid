@@ -3,13 +3,16 @@ package resources
 import (
 	"context"
 	"fmt"
+	"regexp"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 
@@ -73,6 +76,12 @@ func (r *userResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 			"email": schema.StringAttribute{
 				Description: "The email address of the user.",
 				Required:    true,
+				Validators: []validator.String{
+					stringvalidator.RegexMatches(
+						regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`),
+						"Email must be a valid email address",
+					),
+				},
 			},
 			"first_name": schema.StringAttribute{
 				Description: "The first name of the user.",
@@ -93,7 +102,7 @@ func (r *userResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 				Optional:    true,
 			},
 			"disabled": schema.BoolAttribute{
-				Description: "Whether the user account is disabled. Defaults to false.",
+				Description: "Whether the user account is disabled. Defaults to false. Note: Due to API limitations, this field cannot be set during user creation. To create a disabled user, first create the user and then update it to set disabled to true.",
 				Optional:    true,
 				Computed:    true,
 				Default:     booldefault.StaticBool(false),
@@ -142,7 +151,7 @@ func (r *userResource) Create(ctx context.Context, req resource.CreateRequest, r
 		FirstName: plan.FirstName.ValueString(),
 		LastName:  plan.LastName.ValueString(),
 		IsAdmin:   plan.IsAdmin.ValueBool(),
-		Disabled:  plan.Disabled.ValueBool(),
+		// Don't set Disabled during creation as the API doesn't support it
 	}
 
 	// Handle locale if provided
@@ -170,8 +179,36 @@ func (r *userResource) Create(ctx context.Context, req resource.CreateRequest, r
 		"id": userResp.ID,
 	})
 
-	// Set state values
+	// Set state values from API response
 	plan.ID = types.StringValue(userResp.ID)
+	plan.Username = types.StringValue(userResp.Username)
+	plan.Email = types.StringValue(userResp.Email)
+	plan.FirstName = types.StringValue(userResp.FirstName)
+	plan.LastName = types.StringValue(userResp.LastName)
+	plan.IsAdmin = types.BoolValue(userResp.IsAdmin)
+
+	// The API always returns disabled=false for newly created users, regardless of the request
+	// If the plan requested disabled=true, we need to inform the user about this limitation
+	if plan.Disabled.ValueBool() && !userResp.Disabled {
+		resp.Diagnostics.AddWarning(
+			"API Limitation",
+			"The Pocket-ID API does not support creating disabled users. The user was created but remains enabled. To disable the user, please run 'terraform apply' again or update the user manually.",
+		)
+		// Set the actual value from the API to maintain consistency
+		plan.Disabled = types.BoolValue(false)
+	} else {
+		plan.Disabled = types.BoolValue(userResp.Disabled)
+	}
+
+	// Handle locale
+	if userResp.Locale != nil && *userResp.Locale != "" {
+		plan.Locale = types.StringValue(*userResp.Locale)
+	} else if plan.Locale.ValueString() != "" {
+		// Keep the planned value if API returns empty but plan had a value
+		// This handles cases where the API might not return locale in create response
+	} else {
+		plan.Locale = types.StringNull()
+	}
 
 	// Handle user groups
 	if !plan.Groups.IsNull() && !plan.Groups.IsUnknown() {

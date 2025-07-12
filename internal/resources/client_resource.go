@@ -3,13 +3,17 @@ package resources
 import (
 	"context"
 	"fmt"
+	"net/url"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 
@@ -69,16 +73,25 @@ func (r *clientResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 			"name": schema.StringAttribute{
 				Description: "The display name of the OIDC client.",
 				Required:    true,
+				Validators: []validator.String{
+					stringvalidator.LengthBetween(1, 50),
+				},
 			},
 			"callback_urls": schema.ListAttribute{
 				Description: "List of allowed callback URLs for the OIDC client.",
 				Required:    true,
 				ElementType: types.StringType,
+				Validators: []validator.List{
+					listvalidator.ValueStringsAre(urlValidator{}),
+				},
 			},
 			"logout_callback_urls": schema.ListAttribute{
 				Description: "List of allowed logout callback URLs for the OIDC client.",
 				Optional:    true,
 				ElementType: types.StringType,
+				Validators: []validator.List{
+					listvalidator.ValueStringsAre(urlValidator{}),
+				},
 			},
 			"is_public": schema.BoolAttribute{
 				Description: "Whether this is a public client (no client secret). Defaults to false.",
@@ -443,4 +456,42 @@ func (r *clientResource) Delete(ctx context.Context, req resource.DeleteRequest,
 func (r *clientResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	// Retrieve import ID and set it as the resource ID
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+}
+
+// urlValidator validates that a string is a valid URL
+type urlValidator struct{}
+
+func (v urlValidator) Description(ctx context.Context) string {
+	return "string must be a valid URL"
+}
+
+func (v urlValidator) MarkdownDescription(ctx context.Context) string {
+	return "string must be a valid URL"
+}
+
+func (v urlValidator) ValidateString(ctx context.Context, req validator.StringRequest, resp *validator.StringResponse) {
+	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
+		return
+	}
+
+	value := req.ConfigValue.ValueString()
+	_, err := url.Parse(value)
+	if err != nil {
+		resp.Diagnostics.AddAttributeError(
+			req.Path,
+			"invalid callback URL",
+			fmt.Sprintf("The value %q is not a valid URL: %s", value, err),
+		)
+		return
+	}
+
+	// Additional validation - must have scheme and host
+	u, _ := url.Parse(value)
+	if u.Scheme == "" || u.Host == "" {
+		resp.Diagnostics.AddAttributeError(
+			req.Path,
+			"invalid callback URL",
+			fmt.Sprintf("The value %q is not a valid URL: must include scheme and host", value),
+		)
+	}
 }

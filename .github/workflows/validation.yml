@@ -1,0 +1,94 @@
+name: Validation
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  file-validation:
+    runs-on: ubuntu-latest
+    name: File Validation
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - name: Check trailing whitespace
+        run: ./scripts/validation/check-trailing-whitespace.sh
+
+      - name: Check end-of-file newlines
+        run: ./scripts/validation/check-newlines.sh
+
+      - name: Check merge conflicts
+        run: ./scripts/validation/check-merge-conflicts.sh
+
+      - name: Validate YAML files
+        run: ./scripts/validation/validate-yaml.sh
+
+      - name: Validate JSON files
+        run: ./scripts/validation/validate-json.sh
+
+      - name: Check case conflicts
+        run: ./scripts/validation/check-case-conflicts.sh
+
+      - name: Check script permissions
+        run: ./scripts/validation/check-script-permissions.sh
+
+      - name: Check line endings
+        run: ./scripts/validation/check-line-endings.sh
+
+  markdown-lint:
+    runs-on: ubuntu-latest
+    name: Markdown Lint
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - name: Run markdownlint
+        uses: DavidAnson/markdownlint-cli2-action@05f32210e84442804257b2a6f20b273450ec8265 # v19
+        with:
+          fix: false
+          globs: '**/*.md'
+
+  terraform-fmt:
+    runs-on: ubuntu-latest
+    name: Terraform Format
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
+
+      - name: Terraform Format Check
+        id: fmt
+        run: terraform fmt -check -recursive
+        continue-on-error: true
+
+      - name: Comment PR on failure
+        uses: actions/github-script@5c56fde4671bc2d3592fb0f2c5b5bab9ddae03b1 # v7
+        if: github.event_name == 'pull_request' && steps.fmt.outcome == 'failure'
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const output = `
+            #### Terraform Format and Style 🖌\`${{ steps.fmt.outcome }}\`
+
+            \`\`\`
+            terraform fmt -check -recursive
+            \`\`\`
+
+            *Pusher: @${{ github.actor }}, Action: \`${{ github.event_name }}\`*`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            })
+
+      - name: Terraform Format Status
+        if: steps.fmt.outcome == 'failure'
+        run: exit 1

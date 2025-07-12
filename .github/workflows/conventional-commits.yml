@@ -1,0 +1,73 @@
+name: Conventional Commits
+
+on:
+  workflow_call:
+
+permissions:
+  pull-requests: write
+
+jobs:
+  conventional-commits:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    name: Conventional Commits
+    steps:
+      - name: Validate PR title follows Conventional Commits
+        uses: amannn/action-semantic-pull-request@0723387faaf9b38adef4775cd42cfd5155ed6017 # v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            docs
+            style
+            refactor
+            perf
+            test
+            build
+            ci
+            chore
+            revert
+          validateSingleCommit: false
+
+      - name: Add PR Comment on Failure
+        if: failure()
+        uses: actions/github-script@5c56fde4671bc2d3592fb0f2c5b5bab9ddae03b1 # v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const comment = `## ❌ Conventional Commit Validation Failed
+
+            Your PR title doesn't follow the [Conventional Commits](https://www.conventionalcommits.org/) specification.
+
+            ### Valid format:
+            \`<type>(<scope>): <subject>\`
+
+            ### Examples:
+            - \`feat: add API key management resource\`
+            - \`fix(provider): handle disabled user field correctly\`
+            - \`docs: update README with new resources\`
+            - \`ci(workflow): add Terraform compatibility testing\`
+
+            ### Allowed types:
+            - **feat**: A new feature
+            - **fix**: A bug fix
+            - **docs**: Documentation only changes
+            - **style**: Changes that don't affect code meaning (formatting, etc.)
+            - **refactor**: Code change that neither fixes a bug nor adds a feature
+            - **perf**: Performance improvement
+            - **test**: Adding or updating tests
+            - **build**: Changes to build system or dependencies
+            - **ci**: Changes to CI configuration files and scripts
+            - **chore**: Other changes that don't modify src or test files
+            - **revert**: Reverts a previous commit
+
+            Please update your PR title to follow this format.`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
