@@ -48,12 +48,14 @@ INSERT OR REPLACE INTO api_keys (
     key,
     user_id,
     name,
-    created_at
+    created_at,
+    expires_at
 ) VALUES (
     '$TOKEN_HASH',
     (SELECT id FROM users WHERE is_admin = 1 LIMIT 1),
     'Terraform Test Token',
-    datetime('now')
+    datetime('now'),
+    datetime('now', '+1 year')
 );
 EOF
 
