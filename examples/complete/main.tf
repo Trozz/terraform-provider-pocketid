@@ -3,6 +3,10 @@ terraform {
     pocketid = {
       source = "trozz/pocketid"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.6"
+    }
   }
 }
 
@@ -24,19 +28,26 @@ variable "pocketid_api_token" {
   sensitive   = true
 }
 
+# Generate a random prefix for test resources to avoid conflicts
+resource "random_string" "prefix" {
+  length  = 6
+  special = false
+  upper   = false
+}
+
 # Create user groups
 resource "pocketid_group" "developers" {
-  name          = "developers"
+  name          = "${random_string.prefix.result}-developers"
   friendly_name = "Development Team"
 }
 
 resource "pocketid_group" "admins" {
-  name          = "admins"
+  name          = "${random_string.prefix.result}-admins"
   friendly_name = "System Administrators"
 }
 
 resource "pocketid_group" "users" {
-  name          = "users"
+  name          = "${random_string.prefix.result}-users"
   friendly_name = "Regular Users"
 }
 
@@ -44,7 +55,7 @@ resource "pocketid_group" "users" {
 
 # Public SPA client
 resource "pocketid_client" "spa_app" {
-  name = "React SPA Application"
+  name = "${random_string.prefix.result}-React SPA Application"
   callback_urls = [
     "https://spa.example.com/callback",
     "http://localhost:3000/callback"
@@ -59,7 +70,7 @@ resource "pocketid_client" "spa_app" {
 
 # Confidential web application
 resource "pocketid_client" "web_app" {
-  name = "Main Web Application"
+  name = "${random_string.prefix.result}-Main Web Application"
   callback_urls = [
     "https://app.example.com/auth/callback",
     "https://staging.example.com/auth/callback",
@@ -80,7 +91,7 @@ resource "pocketid_client" "web_app" {
 
 # Mobile application client
 resource "pocketid_client" "mobile_app" {
-  name = "Mobile Application"
+  name = "${random_string.prefix.result}-Mobile Application"
   callback_urls = [
     "com.example.myapp://callback",
     "myapp://auth/callback"
@@ -91,7 +102,7 @@ resource "pocketid_client" "mobile_app" {
 
 # Admin portal with restricted access
 resource "pocketid_client" "admin_portal" {
-  name = "Admin Portal"
+  name = "${random_string.prefix.result}-Admin Portal"
   callback_urls = [
     "https://admin.example.com/callback"
   ]
@@ -108,8 +119,8 @@ resource "pocketid_client" "admin_portal" {
 
 # Admin user
 resource "pocketid_user" "admin_user" {
-  username   = "admin"
-  email      = "admin@example.com"
+  username   = "${random_string.prefix.result}-admin"
+  email      = "${random_string.prefix.result}-admin@example.com"
   first_name = "Admin"
   last_name  = "User"
   is_admin   = true
@@ -121,8 +132,8 @@ resource "pocketid_user" "admin_user" {
 
 # Developer users
 resource "pocketid_user" "dev_lead" {
-  username   = "john.doe"
-  email      = "john.doe@example.com"
+  username   = "${random_string.prefix.result}-john.doe"
+  email      = "${random_string.prefix.result}-john.doe@example.com"
   first_name = "John"
   last_name  = "Doe"
 
@@ -133,8 +144,8 @@ resource "pocketid_user" "dev_lead" {
 }
 
 resource "pocketid_user" "developer" {
-  username   = "jane.smith"
-  email      = "jane.smith@example.com"
+  username   = "${random_string.prefix.result}-jane.smith"
+  email      = "${random_string.prefix.result}-jane.smith@example.com"
   first_name = "Jane"
   last_name  = "Smith"
 
@@ -145,8 +156,8 @@ resource "pocketid_user" "developer" {
 
 # Regular user
 resource "pocketid_user" "regular_user" {
-  username   = "bob.wilson"
-  email      = "bob.wilson@example.com"
+  username   = "${random_string.prefix.result}-bob.wilson"
+  email      = "${random_string.prefix.result}-bob.wilson@example.com"
   first_name = "Bob"
   last_name  = "Wilson"
   locale     = "en-US"
