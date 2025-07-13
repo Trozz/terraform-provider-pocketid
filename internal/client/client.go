@@ -546,7 +546,7 @@ type OneTimeAccessToken struct {
 
 // OneTimeAccessTokenRequest represents a request to create a one-time access token
 type OneTimeAccessTokenRequest struct {
-	ExpiresAt *time.Time `json:"expires_at,omitempty"`
+	ExpiresAt *time.Time `json:"expires_at"`
 }
 
 // GetOneTimeAccessToken retrieves the one-time access token for a user
@@ -566,6 +566,18 @@ func (c *Client) GetOneTimeAccessToken(userID string) (*OneTimeAccessToken, erro
 
 // CreateOneTimeAccessToken creates a new one-time access token for a user
 func (c *Client) CreateOneTimeAccessToken(userID string, req *OneTimeAccessTokenRequest) (*OneTimeAccessToken, error) {
+	// Debug log the request
+	if req != nil && req.ExpiresAt != nil {
+		tflog.Debug(context.Background(), "CreateOneTimeAccessToken request", map[string]interface{}{
+			"user_id":    userID,
+			"expires_at": req.ExpiresAt.Format(time.RFC3339),
+		})
+	} else {
+		tflog.Debug(context.Background(), "CreateOneTimeAccessToken request with nil expires_at", map[string]interface{}{
+			"user_id": userID,
+		})
+	}
+
 	body, err := c.doRequest("POST", fmt.Sprintf("/api/users/%s/one-time-access-token", userID), req)
 	if err != nil {
 		return nil, err

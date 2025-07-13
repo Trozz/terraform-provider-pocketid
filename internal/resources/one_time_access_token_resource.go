@@ -119,7 +119,12 @@ func (r *OneTimeAccessTokenResource) Create(ctx context.Context, req resource.Cr
 	tokenReq := &client.OneTimeAccessTokenRequest{}
 
 	// Parse expires_at (now required)
-	expiresAt, err := time.Parse(time.RFC3339, data.ExpiresAt.ValueString())
+	expiresAtStr := data.ExpiresAt.ValueString()
+	tflog.Debug(ctx, "expires_at value from plan", map[string]interface{}{
+		"expires_at": expiresAtStr,
+	})
+
+	expiresAt, err := time.Parse(time.RFC3339, expiresAtStr)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Invalid expires_at format",
