@@ -1,0 +1,11 @@
+# Example variable values for LDAP configuration
+# Copy this file to terraform.tfvars and update with your actual values
+
+# Active Directory example
+ad_bind_password = "your-secure-password"
+
+# Generic LDAP example
+ldap_url           = "ldap://your-ldap-server.example.com:389"
+ldap_bind_dn       = "cn=ldap-reader,ou=service-accounts,dc=example,dc=com"
+ldap_bind_password = "your-ldap-password"
+ldap_base_dn       = "dc=example,dc=com"
