@@ -9,6 +9,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -69,8 +70,7 @@ func (r *OneTimeAccessTokenResource) Schema(ctx context.Context, req resource.Sc
 			},
 			"expires_at": schema.StringAttribute{
 				MarkdownDescription: "The expiration time of the token in RFC3339 format",
-				Optional:            true,
-				Computed:            true,
+				Required:            true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
@@ -82,6 +82,8 @@ func (r *OneTimeAccessTokenResource) Schema(ctx context.Context, req resource.Sc
 			"skip_recreate": schema.BoolAttribute{
 				MarkdownDescription: "If true, the resource will not be recreated when the token is not found (used or expired). This is useful for initial user setup where the token is sent via another provider.",
 				Optional:            true,
+				Computed:            true,
+				Default:             booldefault.StaticBool(true),
 			},
 		},
 	}
@@ -116,18 +118,16 @@ func (r *OneTimeAccessTokenResource) Create(ctx context.Context, req resource.Cr
 	// Prepare the request
 	tokenReq := &client.OneTimeAccessTokenRequest{}
 
-	// Parse expires_at if provided
-	if !data.ExpiresAt.IsNull() && !data.ExpiresAt.IsUnknown() {
-		expiresAt, err := time.Parse(time.RFC3339, data.ExpiresAt.ValueString())
-		if err != nil {
-			resp.Diagnostics.AddError(
-				"Invalid expires_at format",
-				fmt.Sprintf("The expires_at value must be in RFC3339 format: %s", err),
-			)
-			return
-		}
-		tokenReq.ExpiresAt = &expiresAt
+	// Parse expires_at (now required)
+	expiresAt, err := time.Parse(time.RFC3339, data.ExpiresAt.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Invalid expires_at format",
+			fmt.Sprintf("The expires_at value must be in RFC3339 format: %s", err),
+		)
+		return
 	}
+	tokenReq.ExpiresAt = &expiresAt
 
 	// Create the token
 	tflog.Trace(ctx, "creating one-time access token", map[string]interface{}{
@@ -176,7 +176,13 @@ func (r *OneTimeAccessTokenResource) Read(ctx context.Context, req resource.Read
 		// If the token is not found
 		if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "not found") {
 			// Check if we should skip recreation
-			if data.SkipRecreate.ValueBool() {
+			// Default to true if not set
+			skipRecreate := true
+			if !data.SkipRecreate.IsNull() && !data.SkipRecreate.IsUnknown() {
+				skipRecreate = data.SkipRecreate.ValueBool()
+			}
+
+			if skipRecreate {
 				// Keep the resource in state but clear sensitive values
 				// This prevents Terraform from trying to recreate it
 				tflog.Debug(ctx, "Token not found but skip_recreate is true, maintaining resource in state")
@@ -258,6 +264,6 @@ func (r *OneTimeAccessTokenResource) ImportState(ctx context.Context, req resour
 	// Also set the ID
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), req.ID)...)
 
-	// Set skip_recreate to false by default on import
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("skip_recreate"), false)...)
+	// Set skip_recreate to true by default on import
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("skip_recreate"), true)...)
 }

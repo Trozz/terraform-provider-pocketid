@@ -62,8 +62,8 @@ func TestOneTimeAccessTokenResource_Schema(t *testing.T) {
 	assert.True(t, tokenAttr.IsSensitive())
 
 	expiresAtAttr := schema.Attributes["expires_at"]
-	assert.True(t, expiresAtAttr.IsOptional())
-	assert.True(t, expiresAtAttr.IsComputed())
+	assert.True(t, expiresAtAttr.IsRequired())
+	assert.False(t, expiresAtAttr.IsComputed())
 
 	createdAtAttr := schema.Attributes["created_at"]
 	assert.True(t, createdAtAttr.IsComputed())
@@ -73,7 +73,7 @@ func TestOneTimeAccessTokenResource_Schema(t *testing.T) {
 	skipRecreateAttr := schema.Attributes["skip_recreate"]
 	assert.True(t, skipRecreateAttr.IsOptional())
 	assert.False(t, skipRecreateAttr.IsRequired())
-	assert.False(t, skipRecreateAttr.IsComputed())
+	assert.True(t, skipRecreateAttr.IsComputed())
 }
 
 func TestOneTimeAccessTokenResource_Configure(t *testing.T) {

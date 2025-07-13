@@ -192,7 +192,8 @@ func testAccCheckResourceNotExists(resourceName string) resource.TestCheckFunc {
 // Configuration functions
 
 func testAccResourceOneTimeAccessTokenConfig_basic() string {
-	return `
+	expiresAt := time.Now().Add(1 * time.Hour).UTC().Format(time.RFC3339)
+	return fmt.Sprintf(`
 resource "pocketid_user" "test" {
   username   = "token-test-user"
   email      = "token-test@example.com"
@@ -201,9 +202,10 @@ resource "pocketid_user" "test" {
 }
 
 resource "pocketid_one_time_access_token" "test" {
-  user_id = pocketid_user.test.id
+  user_id    = pocketid_user.test.id
+  expires_at = "%s"
 }
-`
+`, expiresAt)
 }
 
 func testAccResourceOneTimeAccessTokenConfig_withExpiry(expiresAt string) string {
@@ -223,6 +225,7 @@ resource "pocketid_one_time_access_token" "test" {
 }
 
 func testAccResourceOneTimeAccessTokenConfig_twoUsers(activeUser string) string {
+	expiresAt := time.Now().Add(1 * time.Hour).UTC().Format(time.RFC3339)
 	return fmt.Sprintf(`
 resource "pocketid_user" "user1" {
   username   = "token-test-user1"
@@ -239,9 +242,10 @@ resource "pocketid_user" "user2" {
 }
 
 resource "pocketid_one_time_access_token" "test" {
-  user_id = pocketid_user.%s.id
+  user_id    = pocketid_user.%s.id
+  expires_at = "%s"
 }
-`, activeUser)
+`, activeUser, expiresAt)
 }
 
 func testAccResourceOneTimeAccessTokenConfig_noUser() string {
@@ -294,6 +298,7 @@ func testAccOneTimeAccessTokenResourceConfig_skipRecreate(username string, skipR
 	if !skipRecreate {
 		resourceName = "test2"
 	}
+	expiresAt := time.Now().Add(1 * time.Hour).UTC().Format(time.RFC3339)
 
 	return fmt.Sprintf(`
 resource "pocketid_user" "%[1]s" {
@@ -305,7 +310,8 @@ resource "pocketid_user" "%[1]s" {
 
 resource "pocketid_one_time_access_token" "%[2]s" {
   user_id       = pocketid_user.%[1]s.id
+  expires_at    = "%[4]s"
   skip_recreate = %[3]t
 }
-`, strings.ReplaceAll(username, ".", "_"), resourceName, skipRecreate)
+`, strings.ReplaceAll(username, ".", "_"), resourceName, skipRecreate, expiresAt)
 }

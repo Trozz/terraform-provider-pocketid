@@ -1,6 +1,7 @@
 # Create a one-time access token for a user
 resource "pocketid_one_time_access_token" "example" {
-  user_id = pocketid_user.example.id
+  user_id    = pocketid_user.example.id
+  expires_at = timeadd(timestamp(), "1h") # Valid for 1 hour
 }
 
 # Create a one-time access token with custom expiry (1 hour from now)
