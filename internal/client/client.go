@@ -535,3 +535,95 @@ func (c *Client) ListUserGroups() (*PaginatedResponse[UserGroup], error) {
 
 	return &result, nil
 }
+
+// Application Configuration methods
+
+// GetApplicationConfiguration retrieves the complete application configuration
+func (c *Client) GetApplicationConfiguration() (*ApplicationConfiguration, error) {
+	body, err := c.doRequest("GET", "/api/application-configuration/all", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var result ApplicationConfiguration
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("error unmarshaling response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// UpdateApplicationConfiguration updates the application configuration
+func (c *Client) UpdateApplicationConfiguration(config *ApplicationConfigurationUpdateRequest) (*ApplicationConfiguration, error) {
+	body, err := c.doRequest("PUT", "/api/application-configuration", config)
+	if err != nil {
+		return nil, err
+	}
+
+	var result ApplicationConfiguration
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("error unmarshaling response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// TriggerLDAPSync triggers an LDAP synchronization
+func (c *Client) TriggerLDAPSync() (*LDAPSyncResponse, error) {
+	body, err := c.doRequest("POST", "/api/application-configuration/sync-ldap", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var result LDAPSyncResponse
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("error unmarshaling response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// GetApplicationConfigurationWithContext retrieves the complete application configuration with context support
+func (c *Client) GetApplicationConfigurationWithContext(ctx context.Context) (*ApplicationConfiguration, error) {
+	body, err := c.doRequestWithContext(ctx, "GET", "/api/application-configuration/all", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var result ApplicationConfiguration
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("error unmarshaling response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// UpdateApplicationConfigurationWithContext updates the application configuration with context support
+func (c *Client) UpdateApplicationConfigurationWithContext(ctx context.Context, config *ApplicationConfigurationUpdateRequest) (*ApplicationConfiguration, error) {
+	body, err := c.doRequestWithContext(ctx, "PUT", "/api/application-configuration", config)
+	if err != nil {
+		return nil, err
+	}
+
+	var result ApplicationConfiguration
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("error unmarshaling response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// TriggerLDAPSyncWithContext triggers an LDAP synchronization with context support
+func (c *Client) TriggerLDAPSyncWithContext(ctx context.Context) (*LDAPSyncResponse, error) {
+	body, err := c.doRequestWithContext(ctx, "POST", "/api/application-configuration/sync-ldap", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var result LDAPSyncResponse
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("error unmarshaling response: %w", err)
+	}
+
+	return &result, nil
+}

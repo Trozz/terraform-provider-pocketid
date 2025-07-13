@@ -136,3 +136,54 @@ type APIKey struct {
 	CreatedAt           string `json:"createdAt,omitempty"`
 	ExpirationEmailSent bool   `json:"expirationEmailSent"`
 }
+
+// ApplicationConfiguration represents the complete application configuration
+type ApplicationConfiguration struct {
+	LDAP *LDAPConfiguration `json:"ldap,omitempty"`
+	// Other configuration sections can be added here as needed
+}
+
+// LDAPConfiguration represents LDAP configuration settings
+type LDAPConfiguration struct {
+	Enabled              string                    `json:"enabled"`                        // "true" or "false"
+	URL                  string                    `json:"url,omitempty"`                  // LDAP server URL
+	BindDN               string                    `json:"bindDN,omitempty"`               // Bind DN for authentication
+	BindPassword         string                    `json:"bindPassword,omitempty"`         // Bind password (sensitive)
+	BaseDN               string                    `json:"baseDN,omitempty"`               // Base DN for searches
+	SkipCertVerify       string                    `json:"skipCertVerify,omitempty"`       // "true" or "false"
+	UserSearchFilter     string                    `json:"userSearchFilter,omitempty"`     // LDAP filter for users
+	UserGroupSearchFilter string                   `json:"userGroupSearchFilter,omitempty"` // LDAP filter for groups
+	UserAttributes       *LDAPUserAttributes       `json:"userAttributes,omitempty"`       // User attribute mappings
+	GroupAttributes      *LDAPGroupAttributes      `json:"groupAttributes,omitempty"`      // Group attribute mappings
+	SoftDeleteUsers      string                    `json:"softDeleteUsers,omitempty"`      // "true" or "false"
+}
+
+// LDAPUserAttributes represents LDAP user attribute mappings
+type LDAPUserAttributes struct {
+	UniqueIdentifier string `json:"uniqueIdentifier,omitempty"` // LDAP attribute for unique ID
+	Username         string `json:"username,omitempty"`         // LDAP attribute for username
+	Email            string `json:"email,omitempty"`            // LDAP attribute for email
+	FirstName        string `json:"firstName,omitempty"`        // LDAP attribute for first name
+	LastName         string `json:"lastName,omitempty"`         // LDAP attribute for last name
+	ProfilePicture   string `json:"profilePicture,omitempty"`   // LDAP attribute for profile picture
+}
+
+// LDAPGroupAttributes represents LDAP group attribute mappings
+type LDAPGroupAttributes struct {
+	Member            string `json:"member,omitempty"`            // LDAP attribute for group members
+	UniqueIdentifier  string `json:"uniqueIdentifier,omitempty"`  // LDAP attribute for unique group ID
+	Name              string `json:"name,omitempty"`              // LDAP attribute for group name
+	AdminGroupName    string `json:"adminGroupName,omitempty"`    // Name of admin group
+}
+
+// ApplicationConfigurationUpdateRequest represents a request to update application configuration
+type ApplicationConfigurationUpdateRequest struct {
+	LDAP *LDAPConfiguration `json:"ldap,omitempty"`
+}
+
+// LDAPSyncResponse represents the response from triggering an LDAP sync
+type LDAPSyncResponse struct {
+	Status    string `json:"status"`              // "success", "failed", "in_progress"
+	Message   string `json:"message,omitempty"`   // Success or error message
+	Timestamp string `json:"timestamp,omitempty"` // When sync was triggered
+}

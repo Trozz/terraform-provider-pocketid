@@ -132,14 +132,28 @@ func (r *ldapSyncResource) Create(ctx context.Context, req resource.CreateReques
 	// Generate a unique ID for this sync operation
 	plan.ID = types.StringValue(fmt.Sprintf("ldap-sync-%d", time.Now().Unix()))
 
-	// TODO: Call API to trigger LDAP sync
-	// This will be implemented by Agent 3
+	// Call API to trigger LDAP sync
 	tflog.Debug(ctx, "Triggering LDAP sync")
 
-	// For now, set dummy values
+	syncResp, err := r.client.TriggerLDAPSyncWithContext(ctx)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error Triggering LDAP Sync",
+			fmt.Sprintf("Could not trigger LDAP sync: %s", err),
+		)
+		return
+	}
+
+	// Update state with sync response
 	plan.LastSync = types.StringValue(time.Now().Format(time.RFC3339))
-	plan.Status = types.StringValue("success")
-	plan.Error = types.StringNull()
+	plan.Status = types.StringValue(syncResp.Status)
+
+	// Set error message if sync failed
+	if syncResp.Status == "failed" && syncResp.Message != "" {
+		plan.Error = types.StringValue(syncResp.Message)
+	} else {
+		plan.Error = types.StringNull()
+	}
 
 	// Set state to fully populated data
 	diags = resp.State.Set(ctx, plan)
@@ -156,9 +170,9 @@ func (r *ldapSyncResource) Read(ctx context.Context, req resource.ReadRequest, r
 		return
 	}
 
-	// TODO: Call API to check sync status
-	// This will be implemented by Agent 3
-	tflog.Debug(ctx, "Reading LDAP sync status")
+	// For sync resource, we don't need to fetch status from API
+	// The state is maintained locally as the sync is a one-time operation
+	tflog.Debug(ctx, "Reading LDAP sync status from state")
 
 	// Set refreshed state
 	diags = resp.State.Set(ctx, &state)
@@ -186,14 +200,28 @@ func (r *ldapSyncResource) Update(ctx context.Context, req resource.UpdateReques
 	// Keep the same ID
 	plan.ID = state.ID
 
-	// TODO: Call API to trigger a new LDAP sync
-	// This will be implemented by Agent 3
+	// Call API to trigger a new LDAP sync
 	tflog.Debug(ctx, "Re-triggering LDAP sync due to update")
+
+	syncResp, err := r.client.TriggerLDAPSyncWithContext(ctx)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error Triggering LDAP Sync",
+			fmt.Sprintf("Could not trigger LDAP sync: %s", err),
+		)
+		return
+	}
 
 	// Update sync metadata
 	plan.LastSync = types.StringValue(time.Now().Format(time.RFC3339))
-	plan.Status = types.StringValue("success")
-	plan.Error = types.StringNull()
+	plan.Status = types.StringValue(syncResp.Status)
+
+	// Set error message if sync failed
+	if syncResp.Status == "failed" && syncResp.Message != "" {
+		plan.Error = types.StringValue(syncResp.Message)
+	} else {
+		plan.Error = types.StringNull()
+	}
 
 	// Update the state
 	diags = resp.State.Set(ctx, plan)

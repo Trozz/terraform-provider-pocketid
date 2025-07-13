@@ -377,11 +377,25 @@ func (r *ldapConfigResource) Create(ctx context.Context, req resource.CreateRequ
 	// Set the ID to "ldap" (singleton resource)
 	plan.ID = types.StringValue("ldap")
 
-	// TODO: Call API to create LDAP configuration
-	// This will be implemented by Agent 3
+	// Convert plan to API request
+	updateReq := r.planToAPIRequest(&plan)
+
+	// Call API to create/update LDAP configuration
 	tflog.Debug(ctx, "Creating LDAP configuration", map[string]interface{}{
 		"enabled": plan.Enabled.ValueBool(),
 	})
+
+	config, err := r.client.UpdateApplicationConfigurationWithContext(ctx, updateReq)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error Creating LDAP Configuration",
+			fmt.Sprintf("Could not create LDAP configuration: %s", err),
+		)
+		return
+	}
+
+	// Update state from API response
+	r.apiResponseToState(config, &plan)
 
 	// Set state to fully populated data
 	diags = resp.State.Set(ctx, plan)
@@ -398,9 +412,27 @@ func (r *ldapConfigResource) Read(ctx context.Context, req resource.ReadRequest,
 		return
 	}
 
-	// TODO: Call API to read LDAP configuration
-	// This will be implemented by Agent 3
+	// Call API to read LDAP configuration
 	tflog.Debug(ctx, "Reading LDAP configuration")
+
+	config, err := r.client.GetApplicationConfigurationWithContext(ctx)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error Reading LDAP Configuration",
+			fmt.Sprintf("Could not read LDAP configuration: %s", err),
+		)
+		return
+	}
+
+	// Handle case where LDAP config doesn't exist or is disabled
+	if config.LDAP == nil || config.LDAP.Enabled != "true" {
+		// Resource has been deleted or disabled outside of Terraform
+		resp.State.RemoveResource(ctx)
+		return
+	}
+
+	// Update state from API response
+	r.apiResponseToState(config, &state)
 
 	// Set refreshed state
 	diags = resp.State.Set(ctx, &state)
@@ -467,11 +499,25 @@ func (r *ldapConfigResource) Update(ctx context.Context, req resource.UpdateRequ
 		}
 	}
 
-	// TODO: Call API to update LDAP configuration
-	// This will be implemented by Agent 3
+	// Convert plan to API request
+	updateReq := r.planToAPIRequest(&plan)
+
+	// Call API to update LDAP configuration
 	tflog.Debug(ctx, "Updating LDAP configuration", map[string]interface{}{
 		"enabled": plan.Enabled.ValueBool(),
 	})
+
+	config, err := r.client.UpdateApplicationConfigurationWithContext(ctx, updateReq)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error Updating LDAP Configuration",
+			fmt.Sprintf("Could not update LDAP configuration: %s", err),
+		)
+		return
+	}
+
+	// Update state from API response
+	r.apiResponseToState(config, &plan)
 
 	// Update the state
 	diags = resp.State.Set(ctx, plan)
@@ -488,9 +534,24 @@ func (r *ldapConfigResource) Delete(ctx context.Context, req resource.DeleteRequ
 		return
 	}
 
-	// TODO: Call API to disable LDAP configuration (set enabled=false)
-	// This will be implemented by Agent 3
+	// Call API to disable LDAP configuration (set enabled=false)
 	tflog.Debug(ctx, "Deleting LDAP configuration (setting enabled=false)")
+
+	// Create a minimal request to disable LDAP
+	updateReq := &client.ApplicationConfigurationUpdateRequest{
+		LDAP: &client.LDAPConfiguration{
+			Enabled: "false",
+		},
+	}
+
+	_, err := r.client.UpdateApplicationConfigurationWithContext(ctx, updateReq)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error Deleting LDAP Configuration",
+			fmt.Sprintf("Could not disable LDAP configuration: %s", err),
+		)
+		return
+	}
 }
 
 // ImportState imports an existing resource into Terraform.
@@ -506,4 +567,134 @@ func (r *ldapConfigResource) ImportState(ctx context.Context, req resource.Impor
 
 	// Set the ID in state
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), "ldap")...)
+}
+
+// planToAPIRequest converts the Terraform plan to an API request
+func (r *ldapConfigResource) planToAPIRequest(plan *ldapConfigResourceModel) *client.ApplicationConfigurationUpdateRequest {
+	req := &client.ApplicationConfigurationUpdateRequest{
+		LDAP: &client.LDAPConfiguration{
+			Enabled: boolToString(plan.Enabled.ValueBool()),
+		},
+	}
+
+	// Only populate other fields if LDAP is enabled
+	if plan.Enabled.ValueBool() {
+		req.LDAP.URL = plan.URL.ValueString()
+		req.LDAP.BindDN = plan.BindDN.ValueString()
+		req.LDAP.BindPassword = plan.BindPassword.ValueString()
+		req.LDAP.BaseDN = plan.BaseDN.ValueString()
+		req.LDAP.SkipCertVerify = boolToString(plan.SkipCertVerify.ValueBool())
+		req.LDAP.UserSearchFilter = plan.UserSearchFilter.ValueString()
+		req.LDAP.UserGroupSearchFilter = plan.UserGroupSearchFilter.ValueString()
+		req.LDAP.SoftDeleteUsers = boolToString(plan.SoftDeleteUsers.ValueBool())
+
+		// User attributes
+		if plan.UserAttributes != nil {
+			req.LDAP.UserAttributes = &client.LDAPUserAttributes{
+				UniqueIdentifier: plan.UserAttributes.UniqueIdentifier.ValueString(),
+				Username:         plan.UserAttributes.Username.ValueString(),
+				Email:            plan.UserAttributes.Email.ValueString(),
+				FirstName:        plan.UserAttributes.FirstName.ValueString(),
+				LastName:         plan.UserAttributes.LastName.ValueString(),
+				ProfilePicture:   plan.UserAttributes.ProfilePicture.ValueString(),
+			}
+		}
+
+		// Group attributes
+		if plan.GroupAttributes != nil {
+			req.LDAP.GroupAttributes = &client.LDAPGroupAttributes{
+				Member:           plan.GroupAttributes.Member.ValueString(),
+				UniqueIdentifier: plan.GroupAttributes.UniqueIdentifier.ValueString(),
+				Name:             plan.GroupAttributes.Name.ValueString(),
+				AdminGroupName:   plan.GroupAttributes.AdminGroupName.ValueString(),
+			}
+		}
+	}
+
+	return req
+}
+
+// apiResponseToState updates the Terraform state from an API response
+func (r *ldapConfigResource) apiResponseToState(config *client.ApplicationConfiguration, state *ldapConfigResourceModel) {
+	if config.LDAP == nil {
+		// LDAP not configured, set to disabled
+		state.Enabled = types.BoolValue(false)
+		return
+	}
+
+	// Core settings
+	state.ID = types.StringValue("ldap")
+	state.Enabled = types.BoolValue(config.LDAP.Enabled == "true")
+
+	// Connection settings
+	if config.LDAP.URL != "" {
+		state.URL = types.StringValue(config.LDAP.URL)
+	}
+	if config.LDAP.BindDN != "" {
+		state.BindDN = types.StringValue(config.LDAP.BindDN)
+	}
+	// Don't update bind_password from API response as it's not returned
+	if config.LDAP.BaseDN != "" {
+		state.BaseDN = types.StringValue(config.LDAP.BaseDN)
+	}
+	if config.LDAP.SkipCertVerify != "" {
+		state.SkipCertVerify = types.BoolValue(config.LDAP.SkipCertVerify == "true")
+	} else {
+		state.SkipCertVerify = types.BoolValue(false)
+	}
+
+	// Search filters
+	if config.LDAP.UserSearchFilter != "" {
+		state.UserSearchFilter = types.StringValue(config.LDAP.UserSearchFilter)
+	} else {
+		state.UserSearchFilter = types.StringValue("(objectClass=person)")
+	}
+	if config.LDAP.UserGroupSearchFilter != "" {
+		state.UserGroupSearchFilter = types.StringValue(config.LDAP.UserGroupSearchFilter)
+	} else {
+		state.UserGroupSearchFilter = types.StringValue("(objectClass=groupOfNames)")
+	}
+
+	// Behavior settings
+	if config.LDAP.SoftDeleteUsers != "" {
+		state.SoftDeleteUsers = types.BoolValue(config.LDAP.SoftDeleteUsers == "true")
+	} else {
+		state.SoftDeleteUsers = types.BoolValue(true)
+	}
+
+	// User attributes
+	if config.LDAP.UserAttributes != nil {
+		if state.UserAttributes == nil {
+			state.UserAttributes = &ldapUserAttributesModel{}
+		}
+		state.UserAttributes.UniqueIdentifier = types.StringValue(config.LDAP.UserAttributes.UniqueIdentifier)
+		state.UserAttributes.Username = types.StringValue(config.LDAP.UserAttributes.Username)
+		state.UserAttributes.Email = types.StringValue(config.LDAP.UserAttributes.Email)
+		state.UserAttributes.FirstName = types.StringValue(config.LDAP.UserAttributes.FirstName)
+		state.UserAttributes.LastName = types.StringValue(config.LDAP.UserAttributes.LastName)
+		state.UserAttributes.ProfilePicture = types.StringValue(config.LDAP.UserAttributes.ProfilePicture)
+	}
+
+	// Group attributes
+	if config.LDAP.GroupAttributes != nil {
+		if state.GroupAttributes == nil {
+			state.GroupAttributes = &ldapGroupAttributesModel{}
+		}
+		if config.LDAP.GroupAttributes.Member != "" {
+			state.GroupAttributes.Member = types.StringValue(config.LDAP.GroupAttributes.Member)
+		} else {
+			state.GroupAttributes.Member = types.StringValue("member")
+		}
+		state.GroupAttributes.UniqueIdentifier = types.StringValue(config.LDAP.GroupAttributes.UniqueIdentifier)
+		state.GroupAttributes.Name = types.StringValue(config.LDAP.GroupAttributes.Name)
+		state.GroupAttributes.AdminGroupName = types.StringValue(config.LDAP.GroupAttributes.AdminGroupName)
+	}
+}
+
+// boolToString converts a boolean to a string ("true" or "false")
+func boolToString(b bool) string {
+	if b {
+		return "true"
+	}
+	return "false"
 }
