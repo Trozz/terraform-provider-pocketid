@@ -627,3 +627,23 @@ func (c *Client) TriggerLDAPSyncWithContext(ctx context.Context) (*LDAPSyncRespo
 
 	return &result, nil
 }
+
+// TestLDAPConnection tests the LDAP connection without context
+func (c *Client) TestLDAPConnection() (*LDAPTestResult, error) {
+	return c.TestLDAPConnectionWithContext(context.Background())
+}
+
+// TestLDAPConnectionWithContext tests the LDAP connection with context support
+func (c *Client) TestLDAPConnectionWithContext(ctx context.Context) (*LDAPTestResult, error) {
+	body, err := c.doRequestWithContext(ctx, "GET", "/api/application-configuration/test-ldap", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var result LDAPTestResult
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("error unmarshaling response: %w", err)
+	}
+
+	return &result, nil
+}

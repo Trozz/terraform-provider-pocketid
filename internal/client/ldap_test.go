@@ -18,13 +18,13 @@ func TestGetApplicationConfiguration(t *testing.T) {
 
 		response := ApplicationConfiguration{
 			LDAP: &LDAPConfiguration{
-				Enabled:              "true",
-				URL:                  "ldaps://ldap.example.com:636",
-				BindDN:               "cn=admin,dc=example,dc=com",
-				BindPassword:         "secret",
-				BaseDN:               "dc=example,dc=com",
-				SkipCertVerify:       "false",
-				UserSearchFilter:     "(objectClass=person)",
+				Enabled:               "true",
+				URL:                   "ldaps://ldap.example.com:636",
+				BindDN:                "cn=admin,dc=example,dc=com",
+				BindPassword:          "secret",
+				BaseDN:                "dc=example,dc=com",
+				SkipCertVerify:        "false",
+				UserSearchFilter:      "(objectClass=person)",
 				UserGroupSearchFilter: "(objectClass=groupOfNames)",
 				UserAttributes: &LDAPUserAttributes{
 					UniqueIdentifier: "objectGUID",
@@ -46,7 +46,8 @@ func TestGetApplicationConfiguration(t *testing.T) {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(response)
+		err := json.NewEncoder(w).Encode(response)
+		require.NoError(t, err)
 	}))
 	defer server.Close()
 
@@ -94,7 +95,8 @@ func TestGetApplicationConfiguration_NoLDAP(t *testing.T) {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(response)
+		err := json.NewEncoder(w).Encode(response)
+		require.NoError(t, err)
 	}))
 	defer server.Close()
 
@@ -122,13 +124,12 @@ func TestUpdateApplicationConfiguration(t *testing.T) {
 		assert.Equal(t, "ldaps://ldap.example.com:636", req.LDAP.URL)
 
 		// Return the updated configuration
-		response := ApplicationConfiguration{
-			LDAP: req.LDAP,
-		}
+		response := ApplicationConfiguration(req)
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(response)
+		jsonErr := json.NewEncoder(w).Encode(response)
+		require.NoError(t, jsonErr)
 	}))
 	defer server.Close()
 
@@ -162,14 +163,18 @@ func TestTriggerLDAPSync(t *testing.T) {
 		assert.Equal(t, "test-key", r.Header.Get("X-API-KEY"))
 
 		response := LDAPSyncResponse{
-			Status:    "success",
-			Message:   "LDAP synchronization completed successfully",
-			Timestamp: "2024-01-15T10:30:00Z",
+			Status:       "completed",
+			StartTime:    "2024-01-15T10:29:00Z",
+			EndTime:      "2024-01-15T10:30:00Z",
+			UsersAdded:   10,
+			UsersUpdated: 5,
+			GroupsAdded:  2,
 		}
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(response)
+		err := json.NewEncoder(w).Encode(response)
+		require.NoError(t, err)
 	}))
 	defer server.Close()
 
@@ -180,9 +185,12 @@ func TestTriggerLDAPSync(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, syncResp)
 
-	assert.Equal(t, "success", syncResp.Status)
-	assert.Equal(t, "LDAP synchronization completed successfully", syncResp.Message)
-	assert.Equal(t, "2024-01-15T10:30:00Z", syncResp.Timestamp)
+	assert.Equal(t, "completed", syncResp.Status)
+	assert.Equal(t, "2024-01-15T10:29:00Z", syncResp.StartTime)
+	assert.Equal(t, "2024-01-15T10:30:00Z", syncResp.EndTime)
+	assert.Equal(t, 10, syncResp.UsersAdded)
+	assert.Equal(t, 5, syncResp.UsersUpdated)
+	assert.Equal(t, 2, syncResp.GroupsAdded)
 }
 
 func TestTriggerLDAPSync_Failed(t *testing.T) {
@@ -192,13 +200,15 @@ func TestTriggerLDAPSync_Failed(t *testing.T) {
 
 		response := LDAPSyncResponse{
 			Status:    "failed",
-			Message:   "Failed to connect to LDAP server",
-			Timestamp: "2024-01-15T10:30:00Z",
+			Error:     "Failed to connect to LDAP server",
+			StartTime: "2024-01-15T10:30:00Z",
+			EndTime:   "2024-01-15T10:30:01Z",
 		}
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(response)
+		err := json.NewEncoder(w).Encode(response)
+		require.NoError(t, err)
 	}))
 	defer server.Close()
 
@@ -210,15 +220,15 @@ func TestTriggerLDAPSync_Failed(t *testing.T) {
 	require.NotNil(t, syncResp)
 
 	assert.Equal(t, "failed", syncResp.Status)
-	assert.Equal(t, "Failed to connect to LDAP server", syncResp.Message)
+	assert.Equal(t, "Failed to connect to LDAP server", syncResp.Error)
 }
 
 func TestApplicationConfiguration_ErrorHandling(t *testing.T) {
 	tests := []struct {
-		name           string
-		statusCode     int
-		errorResponse  ErrorResponse
-		expectedError  string
+		name          string
+		statusCode    int
+		errorResponse ErrorResponse
+		expectedError string
 	}{
 		{
 			name:       "401 Unauthorized",
@@ -259,7 +269,8 @@ func TestApplicationConfiguration_ErrorHandling(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(tt.statusCode)
-				json.NewEncoder(w).Encode(tt.errorResponse)
+				err := json.NewEncoder(w).Encode(tt.errorResponse)
+				require.NoError(t, err)
 			}))
 			defer server.Close()
 

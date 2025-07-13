@@ -149,8 +149,8 @@ func (r *ldapSyncResource) Create(ctx context.Context, req resource.CreateReques
 	plan.Status = types.StringValue(syncResp.Status)
 
 	// Set error message if sync failed
-	if syncResp.Status == "failed" && syncResp.Message != "" {
-		plan.Error = types.StringValue(syncResp.Message)
+	if syncResp.Status == "failed" && syncResp.Error != "" {
+		plan.Error = types.StringValue(syncResp.Error)
 	} else {
 		plan.Error = types.StringNull()
 	}
@@ -217,8 +217,8 @@ func (r *ldapSyncResource) Update(ctx context.Context, req resource.UpdateReques
 	plan.Status = types.StringValue(syncResp.Status)
 
 	// Set error message if sync failed
-	if syncResp.Status == "failed" && syncResp.Message != "" {
-		plan.Error = types.StringValue(syncResp.Message)
+	if syncResp.Status == "failed" && syncResp.Error != "" {
+		plan.Error = types.StringValue(syncResp.Error)
 	} else {
 		plan.Error = types.StringNull()
 	}

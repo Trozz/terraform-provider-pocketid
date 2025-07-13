@@ -145,17 +145,17 @@ type ApplicationConfiguration struct {
 
 // LDAPConfiguration represents LDAP configuration settings
 type LDAPConfiguration struct {
-	Enabled              string                    `json:"enabled"`                        // "true" or "false"
-	URL                  string                    `json:"url,omitempty"`                  // LDAP server URL
-	BindDN               string                    `json:"bindDN,omitempty"`               // Bind DN for authentication
-	BindPassword         string                    `json:"bindPassword,omitempty"`         // Bind password (sensitive)
-	BaseDN               string                    `json:"baseDN,omitempty"`               // Base DN for searches
-	SkipCertVerify       string                    `json:"skipCertVerify,omitempty"`       // "true" or "false"
-	UserSearchFilter     string                    `json:"userSearchFilter,omitempty"`     // LDAP filter for users
-	UserGroupSearchFilter string                   `json:"userGroupSearchFilter,omitempty"` // LDAP filter for groups
-	UserAttributes       *LDAPUserAttributes       `json:"userAttributes,omitempty"`       // User attribute mappings
-	GroupAttributes      *LDAPGroupAttributes      `json:"groupAttributes,omitempty"`      // Group attribute mappings
-	SoftDeleteUsers      string                    `json:"softDeleteUsers,omitempty"`      // "true" or "false"
+	Enabled               string               `json:"enabled"`                         // "true" or "false"
+	URL                   string               `json:"url,omitempty"`                   // LDAP server URL
+	BindDN                string               `json:"bindDN,omitempty"`                // Bind DN for authentication
+	BindPassword          string               `json:"bindPassword,omitempty"`          // Bind password (sensitive)
+	BaseDN                string               `json:"baseDN,omitempty"`                // Base DN for searches
+	SkipCertVerify        string               `json:"skipCertVerify,omitempty"`        // "true" or "false"
+	UserSearchFilter      string               `json:"userSearchFilter,omitempty"`      // LDAP filter for users
+	UserGroupSearchFilter string               `json:"userGroupSearchFilter,omitempty"` // LDAP filter for groups
+	UserAttributes        *LDAPUserAttributes  `json:"userAttributes,omitempty"`        // User attribute mappings
+	GroupAttributes       *LDAPGroupAttributes `json:"groupAttributes,omitempty"`       // Group attribute mappings
+	SoftDeleteUsers       string               `json:"softDeleteUsers,omitempty"`       // "true" or "false"
 }
 
 // LDAPUserAttributes represents LDAP user attribute mappings
@@ -170,10 +170,10 @@ type LDAPUserAttributes struct {
 
 // LDAPGroupAttributes represents LDAP group attribute mappings
 type LDAPGroupAttributes struct {
-	Member            string `json:"member,omitempty"`            // LDAP attribute for group members
-	UniqueIdentifier  string `json:"uniqueIdentifier,omitempty"`  // LDAP attribute for unique group ID
-	Name              string `json:"name,omitempty"`              // LDAP attribute for group name
-	AdminGroupName    string `json:"adminGroupName,omitempty"`    // Name of admin group
+	Member           string `json:"member,omitempty"`           // LDAP attribute for group members
+	UniqueIdentifier string `json:"uniqueIdentifier,omitempty"` // LDAP attribute for unique group ID
+	Name             string `json:"name,omitempty"`             // LDAP attribute for group name
+	AdminGroupName   string `json:"adminGroupName,omitempty"`   // Name of admin group
 }
 
 // ApplicationConfigurationUpdateRequest represents a request to update application configuration
@@ -183,7 +183,25 @@ type ApplicationConfigurationUpdateRequest struct {
 
 // LDAPSyncResponse represents the response from triggering an LDAP sync
 type LDAPSyncResponse struct {
-	Status    string `json:"status"`              // "success", "failed", "in_progress"
-	Message   string `json:"message,omitempty"`   // Success or error message
-	Timestamp string `json:"timestamp,omitempty"` // When sync was triggered
+	Status        string `json:"status"`                   // "completed", "failed", "in_progress"
+	StartTime     string `json:"start_time,omitempty"`     // When sync started
+	EndTime       string `json:"end_time,omitempty"`       // When sync ended
+	UsersAdded    int    `json:"users_added,omitempty"`    // Number of users added
+	UsersUpdated  int    `json:"users_updated,omitempty"`  // Number of users updated
+	UsersRemoved  int    `json:"users_removed,omitempty"`  // Number of users removed
+	GroupsAdded   int    `json:"groups_added,omitempty"`   // Number of groups added
+	GroupsUpdated int    `json:"groups_updated,omitempty"` // Number of groups updated
+	GroupsRemoved int    `json:"groups_removed,omitempty"` // Number of groups removed
+	Error         string `json:"error,omitempty"`          // Error message if failed
+}
+
+// LDAPTestResult represents the result of testing LDAP connectivity
+type LDAPTestResult struct {
+	ConnectionSuccess bool     `json:"connection_success"`      // Whether connection was successful
+	BindSuccess       bool     `json:"bind_success"`            // Whether bind was successful
+	UserCount         int      `json:"user_count,omitempty"`    // Number of users found
+	GroupCount        int      `json:"group_count,omitempty"`   // Number of groups found
+	SampleUsers       []string `json:"sample_users,omitempty"`  // Sample user names
+	SampleGroups      []string `json:"sample_groups,omitempty"` // Sample group names
+	Error             string   `json:"error,omitempty"`         // Error message if any
 }
