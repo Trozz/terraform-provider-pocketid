@@ -201,6 +201,7 @@ func (p *pocketIDProvider) DataSources(_ context.Context) []func() datasource.Da
 		datasources.NewUsersDataSource,
 		datasources.NewGroupDataSource,
 		datasources.NewGroupsDataSource,
+		datasources.NewLDAPTestDataSource,
 	}
 }
 
@@ -210,5 +211,7 @@ func (p *pocketIDProvider) Resources(_ context.Context) []func() resource.Resour
 		resources.NewClientResource,
 		resources.NewUserResource,
 		resources.NewGroupResource,
+		resources.NewLDAPConfigResource,
+		resources.NewLDAPSyncResource,
 	}
 }
