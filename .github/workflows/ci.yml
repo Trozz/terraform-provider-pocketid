@@ -323,7 +323,7 @@ jobs:
         run: ./scripts/ci-status-check.sh
 
       - name: Find Comment
-        if: github.event_name == 'pull_request'
+        if: always() && github.event_name == 'pull_request'
         uses: peter-evans/find-comment@3eae4d37986fb5a8592848f6a574fdf654e61f9e # v3
         id: fc
         with:
@@ -332,7 +332,7 @@ jobs:
           body-includes: <!-- CI-STATUS -->
 
       - name: Generate PR Comment
-        if: github.event_name == 'pull_request'
+        if: always() && github.event_name == 'pull_request'
         id: generate_comment
         env:
           STATUS: ${{ steps.check_status.outputs.status }}
@@ -353,10 +353,16 @@ jobs:
           fi
 
       - name: Create or Update PR Comment
-        if: steps.generate_comment.outputs.should_comment == 'true'
+        if: always() && steps.generate_comment.outputs.should_comment == 'true'
         uses: peter-evans/create-or-update-comment@71345be0265236311c031f5c7866368bd1eff043 # v4
         with:
           comment-id: ${{ steps.fc.outputs.comment-id }}
           issue-number: ${{ github.event.pull_request.number }}
           edit-mode: replace
           body: ${{ steps.generate_comment.outputs.comment }}
+
+      - name: Fail if CI Failed
+        if: always() && steps.check_status.outputs.status == 'failed'
+        run: |
+          echo "::error::CI checks failed. See PR comment for details."
+          exit 1

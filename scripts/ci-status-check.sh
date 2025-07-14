@@ -22,7 +22,6 @@ check_status() {
        [ "$terraform_result" = "failure" ]; then
         echo "::error::One or more CI jobs failed"
         echo "status=failed" >> "$GITHUB_OUTPUT"
-        return 1
     elif [ "$lint_result" = "cancelled" ] || \
          [ "$test_result" = "cancelled" ] || \
          [ "$acceptance_result" = "cancelled" ] || \
@@ -30,7 +29,6 @@ check_status() {
          [ "$terraform_result" = "cancelled" ]; then
         echo "::error::One or more CI jobs were cancelled"
         echo "status=cancelled" >> "$GITHUB_OUTPUT"
-        return 1
     else
         # Count successful and skipped jobs
         local success_count=0
@@ -47,11 +45,9 @@ check_status() {
         if [ $success_count -eq 0 ] && [ $skip_count -gt 0 ]; then
             echo "All CI jobs were skipped (no relevant files changed)"
             echo "status=passed" >> "$GITHUB_OUTPUT"
-            return 0
         else
             echo "CI jobs completed successfully (Success: $success_count, Skipped: $skip_count)"
             echo "status=passed" >> "$GITHUB_OUTPUT"
-            return 0
         fi
     fi
 }
@@ -63,9 +59,9 @@ echo "Acceptance Test: $ACCEPTANCE_RESULT"
 echo "Build Provider: $BUILD_RESULT"
 echo "Terraform Compatibility: $TERRAFORM_RESULT"
 
-# Call check_status and capture its exit code
-if check_status "$LINT_RESULT" "$TEST_RESULT" "$ACCEPTANCE_RESULT" "$BUILD_RESULT" "$TERRAFORM_RESULT"; then
-    exit 0
-else
-    exit 1
-fi
+# Call check_status - it will set the status output
+check_status "$LINT_RESULT" "$TEST_RESULT" "$ACCEPTANCE_RESULT" "$BUILD_RESULT" "$TERRAFORM_RESULT"
+
+# Always exit successfully so subsequent steps can run
+# The actual CI status is communicated via the GITHUB_OUTPUT
+exit 0
