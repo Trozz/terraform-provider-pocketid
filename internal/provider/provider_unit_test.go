@@ -375,8 +375,8 @@ func TestProvider_Resources(t *testing.T) {
 
 	resources := p.Resources(ctx)
 
-	// Should have 3 resources
-	assert.Len(t, resources, 3)
+	// Should have 4 resources
+	assert.Len(t, resources, 4)
 
 	// Verify each resource can be created
 	for i, resFunc := range resources {

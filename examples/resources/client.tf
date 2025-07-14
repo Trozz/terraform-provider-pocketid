@@ -1,7 +1,7 @@
 # Example: Basic OIDC Client Configuration
 resource "pocketid_client" "basic_app" {
-  name        = "My Basic Application"
-  description = "A simple OIDC client for demonstration"
+  client_id = "my-basic-app"
+  name      = "My Basic Application"
 
   # Required: At least one redirect URI must be specified
   redirect_uris = [
@@ -9,20 +9,20 @@ resource "pocketid_client" "basic_app" {
     "https://myapp.example.com/oidc/callback"
   ]
 
-  # Default grant types if not specified: ["authorization_code"]
+  # Grant types
   grant_types = ["authorization_code", "refresh_token"]
 
-  # Default response types if not specified: ["code"]
-  response_types = ["code"]
-
-  # Default scopes if not specified: ["openid"]
+  # Scopes
   scopes = ["openid", "profile", "email"]
+
+  # Authentication method
+  auth_method = "client_secret_post"
 }
 
 # Example: Advanced OIDC Client Configuration
 resource "pocketid_client" "advanced_app" {
-  name        = "My Advanced Application"
-  description = "An OIDC client with all configuration options"
+  client_id = "my-advanced-app"
+  name      = "My Advanced Application"
 
   # Multiple redirect URIs for different environments
   redirect_uris = [
@@ -45,13 +45,6 @@ resource "pocketid_client" "advanced_app" {
     "implicit" # Use with caution
   ]
 
-  # OAuth2 response types
-  response_types = [
-    "code",
-    "id_token",
-    "token"
-  ]
-
   # OIDC scopes - includes custom groups scope
   scopes = [
     "openid",
@@ -61,18 +54,24 @@ resource "pocketid_client" "advanced_app" {
   ]
 
   # Security settings
-  require_consent = true # Require user consent on first login
-  require_pkce    = true # Require PKCE for authorization code flow (recommended)
+  require_auth_time                     = true
+  require_pushed_authorization_requests = false
 
-  # Token lifetimes (in seconds)
-  access_token_lifetime  = 3600   # 1 hour
-  refresh_token_lifetime = 604800 # 7 days
+  # CORS origins for SPAs
+  allowed_cors_origins = [
+    "https://app.example.com",
+    "https://staging.app.example.com",
+    "http://localhost:3000"
+  ]
+
+  # Authentication method
+  auth_method = "client_secret_basic"
 }
 
 # Example: SPA (Single Page Application) Client
 resource "pocketid_client" "spa_app" {
-  name        = "My SPA Application"
-  description = "Single Page Application using PKCE"
+  client_id = "my-spa-app"
+  name      = "My SPA Application"
 
   redirect_uris = [
     "https://spa.example.com/auth/callback",
@@ -80,24 +79,29 @@ resource "pocketid_client" "spa_app" {
   ]
 
   # SPA typically uses only authorization code with PKCE
-  grant_types    = ["authorization_code"]
-  response_types = ["code"]
+  grant_types = ["authorization_code"]
+
+  # SPAs use public client authentication (no secret)
+  auth_method = "none"
 
   # SPAs should always use PKCE
-  require_pkce = true
+  require_pushed_authorization_requests = true
 
   # SPAs typically don't use refresh tokens for security
   # If you do enable refresh tokens, ensure proper storage
   scopes = ["openid", "profile", "email"]
 
-  # Shorter token lifetime for SPAs
-  access_token_lifetime = 900 # 15 minutes
+  # CORS settings for browser-based apps
+  allowed_cors_origins = [
+    "https://spa.example.com",
+    "http://localhost:8080"
+  ]
 }
 
 # Example: Mobile Application Client
 resource "pocketid_client" "mobile_app" {
-  name        = "My Mobile Application"
-  description = "iOS and Android mobile application"
+  client_id = "my-mobile-app"
+  name      = "My Mobile Application"
 
   # Mobile apps use custom URL schemes or universal links
   redirect_uris = [
@@ -116,53 +120,61 @@ resource "pocketid_client" "mobile_app" {
     "refresh_token" # Mobile apps typically use refresh tokens
   ]
 
-  response_types = ["code"]
+  # Mobile apps use public client authentication (no secret)
+  auth_method = "none"
 
-  # Mobile apps must use PKCE
-  require_pkce = true
+  # Mobile apps should use PKCE
+  require_pushed_authorization_requests = true
 
   # All available scopes for mobile
-  scopes = ["openid", "profile", "email", "groups"]
-
-  # Longer token lifetimes for mobile apps
-  access_token_lifetime  = 3600    # 1 hour
-  refresh_token_lifetime = 2592000 # 30 days
+  scopes = ["openid", "profile", "email", "groups", "offline_access"]
 }
 
-# Example: Using client credentials in other resources
+# Example: Service-to-Service Client
 resource "pocketid_client" "api_client" {
-  name          = "API Service Client"
-  description   = "Client for service-to-service authentication"
+  client_id = "api-service-client"
+  name      = "API Service Client"
+
+  # Service clients typically don't need redirect URIs but provider may require it
   redirect_uris = ["https://api.example.com/callback"]
 
-  # Minimal configuration for API client
+  # Service-to-service authentication
   grant_types = ["client_credentials"]
-  scopes      = ["openid"]
+  auth_method = "client_secret_basic"
+  scopes      = ["api:read", "api:write"]
 }
 
-# Output the client credentials (be careful with sensitive data!)
+# Output the client ID (client_secret is sensitive and write-only)
 output "api_client_id" {
   value       = pocketid_client.api_client.client_id
   description = "The client ID for the API service"
-}
-
-output "api_client_secret" {
-  value       = pocketid_client.api_client.client_secret
-  description = "The client secret for the API service"
-  sensitive   = true
 }
 
 # Example: Using with other resources
 locals {
   app_config = {
     oidc = {
-      issuer        = "https://pocket-id.example.com"
-      client_id     = pocketid_client.advanced_app.client_id
-      client_secret = pocketid_client.advanced_app.client_secret
-      redirect_uri  = pocketid_client.advanced_app.redirect_uris[0]
+      issuer       = "https://pocket-id.example.com"
+      client_id    = pocketid_client.advanced_app.client_id
+      redirect_uri = pocketid_client.advanced_app.redirect_uris[0]
+      scopes       = join(" ", pocketid_client.advanced_app.scopes)
     }
   }
 }
 
 # You could then use local.app_config to configure your application
 # For example, storing in a secret manager or configuration service
+
+# Example: Client with specific user group restrictions
+resource "pocketid_client" "restricted_app" {
+  client_id = "restricted-admin-app"
+  name      = "Restricted Admin Application"
+
+  redirect_uris = ["https://admin.example.com/callback"]
+  grant_types   = ["authorization_code", "refresh_token"]
+  auth_method   = "client_secret_post"
+  scopes        = ["openid", "profile", "email", "groups"]
+
+  # Restrict access to specific groups (requires group IDs)
+  # allowed_user_groups = [pocketid_group.admins.id]
+}

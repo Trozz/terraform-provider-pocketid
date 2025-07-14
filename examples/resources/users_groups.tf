@@ -28,13 +28,12 @@ resource "pocketid_user" "admin_user" {
   email      = "admin@example.com"
   first_name = "Admin"
   last_name  = "User"
+  # disabled = false (default)
 
   # Assign to administrator group
   groups = [
     pocketid_group.administrators.id
   ]
-
-
 }
 
 resource "pocketid_user" "john_doe" {
@@ -42,14 +41,13 @@ resource "pocketid_user" "john_doe" {
   email      = "john.doe@example.com"
   first_name = "John"
   last_name  = "Doe"
+  # disabled = false (default)
 
   # Assign to multiple groups
   groups = [
     pocketid_group.developers.id,
     pocketid_group.users.id
   ]
-
-
 }
 
 resource "pocketid_user" "jane_smith" {
@@ -57,12 +55,11 @@ resource "pocketid_user" "jane_smith" {
   email      = "jane.smith@example.com"
   first_name = "Jane"
   last_name  = "Smith"
+  # disabled = false (default)
 
   groups = [
     pocketid_group.users.id
   ]
-
-
 }
 
 # Example: Disabled User Account
@@ -84,12 +81,11 @@ resource "pocketid_user" "service_account" {
   # Service accounts might not need human names
   first_name = "CI/CD"
   last_name  = "Service"
+  # disabled = false (default)
 
   groups = [
     pocketid_group.api_consumers.id
   ]
-
-
 }
 
 # Example: Using Dynamic Groups
@@ -141,13 +137,12 @@ resource "pocketid_user" "team_members" {
   email      = each.value.email
   first_name = each.value.first_name
   last_name  = each.value.last_name
+  # disabled = false (default)
 
   groups = [
     pocketid_group.users.id,
     pocketid_group.departments[each.value.department].id
   ]
-
-
 }
 
 # Example: Outputs for Integration
@@ -180,15 +175,14 @@ output "developer_users" {
 # }
 
 # resource "pocketid_user" "new_admin" {
-#   username    = "admin2"
-#   email       = "admin2@example.com"
-#   first_name  = "Second"
-#   last_name = "Admin"
+#   username   = "admin2"
+#   email      = "admin2@example.com"
+#   first_name = "Second"
+#   last_name  = "Admin"
+#   # disabled = false (default)
 #
 #   # Reference the existing group
 #   groups = [
 #     data.pocketid_group.existing_admins.id
 #   ]
-#
-# }
 # }

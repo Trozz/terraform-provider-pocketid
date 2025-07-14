@@ -81,7 +81,6 @@ output "development_clients" {
 - `clients` (Attributes List) List of all OIDC clients. (see [below for nested schema](#nestedatt--clients))
 
 <a id="nestedatt--clients"></a>
-
 ### Nested Schema for `clients`
 
 Read-Only:

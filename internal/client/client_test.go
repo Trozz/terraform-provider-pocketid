@@ -618,3 +618,105 @@ func TestClient_RateLimitWithoutRetryAfter(t *testing.T) {
 	assert.Equal(t, "test-client-id", result.ID)
 	assert.Equal(t, 2, attempts)
 }
+
+func TestClient_CreateOneTimeAccessToken(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "POST", r.Method)
+		assert.Equal(t, "/api/users/test-user-id/one-time-access-token", r.URL.Path)
+
+		var req client.OneTimeAccessTokenRequest
+		err := json.NewDecoder(r.Body).Decode(&req)
+		assert.NoError(t, err)
+
+		w.Header().Set("Content-Type", "application/json")
+		// API only returns the token
+		response := map[string]string{
+			"token": "test-token-123456",
+		}
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			t.Fatalf("Failed to encode response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	c, err := client.NewClient(server.URL, "test-token", false, 30)
+	require.NoError(t, err)
+
+	// Test without expiry
+	token, err := c.CreateOneTimeAccessToken("test-user-id", &client.OneTimeAccessTokenRequest{})
+	assert.NoError(t, err)
+	assert.Equal(t, "test-token-123456", token.Token)
+	// API doesn't return UserID, ExpiresAt, or CreatedAt
+
+	// Test with expiry
+	expiresAt := time.Now().Add(2 * time.Hour)
+	tokenWithExpiry, err := c.CreateOneTimeAccessToken("test-user-id", &client.OneTimeAccessTokenRequest{
+		ExpiresAt: &expiresAt,
+	})
+	assert.NoError(t, err)
+	assert.Equal(t, "test-token-123456", tokenWithExpiry.Token)
+}
+
+func TestClient_GetOneTimeAccessToken(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "GET", r.Method)
+		assert.Equal(t, "/api/users/test-user-id/one-time-access-token", r.URL.Path)
+
+		// The API returns empty response for GET, just confirming existence
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	c, err := client.NewClient(server.URL, "test-token", false, 30)
+	require.NoError(t, err)
+
+	token, err := c.GetOneTimeAccessToken("test-user-id")
+	assert.NoError(t, err)
+	assert.NotNil(t, token)
+	// The GET endpoint only confirms existence, doesn't return token details
+	assert.Empty(t, token.Token)
+	assert.Empty(t, token.UserID)
+}
+
+func TestClient_DeleteOneTimeAccessToken(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "DELETE", r.Method)
+		assert.Equal(t, "/api/users/test-user-id/one-time-access-token", r.URL.Path)
+
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	c, err := client.NewClient(server.URL, "test-token", false, 30)
+	require.NoError(t, err)
+
+	err = c.DeleteOneTimeAccessToken("test-user-id")
+	assert.NoError(t, err)
+}
+
+func TestClient_OneTimeAccessToken_Error(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		if err := json.NewEncoder(w).Encode(&client.ErrorResponse{
+			Error: "One-time access token not found",
+		}); err != nil {
+			t.Fatalf("Failed to encode response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	c, err := client.NewClient(server.URL, "test-token", false, 30)
+	require.NoError(t, err)
+
+	// Test GET error
+	_, err = c.GetOneTimeAccessToken("test-user-id")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "404")
+	assert.Contains(t, err.Error(), "One-time access token not found")
+
+	// Test DELETE error
+	err = c.DeleteOneTimeAccessToken("test-user-id")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "404")
+}

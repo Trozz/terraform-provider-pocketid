@@ -70,7 +70,6 @@ output "group_names" {
 - `groups` (Attributes List) List of all groups. (see [below for nested schema](#nestedatt--groups))
 
 <a id="nestedatt--groups"></a>
-
 ### Nested Schema for `groups`
 
 Read-Only:

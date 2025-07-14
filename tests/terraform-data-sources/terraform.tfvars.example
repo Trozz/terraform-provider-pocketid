@@ -1,0 +1,12 @@
+# Example configuration for data source tests
+pocketid_base_url  = "http://localhost:1411"
+pocketid_api_token = "your-api-token-here"
+
+# Resource IDs from resource creation test
+# Run the resource test first and copy these values
+admin_user_id             = "uuid-from-resource-test"
+dev_user_id               = "uuid-from-resource-test"
+admin_group_id            = "uuid-from-resource-test"
+developers_group_id       = "uuid-from-resource-test"
+web_app_client_id         = "uuid-from-resource-test"
+service_account_client_id = "uuid-from-resource-test"
