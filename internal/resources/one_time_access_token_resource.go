@@ -135,8 +135,15 @@ func (r *OneTimeAccessTokenResource) Create(ctx context.Context, req resource.Cr
 	tokenReq.ExpiresAt = &expiresAt
 
 	// Create the token
-	tflog.Trace(ctx, "creating one-time access token", map[string]interface{}{
-		"user_id": data.UserID.ValueString(),
+	tflog.Debug(ctx, "creating one-time access token", map[string]interface{}{
+		"user_id":        data.UserID.ValueString(),
+		"expires_at_set": tokenReq.ExpiresAt != nil,
+		"expires_at_value": func() string {
+			if tokenReq.ExpiresAt != nil {
+				return tokenReq.ExpiresAt.Format(time.RFC3339)
+			}
+			return "nil"
+		}(),
 	})
 
 	token, err := r.client.CreateOneTimeAccessToken(data.UserID.ValueString(), tokenReq)
@@ -151,8 +158,10 @@ func (r *OneTimeAccessTokenResource) Create(ctx context.Context, req resource.Cr
 	// Map response to model
 	data.ID = data.UserID
 	data.Token = types.StringValue(token.Token)
-	data.ExpiresAt = types.StringValue(token.ExpiresAt.Format(time.RFC3339))
-	data.CreatedAt = types.StringValue(token.CreatedAt.Format(time.RFC3339))
+	// The API only returns the token, not the full object, so we preserve the values from the request
+	// ExpiresAt is already set from the plan
+	// Set CreatedAt to now since the API doesn't return it
+	data.CreatedAt = types.StringValue(time.Now().UTC().Format(time.RFC3339))
 
 	tflog.Trace(ctx, "created one-time access token", map[string]interface{}{
 		"user_id": data.UserID.ValueString(),
@@ -176,7 +185,7 @@ func (r *OneTimeAccessTokenResource) Read(ctx context.Context, req resource.Read
 		"user_id": data.UserID.ValueString(),
 	})
 
-	token, err := r.client.GetOneTimeAccessToken(data.UserID.ValueString())
+	_, err := r.client.GetOneTimeAccessToken(data.UserID.ValueString())
 	if err != nil {
 		// If the token is not found
 		if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "not found") {
@@ -212,10 +221,9 @@ func (r *OneTimeAccessTokenResource) Read(ctx context.Context, req resource.Read
 		return
 	}
 
-	// Update model with read data
-	data.Token = types.StringValue(token.Token)
-	data.ExpiresAt = types.StringValue(token.ExpiresAt.Format(time.RFC3339))
-	data.CreatedAt = types.StringValue(token.CreatedAt.Format(time.RFC3339))
+	// The GET endpoint doesn't return the full token details, only confirms it exists
+	// We keep the existing state values since they don't change
+	// The token value is sensitive and not returned on GET for security
 
 	// Save updated data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

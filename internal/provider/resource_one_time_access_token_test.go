@@ -39,7 +39,7 @@ func TestAccResourceOneTimeAccessToken_basic(t *testing.T) {
 				ResourceName:            resourceName,
 				ImportState:             true,
 				ImportStateVerify:       true,
-				ImportStateVerifyIgnore: []string{"token"}, // Token can't be retrieved after creation
+				ImportStateVerifyIgnore: []string{"token", "expires_at", "created_at"}, // These values can't be retrieved from API
 			},
 		},
 	})

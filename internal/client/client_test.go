@@ -629,17 +629,11 @@ func TestClient_CreateOneTimeAccessToken(t *testing.T) {
 		assert.NoError(t, err)
 
 		w.Header().Set("Content-Type", "application/json")
-		expiresAt := time.Now().Add(1 * time.Hour)
-		if req.ExpiresAt != nil {
-			expiresAt = *req.ExpiresAt
+		// API only returns the token
+		response := map[string]string{
+			"token": "test-token-123456",
 		}
-
-		if err := json.NewEncoder(w).Encode(&client.OneTimeAccessToken{
-			Token:     "test-token-123456",
-			UserID:    "test-user-id",
-			ExpiresAt: expiresAt,
-			CreatedAt: time.Now(),
-		}); err != nil {
+		if err := json.NewEncoder(w).Encode(response); err != nil {
 			t.Fatalf("Failed to encode response: %v", err)
 		}
 	}))
@@ -652,7 +646,7 @@ func TestClient_CreateOneTimeAccessToken(t *testing.T) {
 	token, err := c.CreateOneTimeAccessToken("test-user-id", &client.OneTimeAccessTokenRequest{})
 	assert.NoError(t, err)
 	assert.Equal(t, "test-token-123456", token.Token)
-	assert.Equal(t, "test-user-id", token.UserID)
+	// API doesn't return UserID, ExpiresAt, or CreatedAt
 
 	// Test with expiry
 	expiresAt := time.Now().Add(2 * time.Hour)
@@ -668,15 +662,8 @@ func TestClient_GetOneTimeAccessToken(t *testing.T) {
 		assert.Equal(t, "GET", r.Method)
 		assert.Equal(t, "/api/users/test-user-id/one-time-access-token", r.URL.Path)
 
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(&client.OneTimeAccessToken{
-			Token:     "existing-token-123456",
-			UserID:    "test-user-id",
-			ExpiresAt: time.Now().Add(1 * time.Hour),
-			CreatedAt: time.Now(),
-		}); err != nil {
-			t.Fatalf("Failed to encode response: %v", err)
-		}
+		// The API returns empty response for GET, just confirming existence
+		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
 
@@ -685,8 +672,10 @@ func TestClient_GetOneTimeAccessToken(t *testing.T) {
 
 	token, err := c.GetOneTimeAccessToken("test-user-id")
 	assert.NoError(t, err)
-	assert.Equal(t, "existing-token-123456", token.Token)
-	assert.Equal(t, "test-user-id", token.UserID)
+	assert.NotNil(t, token)
+	// The GET endpoint only confirms existence, doesn't return token details
+	assert.Empty(t, token.Token)
+	assert.Empty(t, token.UserID)
 }
 
 func TestClient_DeleteOneTimeAccessToken(t *testing.T) {
