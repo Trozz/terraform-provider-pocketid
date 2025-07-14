@@ -306,7 +306,7 @@ jobs:
   ci-status:
     name: CI Status
     runs-on: ubuntu-latest
-    needs: [changes, lint, test, acceptance-test, terraform-compatibility]
+    needs: [changes, lint, test, acceptance-test, build-provider, terraform-compatibility]
     if: always()
     steps:
       - name: Checkout code
@@ -318,6 +318,7 @@ jobs:
           LINT_RESULT: ${{ needs.lint.result }}
           TEST_RESULT: ${{ needs.test.result }}
           ACCEPTANCE_RESULT: ${{ needs.acceptance-test.result }}
+          BUILD_RESULT: ${{ needs.build-provider.result }}
           TERRAFORM_RESULT: ${{ needs.terraform-compatibility.result }}
         run: ./scripts/ci-status-check.sh
 
