@@ -40,26 +40,29 @@ resource "pocketid_group" "users" {
 
 # Users
 resource "pocketid_user" "admin_user" {
+  username   = "test-admin"
   email      = "test-admin@example.com"
   first_name = "Test"
   last_name  = "Admin"
-  enabled    = true
-  groups     = [pocketid_group.admin.id]
+  # disabled = false (default)
+  groups = [pocketid_group.admin.id]
 }
 
 resource "pocketid_user" "dev_user" {
+  username   = "test-developer"
   email      = "test-developer@example.com"
   first_name = "Test"
   last_name  = "Developer"
-  enabled    = true
-  groups     = [pocketid_group.developers.id, pocketid_group.users.id]
+  # disabled = false (default)
+  groups = [pocketid_group.developers.id, pocketid_group.users.id]
 }
 
 resource "pocketid_user" "disabled_user" {
+  username   = "test-disabled"
   email      = "test-disabled@example.com"
   first_name = "Test"
   last_name  = "Disabled"
-  enabled    = false
+  disabled   = true
   groups     = [pocketid_group.users.id]
 }
 
