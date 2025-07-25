@@ -80,7 +80,7 @@ func (r *OneTimeAccessTokenResource) Schema(ctx context.Context, req resource.Sc
 				Computed:            true,
 			},
 			"skip_recreate": schema.BoolAttribute{
-				MarkdownDescription: "If true, the resource will not be recreated when the token is not found (used or expired). This is useful for initial user setup where the token is sent via another provider.",
+				MarkdownDescription: "If true (default), the resource will not be recreated when the token is not found (used or expired). This is useful for initial user setup where the token is sent via another provider. Note: Setting this to false will enable standard Terraform behavior, where the resource is recreated if the token is missing.",
 				Optional:            true,
 				Computed:            true,
 				Default:             booldefault.StaticBool(true),
