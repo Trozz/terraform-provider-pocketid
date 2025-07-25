@@ -37,85 +37,74 @@ resource "random_string" "prefix" {
 
 # Create user groups
 resource "pocketid_group" "developers" {
-  name = "${random_string.prefix.result}-developers"
+  name          = "${random_string.prefix.result}-developers"
+  friendly_name = "Developers Group"
 }
 
 resource "pocketid_group" "admins" {
-  name = "${random_string.prefix.result}-admins"
+  name          = "${random_string.prefix.result}-admins"
+  friendly_name = "Administrators Group"
 }
 
 resource "pocketid_group" "users" {
-  name = "${random_string.prefix.result}-users"
+  name          = "${random_string.prefix.result}-users"
+  friendly_name = "Regular Users Group"
 }
 
 # Create OIDC clients
 
 # Public SPA client
 resource "pocketid_client" "spa_app" {
-  client_id = "${random_string.prefix.result}-spa-app"
-  name      = "${random_string.prefix.result}-React SPA Application"
-  redirect_uris = [
+  name = "${random_string.prefix.result}-React SPA Application"
+  callback_urls = [
     "https://spa.example.com/callback",
     "http://localhost:3000/callback"
   ]
-  post_logout_redirect_uris = [
+  logout_callback_urls = [
     "https://spa.example.com/logout",
     "http://localhost:3000/logout"
   ]
-  grant_types = ["authorization_code"]
-  auth_method = "none"
-  scopes      = ["openid", "profile", "email"]
-  allowed_cors_origins = [
-    "https://spa.example.com",
-    "http://localhost:3000"
-  ]
-  require_pushed_authorization_requests = true
+  is_public    = true
+  pkce_enabled = true
 }
 
 # Confidential web application
 resource "pocketid_client" "web_app" {
-  client_id = "${random_string.prefix.result}-web-app"
-  name      = "${random_string.prefix.result}-Main Web Application"
-  redirect_uris = [
+  name = "${random_string.prefix.result}-Main Web Application"
+  callback_urls = [
     "https://app.example.com/auth/callback",
     "https://staging.example.com/auth/callback",
     "http://localhost:8080/auth/callback"
   ]
-  post_logout_redirect_uris = [
+  logout_callback_urls = [
     "https://app.example.com/logout"
   ]
-  grant_types          = ["authorization_code", "refresh_token"]
-  auth_method          = "client_secret_post"
-  scopes               = ["openid", "profile", "email"]
-  require_auth_time    = true
-  allowed_cors_origins = ["https://app.example.com"]
+  is_public    = false
+  pkce_enabled = true
 }
 
 # Mobile application client
 resource "pocketid_client" "mobile_app" {
-  client_id = "${random_string.prefix.result}-mobile-app"
-  name      = "${random_string.prefix.result}-Mobile Application"
-  redirect_uris = [
+  name = "${random_string.prefix.result}-Mobile Application"
+  callback_urls = [
     "com.example.myapp://callback",
     "myapp://auth/callback"
   ]
-  grant_types                           = ["authorization_code", "refresh_token"]
-  auth_method                           = "none"
-  scopes                                = ["openid", "profile", "email", "offline_access"]
-  require_pushed_authorization_requests = true
+  is_public    = true
+  pkce_enabled = true
 }
 
 # Admin portal with restricted access
 resource "pocketid_client" "admin_portal" {
-  client_id = "${random_string.prefix.result}-admin-portal"
-  name      = "${random_string.prefix.result}-Admin Portal"
-  redirect_uris = [
+  name = "${random_string.prefix.result}-Admin Portal"
+  callback_urls = [
     "https://admin.example.com/callback"
   ]
-  grant_types       = ["authorization_code", "refresh_token"]
-  auth_method       = "client_secret_basic"
-  scopes            = ["openid", "profile", "email", "groups"]
-  require_auth_time = true
+  is_public    = false
+  pkce_enabled = false
+  allowed_user_groups = [
+    pocketid_group.admins.id
+  ]
 }
 
 # Create users
@@ -182,9 +171,9 @@ data "pocketid_client" "existing_client" {
 # List all clients
 data "pocketid_clients" "all_clients" {}
 
-# Get a specific user by username
+# Get a specific user by id
 data "pocketid_user" "admin" {
-  username = pocketid_user.admin_user.username
+  id = pocketid_user.admin_user.id
 }
 
 # List all users
@@ -197,17 +186,17 @@ data "pocketid_users" "developers" {}
 
 output "spa_client_id" {
   description = "Client ID for the SPA application"
-  value       = pocketid_client.spa_app.client_id
+  value       = pocketid_client.spa_app.id
 }
 
 output "web_app_client_id" {
   description = "Client ID for the web application"
-  value       = pocketid_client.web_app.client_id
+  value       = pocketid_client.web_app.id
 }
 
 output "admin_portal_client_id" {
   description = "Client ID for the admin portal"
-  value       = pocketid_client.admin_portal.client_id
+  value       = pocketid_client.admin_portal.id
 }
 
 output "total_clients" {
@@ -246,21 +235,24 @@ resource "pocketid_user" "test_users" {
   groups = [pocketid_group.users.id]
 }
 
-# Create one-time access tokens for initial user setup
-resource "pocketid_one_time_access_token" "admin_token" {
-  user_id       = pocketid_user.admin_user.id
-  expires_at    = timeadd(timestamp(), "24h")
-  skip_recreate = true
-}
-
-resource "pocketid_one_time_access_token" "dev_onboarding" {
-  user_id       = pocketid_user.developer.id
-  expires_at    = timeadd(timestamp(), "168h") # 7 days
-  skip_recreate = true
-}
-
-output "admin_token_value" {
-  description = "One-time access token for admin user (sensitive)"
-  value       = pocketid_one_time_access_token.admin_token.token
-  sensitive   = true
-}
+# Note: one_time_access_token resource is not available in v0.1.5
+# Uncomment when using a newer version that supports this resource
+#
+# # Create one-time access tokens for initial user setup
+# resource "pocketid_one_time_access_token" "admin_token" {
+#   user_id       = pocketid_user.admin_user.id
+#   expires_at    = timeadd(timestamp(), "24h")
+#   skip_recreate = true
+# }
+#
+# resource "pocketid_one_time_access_token" "dev_onboarding" {
+#   user_id       = pocketid_user.developer.id
+#   expires_at    = timeadd(timestamp(), "168h") # 7 days
+#   skip_recreate = true
+# }
+#
+# output "admin_token_value" {
+#   description = "One-time access token for admin user (sensitive)"
+#   value       = pocketid_one_time_access_token.admin_token.token
+#   sensitive   = true
+# }

@@ -27,15 +27,18 @@ variable "pocketid_api_token" {
 
 # Groups
 resource "pocketid_group" "admin" {
-  name = "test-administrators"
+  name          = "test-administrators"
+  friendly_name = "Test Administrators"
 }
 
 resource "pocketid_group" "developers" {
-  name = "test-developers"
+  name          = "test-developers"
+  friendly_name = "Test Developers"
 }
 
 resource "pocketid_group" "users" {
-  name = "test-users"
+  name          = "test-users"
+  friendly_name = "Test Users"
 }
 
 # Users
@@ -81,43 +84,46 @@ resource "pocketid_one_time_access_token" "dev_token" {
 
 # OAuth2 Clients
 resource "pocketid_client" "web_app" {
-  client_id                             = "test-web-app"
-  name                                  = "Test Web Application"
-  grant_types                           = ["authorization_code", "refresh_token"]
-  redirect_uris                         = ["https://app.example.com/callback", "https://app.example.com/auth"]
-  post_logout_redirect_uris             = ["https://app.example.com/logout", "https://app.example.com/"]
-  require_auth_time                     = true
-  require_pushed_authorization_requests = false
-  allowed_cors_origins                  = ["https://app.example.com"]
-  auth_method                           = "client_secret_post"
-  scopes                                = ["openid", "profile", "email"]
+  name = "Test Web Application"
+  callback_urls = [
+    "https://app.example.com/callback",
+    "https://app.example.com/auth"
+  ]
+  logout_callback_urls = [
+    "https://app.example.com/logout",
+    "https://app.example.com/"
+  ]
+  is_public    = false
+  pkce_enabled = true
 }
 
 resource "pocketid_client" "mobile_app" {
-  client_id     = "test-mobile-app"
-  name          = "Test Mobile Application"
-  grant_types   = ["authorization_code", "refresh_token"]
-  redirect_uris = ["com.example.app://callback", "com.example.app://auth"]
-  auth_method   = "none"
-  scopes        = ["openid", "profile", "email", "offline_access"]
+  name = "Test Mobile Application"
+  callback_urls = [
+    "com.example.app://callback",
+    "com.example.app://auth"
+  ]
+  is_public    = true
+  pkce_enabled = true
 }
 
 resource "pocketid_client" "service_account" {
-  client_id   = "test-service-account"
-  name        = "Test Service Account"
-  grant_types = ["client_credentials"]
-  auth_method = "client_secret_basic"
-  scopes      = ["api:read", "api:write"]
+  name = "Test Service Account"
+  callback_urls = [
+    "https://localhost/callback"
+  ]
+  is_public    = false
+  pkce_enabled = false
 }
 
 resource "pocketid_client" "spa_app" {
-  client_id                             = "test-spa"
-  name                                  = "Test Single Page Application"
-  grant_types                           = ["authorization_code"]
-  redirect_uris                         = ["https://spa.example.com/callback"]
-  post_logout_redirect_uris             = ["https://spa.example.com/"]
-  allowed_cors_origins                  = ["https://spa.example.com"]
-  auth_method                           = "none"
-  scopes                                = ["openid", "profile", "email"]
-  require_pushed_authorization_requests = true
+  name = "Test Single Page Application"
+  callback_urls = [
+    "https://spa.example.com/callback"
+  ]
+  logout_callback_urls = [
+    "https://spa.example.com/"
+  ]
+  is_public    = true
+  pkce_enabled = true
 }
