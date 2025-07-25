@@ -89,7 +89,7 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
       - name: Run markdownlint
-        uses: DavidAnson/markdownlint-cli2-action@05f32210e84442804257b2a6f20b273450ec8265 # v19
+        uses: DavidAnson/markdownlint-cli2-action@992badcdf24e3b8eb7e87ff9287fe931bcb00c6e # v19
         with:
           fix: false
           globs: '**/*.md'
@@ -112,7 +112,7 @@ jobs:
         continue-on-error: true
 
       - name: Comment PR on failure
-        uses: actions/github-script@5c56fde4671bc2d3592fb0f2c5b5bab9ddae03b1 # v7
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
         if: github.event_name == 'pull_request' && steps.fmt.outcome == 'failure'
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
