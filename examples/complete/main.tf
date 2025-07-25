@@ -38,17 +38,17 @@ resource "random_string" "prefix" {
 # Create user groups
 resource "pocketid_group" "developers" {
   name          = "${random_string.prefix.result}-developers"
-  friendly_name = "Development Team"
+  friendly_name = "Developers Group"
 }
 
 resource "pocketid_group" "admins" {
   name          = "${random_string.prefix.result}-admins"
-  friendly_name = "System Administrators"
+  friendly_name = "Administrators Group"
 }
 
 resource "pocketid_group" "users" {
   name          = "${random_string.prefix.result}-users"
-  friendly_name = "Regular Users"
+  friendly_name = "Regular Users Group"
 }
 
 # Create OIDC clients
@@ -81,12 +81,6 @@ resource "pocketid_client" "web_app" {
   ]
   is_public    = false
   pkce_enabled = true
-
-  # Only developers and admins can access
-  allowed_user_groups = [
-    pocketid_group.developers.id,
-    pocketid_group.admins.id
-  ]
 }
 
 # Mobile application client
@@ -107,9 +101,7 @@ resource "pocketid_client" "admin_portal" {
     "https://admin.example.com/callback"
   ]
   is_public    = false
-  pkce_enabled = true
-
-  # Only admins can access
+  pkce_enabled = false
   allowed_user_groups = [
     pocketid_group.admins.id
   ]
@@ -123,7 +115,7 @@ resource "pocketid_user" "admin_user" {
   email      = "${random_string.prefix.result}-admin@example.com"
   first_name = "Admin"
   last_name  = "User"
-  is_admin   = true
+  # disabled = false (default)
 
   groups = [
     pocketid_group.admins.id
@@ -136,6 +128,7 @@ resource "pocketid_user" "dev_lead" {
   email      = "${random_string.prefix.result}-john.doe@example.com"
   first_name = "John"
   last_name  = "Doe"
+  # disabled = false (default)
 
   groups = [
     pocketid_group.developers.id,
@@ -148,6 +141,7 @@ resource "pocketid_user" "developer" {
   email      = "${random_string.prefix.result}-jane.smith@example.com"
   first_name = "Jane"
   last_name  = "Smith"
+  # disabled = false (default)
 
   groups = [
     pocketid_group.developers.id
@@ -160,7 +154,7 @@ resource "pocketid_user" "regular_user" {
   email      = "${random_string.prefix.result}-bob.wilson@example.com"
   first_name = "Bob"
   last_name  = "Wilson"
-  locale     = "en-US"
+  # disabled = false (default)
 
   groups = [
     pocketid_group.users.id
@@ -177,9 +171,9 @@ data "pocketid_client" "existing_client" {
 # List all clients
 data "pocketid_clients" "all_clients" {}
 
-# Get a specific user by username
+# Get a specific user by id
 data "pocketid_user" "admin" {
-  username = pocketid_user.admin_user.username
+  id = pocketid_user.admin_user.id
 }
 
 # List all users
@@ -198,12 +192,6 @@ output "spa_client_id" {
 output "web_app_client_id" {
   description = "Client ID for the web application"
   value       = pocketid_client.web_app.id
-}
-
-output "web_app_client_secret" {
-  description = "Client secret for the web application (only available on creation)"
-  value       = pocketid_client.web_app.client_secret
-  sensitive   = true
 }
 
 output "admin_portal_client_id" {
@@ -242,6 +230,29 @@ resource "pocketid_user" "test_users" {
   email      = each.value.email
   first_name = each.value.first_name
   last_name  = each.value.last_name
+  # disabled = false (default)
 
   groups = [pocketid_group.users.id]
 }
+
+# Note: one_time_access_token resource is not available in v0.1.5
+# Uncomment when using a newer version that supports this resource
+#
+# # Create one-time access tokens for initial user setup
+# resource "pocketid_one_time_access_token" "admin_token" {
+#   user_id       = pocketid_user.admin_user.id
+#   expires_at    = timeadd(timestamp(), "24h")
+#   skip_recreate = true
+# }
+#
+# resource "pocketid_one_time_access_token" "dev_onboarding" {
+#   user_id       = pocketid_user.developer.id
+#   expires_at    = timeadd(timestamp(), "168h") # 7 days
+#   skip_recreate = true
+# }
+#
+# output "admin_token_value" {
+#   description = "One-time access token for admin user (sensitive)"
+#   value       = pocketid_one_time_access_token.admin_token.token
+#   sensitive   = true
+# }

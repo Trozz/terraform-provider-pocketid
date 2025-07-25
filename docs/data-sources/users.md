@@ -73,7 +73,6 @@ output "john_doe_email" {
 - `users` (Attributes List) List of all users. (see [below for nested schema](#nestedatt--users))
 
 <a id="nestedatt--users"></a>
-
 ### Nested Schema for `users`
 
 Read-Only:

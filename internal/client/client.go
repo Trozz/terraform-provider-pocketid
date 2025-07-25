@@ -202,7 +202,7 @@ func (c *Client) doSingleRequest(ctx context.Context, method, endpoint string, b
 	})
 
 	if reqBodyLog != nil {
-		tflog.Trace(ctx, "Request Body", map[string]interface{}{
+		tflog.Debug(ctx, "Request Body", map[string]interface{}{
 			"body": string(reqBodyLog),
 		})
 	}
@@ -534,4 +534,72 @@ func (c *Client) ListUserGroups() (*PaginatedResponse[UserGroup], error) {
 	}
 
 	return &result, nil
+}
+
+// OneTimeAccessToken represents a one-time access token
+type OneTimeAccessToken struct {
+	Token     string    `json:"token"`
+	UserID    string    `json:"user_id"`
+	ExpiresAt time.Time `json:"expires_at"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// OneTimeAccessTokenRequest represents a request to create a one-time access token
+type OneTimeAccessTokenRequest struct {
+	ExpiresAt *time.Time `json:"ExpiresAt"`
+}
+
+// GetOneTimeAccessToken checks if a one-time access token exists for a user
+func (c *Client) GetOneTimeAccessToken(userID string) (*OneTimeAccessToken, error) {
+	_, err := c.doRequest("GET", fmt.Sprintf("/api/users/%s/one-time-access-token", userID), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	// The GET endpoint only confirms existence, doesn't return token details
+	// Return an empty token object to indicate it exists
+	return &OneTimeAccessToken{}, nil
+}
+
+// CreateOneTimeAccessToken creates a new one-time access token for a user
+func (c *Client) CreateOneTimeAccessToken(userID string, req *OneTimeAccessTokenRequest) (*OneTimeAccessToken, error) {
+	// Debug log the request
+	ctx := context.Background()
+	if req != nil && req.ExpiresAt != nil {
+		tflog.Debug(ctx, "CreateOneTimeAccessToken request", map[string]interface{}{
+			"user_id":    userID,
+			"expires_at": req.ExpiresAt.Format(time.RFC3339),
+		})
+	} else {
+		tflog.Debug(ctx, "CreateOneTimeAccessToken request with nil expires_at", map[string]interface{}{
+			"user_id":    userID,
+			"req_is_nil": req == nil,
+		})
+	}
+
+	// Also log the JSON that will be sent
+	if req != nil {
+		jsonData, _ := json.Marshal(req)
+		tflog.Debug(ctx, "CreateOneTimeAccessToken JSON", map[string]interface{}{
+			"json": string(jsonData),
+		})
+	}
+
+	body, err := c.doRequestWithContext(ctx, "POST", fmt.Sprintf("/api/users/%s/one-time-access-token", userID), req)
+	if err != nil {
+		return nil, err
+	}
+
+	var token OneTimeAccessToken
+	if err := json.Unmarshal(body, &token); err != nil {
+		return nil, fmt.Errorf("error unmarshaling response: %w", err)
+	}
+
+	return &token, nil
+}
+
+// DeleteOneTimeAccessToken deletes the one-time access token for a user
+func (c *Client) DeleteOneTimeAccessToken(userID string) error {
+	_, err := c.doRequest("DELETE", fmt.Sprintf("/api/users/%s/one-time-access-token", userID), nil)
+	return err
 }
