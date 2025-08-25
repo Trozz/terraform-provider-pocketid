@@ -14,13 +14,13 @@ jobs:
     continue-on-error: true
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v4
         with:
           fetch-depth: 0  # Required for TruffleHog to scan git history
 
       # Secret scanning
       - name: TruffleHog Secret Scan
-        uses: trufflesecurity/trufflehog@907ac64fd42b18dab2ceba2fda39834d3f8ba7e3 # v3.90.1
+        uses: trufflesecurity/trufflehog@0f58ae7c5036094a1e3e750d18772af92821b503 # v3.90.5
         with:
           path: ./
           base: ${{ github.event.repository.default_branch }}
@@ -29,7 +29,7 @@ jobs:
 
       # Vulnerability scanning
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@77137e9dc3ab1b329b7c8a38c2eb7475850a14e8 # master
+        uses: aquasecurity/trivy-action@c26e17b164b0cdf202a7ad18bb218748d7eac385 # master
         with:
           scan-type: "fs"
           scan-ref: "."
@@ -39,7 +39,7 @@ jobs:
           exit-code: "0"  # Don't fail the build
 
       - name: Upload Trivy scan results
-        uses: github/codeql-action/upload-sarif@181d5eefc20863364f96762470ba6f862bdef56b # v3
+        uses: github/codeql-action/upload-sarif@3c3833e0f8c1c83d449a7478aa59c036a9165498 # v3
         if: always()
         with:
           sarif_file: "trivy-results.sarif"
@@ -53,12 +53,12 @@ jobs:
           cache: true
 
       - name: Run gosec security scanner
-        uses: securego/gosec@59ae7e9e275d7dce03bb9c37432b7b3575dbe5fc # master
+        uses: securego/gosec@287b46c018ebe8ca18d45aa8fc0ebea927f1e27d # master
         with:
           args: "-fmt sarif -out gosec-results.sarif ./..."
 
       - name: Upload gosec results
-        uses: github/codeql-action/upload-sarif@181d5eefc20863364f96762470ba6f862bdef56b # v3
+        uses: github/codeql-action/upload-sarif@3c3833e0f8c1c83d449a7478aa59c036a9165498 # v3
         if: always()
         with:
           sarif_file: "gosec-results.sarif"
