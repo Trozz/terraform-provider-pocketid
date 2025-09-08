@@ -25,7 +25,7 @@ jobs:
       scripts: ${{ steps.filter.outputs.scripts }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v4
 
       - name: Check for file changes
         uses: dorny/paths-filter@v3
@@ -48,10 +48,10 @@ jobs:
     if: needs.changes.outputs.go == 'true'
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v4
 
       - name: Set up Go
-        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
@@ -92,10 +92,10 @@ jobs:
     if: needs.changes.outputs.go == 'true'
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v4
 
       - name: Set up Go
-        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v5
         with:
           go-version: "1.24"
           cache: true
@@ -118,7 +118,7 @@ jobs:
           path: junit.xml
 
       - name: Upload coverage reports
-        uses: codecov/codecov-action@18283e04ce6e62d37312384ff67231eb8fd56d24 # v5
+        uses: codecov/codecov-action@5a1091511ad55cbe89839c7260b706298ca349f7 # v5
         if: matrix.go-version == env.GO_VERSION
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -136,10 +136,10 @@ jobs:
     if: needs.changes.outputs.go == 'true'
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v4
 
       - name: Set up Go
-        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
@@ -166,7 +166,7 @@ jobs:
           go test -v -timeout 30m -cover -coverprofile=acceptance-coverage.out ./internal/... -tags=acc
 
       - name: Upload acceptance test coverage
-        uses: codecov/codecov-action@18283e04ce6e62d37312384ff67231eb8fd56d24 # v5
+        uses: codecov/codecov-action@5a1091511ad55cbe89839c7260b706298ca349f7 # v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           slug: Trozz/terraform-provider-pocketid
@@ -191,10 +191,10 @@ jobs:
     if: needs.changes.outputs.go == 'true'
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v4
 
       - name: Set up Go
-        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
@@ -231,7 +231,7 @@ jobs:
         terraform-version: ["1.5.7", "1.6.6", "1.7.5", "1.8.5", "1.9.8"]
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v4
 
       - name: Setup Terraform ${{ matrix.terraform-version }}
         uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
@@ -239,7 +239,7 @@ jobs:
           terraform_version: ${{ matrix.terraform-version }}
 
       - name: Download provider artifact
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v4
         with:
           name: provider-binary
           path: artifact/
@@ -310,7 +310,7 @@ jobs:
     if: always()
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v4
 
       - name: Check CI Status
         id: check_status
