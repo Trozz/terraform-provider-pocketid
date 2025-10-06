@@ -41,6 +41,7 @@ type clientResource struct {
 type clientResourceModel struct {
 	ID                 types.String `tfsdk:"id"`
 	Name               types.String `tfsdk:"name"`
+	ClientID           types.String `tfsdk:"client_id"`
 	CallbackURLs       types.List   `tfsdk:"callback_urls"`
 	LogoutCallbackURLs types.List   `tfsdk:"logout_callback_urls"`
 	IsPublic           types.Bool   `tfsdk:"is_public"`
@@ -70,13 +71,20 @@ func (r *clientResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
-			"name": schema.StringAttribute{
-				Description: "The display name of the OIDC client.",
-				Required:    true,
-				Validators: []validator.String{
-					stringvalidator.LengthBetween(1, 50),
-				},
-			},
+			   "name": schema.StringAttribute{
+				   Description: "The display name of the OIDC client.",
+				   Required:    true,
+				   Validators: []validator.String{
+					   stringvalidator.LengthBetween(1, 50),
+				   },
+			   },
+			   "client_id": schema.StringAttribute{
+				   Description: "The client ID to use for the OIDC client. If not set, one will be generated.",
+				   Optional:    true,
+				   Validators: []validator.String{
+					   stringvalidator.LengthBetween(1, 3), // Minimum 3 chars, adjust as needed
+				   },
+			   },
 			"callback_urls": schema.ListAttribute{
 				Description: "List of allowed callback URLs for the OIDC client.",
 				Required:    true,
@@ -170,14 +178,18 @@ func (r *clientResource) Create(ctx context.Context, req resource.CreateRequest,
 	}
 
 	// Create the client
-	createReq := &client.OIDCClientCreateRequest{
-		Name:               plan.Name.ValueString(),
-		CallbackURLs:       callbackURLs,
-		LogoutCallbackURLs: logoutCallbackURLs,
-		IsPublic:           plan.IsPublic.ValueBool(),
-		PkceEnabled:        plan.PkceEnabled.ValueBool(),
-		Credentials:        client.OIDCClientCredentials{}, // Empty for now
-	}
+       createReq := &client.OIDCClientCreateRequest{
+	       Name:               plan.Name.ValueString(),
+	       CallbackURLs:       callbackURLs,
+	       LogoutCallbackURLs: logoutCallbackURLs,
+	       IsPublic:           plan.IsPublic.ValueBool(),
+	       PkceEnabled:        plan.PkceEnabled.ValueBool(),
+	       Credentials:        client.OIDCClientCredentials{}, // Empty for now
+       }
+       if !plan.ClientID.IsNull() && !plan.ClientID.IsUnknown() && plan.ClientID.ValueString() != "" {
+	       cid := plan.ClientID.ValueString()
+	       createReq.ClientID = &cid
+       }
 
 	tflog.Debug(ctx, "Creating OIDC client", map[string]any{
 		"name":     createReq.Name,
@@ -342,14 +354,18 @@ func (r *clientResource) Update(ctx context.Context, req resource.UpdateRequest,
 	}
 
 	// Update the client
-	updateReq := &client.OIDCClientCreateRequest{
-		Name:               plan.Name.ValueString(),
-		CallbackURLs:       callbackURLs,
-		LogoutCallbackURLs: logoutCallbackURLs,
-		IsPublic:           plan.IsPublic.ValueBool(),
-		PkceEnabled:        plan.PkceEnabled.ValueBool(),
-		Credentials:        client.OIDCClientCredentials{}, // Empty for now
-	}
+       updateReq := &client.OIDCClientCreateRequest{
+	       Name:               plan.Name.ValueString(),
+	       CallbackURLs:       callbackURLs,
+	       LogoutCallbackURLs: logoutCallbackURLs,
+	       IsPublic:           plan.IsPublic.ValueBool(),
+	       PkceEnabled:        plan.PkceEnabled.ValueBool(),
+	       Credentials:        client.OIDCClientCredentials{}, // Empty for now
+       }
+       if !plan.ClientID.IsNull() && !plan.ClientID.IsUnknown() && plan.ClientID.ValueString() != "" {
+	       cid := plan.ClientID.ValueString()
+	       updateReq.ClientID = &cid
+       }
 
 	tflog.Debug(ctx, "Updating OIDC client", map[string]any{
 		"id":   plan.ID.ValueString(),

@@ -50,6 +50,7 @@ type OIDCClientFederatedIdentity struct {
 // OIDCClientCreateRequest represents a request to create or update an OIDC client
 type OIDCClientCreateRequest struct {
 	Name               string                `json:"name"`
+	ClientID           *string               `json:"clientId,omitempty"`
 	CallbackURLs       []string              `json:"callbackURLs"`
 	LogoutCallbackURLs []string              `json:"logoutCallbackURLs,omitempty"`
 	IsPublic           bool                  `json:"isPublic"`

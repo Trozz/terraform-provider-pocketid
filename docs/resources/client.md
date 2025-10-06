@@ -16,7 +16,7 @@ Manages an OIDC client in Pocket-ID. OIDC clients are applications that can auth
 ## Example Usage
 
 ```terraform
-# Create a public SPA client (no client secret)
+## Create a public SPA client (no client secret)
 resource "pocketid_client" "spa_app" {
   name = "React SPA Application"
 
@@ -31,6 +31,19 @@ resource "pocketid_client" "spa_app" {
   ]
 
   is_public    = true
+  pkce_enabled = true
+}
+
+## Create a client with a custom client ID
+resource "pocketid_client" "custom_id_app" {
+  name      = "Custom ID Application"
+  client_id = "my-custom-client-id"
+
+  callback_urls = [
+    "https://custom.example.com/callback"
+  ]
+
+  is_public    = false
   pkce_enabled = true
 }
 
@@ -131,6 +144,7 @@ output "spa_client_id" {
 
 ### Optional
 
+- `client_id` (String) The client ID to use for the OIDC client. If not set, one will be generated.
 - `allowed_user_groups` (List of String) List of user group IDs that are allowed to use this client. If empty, all users can use this client.
 - `is_public` (Boolean) Whether this is a public client (no client secret). Defaults to false.
 - `logout_callback_urls` (List of String) List of allowed logout callback URLs for the OIDC client.
