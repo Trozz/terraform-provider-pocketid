@@ -14,13 +14,13 @@ jobs:
     continue-on-error: true
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v4
         with:
           fetch-depth: 0  # Required for TruffleHog to scan git history
 
       # Secret scanning
       - name: TruffleHog Secret Scan
-        uses: trufflesecurity/trufflehog@907ac64fd42b18dab2ceba2fda39834d3f8ba7e3 # v3.90.1
+        uses: trufflesecurity/trufflehog@466da5b0bb161144f6afca9afe5d57975828c410 # v3.90.8
         with:
           path: ./
           base: ${{ github.event.repository.default_branch }}
@@ -29,7 +29,7 @@ jobs:
 
       # Vulnerability scanning
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@77137e9dc3ab1b329b7c8a38c2eb7475850a14e8 # master
+        uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8 # master
         with:
           scan-type: "fs"
           scan-ref: "."
@@ -39,7 +39,7 @@ jobs:
           exit-code: "0"  # Don't fail the build
 
       - name: Upload Trivy scan results
-        uses: github/codeql-action/upload-sarif@181d5eefc20863364f96762470ba6f862bdef56b # v3
+        uses: github/codeql-action/upload-sarif@f443b600d91635bebf5b0d9ebc620189c0d6fba5 # v3
         if: always()
         with:
           sarif_file: "trivy-results.sarif"
@@ -47,18 +47,18 @@ jobs:
 
       # Go security scanning
       - name: Set up Go
-        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v5
         with:
           go-version: "1.24"
           cache: true
 
       - name: Run gosec security scanner
-        uses: securego/gosec@59ae7e9e275d7dce03bb9c37432b7b3575dbe5fc # master
+        uses: securego/gosec@f6760311e8a3db06e3d2d7e9817874dadcd34a25 # master
         with:
           args: "-fmt sarif -out gosec-results.sarif ./..."
 
       - name: Upload gosec results
-        uses: github/codeql-action/upload-sarif@181d5eefc20863364f96762470ba6f862bdef56b # v3
+        uses: github/codeql-action/upload-sarif@f443b600d91635bebf5b0d9ebc620189c0d6fba5 # v3
         if: always()
         with:
           sarif_file: "gosec-results.sarif"
