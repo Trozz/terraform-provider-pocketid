@@ -24,13 +24,14 @@ resource "pocketid_user" "example" {
 
 # Create a user with full details
 resource "pocketid_user" "full_example" {
-  username   = "jane.smith"
-  email      = "jane.smith@example.com"
-  first_name = "Jane"
-  last_name  = "Smith"
-  locale     = "en-US"
-  is_admin   = false
-  disabled   = false
+  username     = "jane.smith"
+  email        = "jane.smith@example.com"
+  first_name   = "Jane"
+  last_name    = "Smith"
+  display_name = "Jane Smith"  # Optional: if not set, defaults to "first_name last_name"
+  locale       = "en-US"
+  is_admin     = false
+  disabled     = false
 }
 
 # Create an admin user
@@ -97,6 +98,7 @@ resource "pocketid_user" "team" {
 ### Optional
 
 - `disabled` (Boolean) Whether the user account is disabled. Defaults to false. Note: Due to API limitations, this field cannot be set during user creation. To create a disabled user, first create the user and then update it to set disabled to true.
+- `display_name` (String) The display name of the user. If not provided, it is automatically set to first_name + last_name.
 - `first_name` (String) The first name of the user.
 - `groups` (Set of String) List of group IDs the user belongs to.
 - `is_admin` (Boolean) Whether the user has administrator privileges. Defaults to false.
