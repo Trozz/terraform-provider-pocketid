@@ -93,3 +93,5 @@ Read-Only:
 - `logout_callback_urls` (List of String) List of allowed logout callback URLs for the OIDC client.
 - `name` (String) The display name of the OIDC client.
 - `pkce_enabled` (Boolean) Whether PKCE is enabled for this client.
+- `requires_reauthentication` (Boolean) Whether this client requires reauthentication on all authorizations.
+- `launch_url` (String) Optional launch URL associated with the client.

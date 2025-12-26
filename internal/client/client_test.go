@@ -266,6 +266,88 @@ func TestClient_GenerateClientSecret(t *testing.T) {
 	assert.Equal(t, expectedSecret, secret)
 }
 
+func TestClient_CreateClient_WithNewFields(t *testing.T) {
+	expectedClient := &client.OIDCClient{
+		ID:                       "test-client-id",
+		Name:                     "Test Client",
+		CallbackURLs:             []string{"https://example.com/callback"},
+		IsPublic:                 false,
+		PkceEnabled:              true,
+		HasLogo:                  false,
+		RequiresReauthentication: true,
+		LaunchURL:                "https://example.com/launch",
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "POST", r.Method)
+		assert.Equal(t, "/api/oidc/clients", r.URL.Path)
+
+		var req client.OIDCClientCreateRequest
+		err := json.NewDecoder(r.Body).Decode(&req)
+		require.NoError(t, err)
+		assert.Equal(t, "Test Client", req.Name)
+		assert.Equal(t, []string{"https://example.com/callback"}, req.CallbackURLs)
+		assert.True(t, req.RequiresReauthentication)
+		if assert.NotNil(t, req.LaunchURL) {
+			assert.Equal(t, "https://example.com/launch", *req.LaunchURL)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(expectedClient); err != nil {
+			t.Fatalf("Failed to encode response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	c, err := client.NewClient(server.URL, "test-token", false, 30)
+	require.NoError(t, err)
+
+	launch := "https://example.com/launch"
+	createReq := &client.OIDCClientCreateRequest{
+		Name:                     "Test Client",
+		CallbackURLs:             []string{"https://example.com/callback"},
+		IsPublic:                 false,
+		PkceEnabled:              true,
+		RequiresReauthentication: true,
+		LaunchURL:                &launch,
+	}
+
+	result, err := c.CreateClient(createReq)
+	assert.NoError(t, err)
+	assert.Equal(t, expectedClient, result)
+}
+
+func TestClient_GetClient_WithNewFields(t *testing.T) {
+	expectedClient := &client.OIDCClient{
+		ID:                       "test-client-id",
+		Name:                     "Test Client",
+		CallbackURLs:             []string{"https://example.com/callback"},
+		IsPublic:                 false,
+		PkceEnabled:              true,
+		HasLogo:                  false,
+		RequiresReauthentication: false,
+		LaunchURL:                "",
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "GET", r.Method)
+		assert.Equal(t, "/api/oidc/clients/test-client-id", r.URL.Path)
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(expectedClient); err != nil {
+			t.Fatalf("Failed to encode response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	c, err := client.NewClient(server.URL, "test-token", false, 30)
+	require.NoError(t, err)
+
+	result, err := c.GetClient("test-client-id")
+	assert.NoError(t, err)
+	assert.Equal(t, expectedClient, result)
+}
+
 func TestClient_ErrorHandling(t *testing.T) {
 	tests := []struct {
 		name           string

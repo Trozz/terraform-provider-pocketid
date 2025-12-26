@@ -50,6 +50,17 @@ func TestClientResource_Schema(t *testing.T) {
 	assert.True(t, ok, "pkce_enabled attribute should exist")
 	assert.True(t, pkceEnabledAttr.IsOptional(), "pkce_enabled should be optional")
 	assert.True(t, pkceEnabledAttr.IsComputed(), "pkce_enabled should be computed")
+
+	// Verify new optional attributes
+	requiresReauthAttr, ok := schemaResponse.Schema.Attributes["requires_reauthentication"]
+	assert.True(t, ok, "requires_reauthentication attribute should exist")
+	assert.True(t, requiresReauthAttr.IsOptional(), "requires_reauthentication should be optional")
+	assert.True(t, requiresReauthAttr.IsComputed(), "requires_reauthentication should be computed")
+
+	launchURLAttr, ok := schemaResponse.Schema.Attributes["launch_url"]
+	assert.True(t, ok, "launch_url attribute should exist")
+	assert.True(t, launchURLAttr.IsOptional(), "launch_url should be optional")
+	assert.True(t, launchURLAttr.IsComputed(), "launch_url should be computed")
 }
 
 func TestGroupResource_Schema(t *testing.T) {

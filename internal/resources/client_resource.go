@@ -39,16 +39,18 @@ type clientResource struct {
 
 // clientResourceModel maps the resource schema data.
 type clientResourceModel struct {
-	ID                 types.String `tfsdk:"id"`
-	Name               types.String `tfsdk:"name"`
-	ClientID           types.String `tfsdk:"client_id"`
-	CallbackURLs       types.List   `tfsdk:"callback_urls"`
-	LogoutCallbackURLs types.List   `tfsdk:"logout_callback_urls"`
-	IsPublic           types.Bool   `tfsdk:"is_public"`
-	PkceEnabled        types.Bool   `tfsdk:"pkce_enabled"`
-	AllowedUserGroups  types.List   `tfsdk:"allowed_user_groups"`
-	HasLogo            types.Bool   `tfsdk:"has_logo"`
-	ClientSecret       types.String `tfsdk:"client_secret"`
+	ID                       types.String `tfsdk:"id"`
+	Name                     types.String `tfsdk:"name"`
+	ClientID                 types.String `tfsdk:"client_id"`
+	CallbackURLs             types.List   `tfsdk:"callback_urls"`
+	LogoutCallbackURLs       types.List   `tfsdk:"logout_callback_urls"`
+	IsPublic                 types.Bool   `tfsdk:"is_public"`
+	PkceEnabled              types.Bool   `tfsdk:"pkce_enabled"`
+	AllowedUserGroups        types.List   `tfsdk:"allowed_user_groups"`
+	HasLogo                  types.Bool   `tfsdk:"has_logo"`
+	RequiresReauthentication types.Bool   `tfsdk:"requires_reauthentication"`
+	LaunchURL                types.String `tfsdk:"launch_url"`
+	ClientSecret             types.String `tfsdk:"client_secret"`
 }
 
 // Metadata returns the resource type name.
@@ -71,20 +73,20 @@ func (r *clientResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
-			   "name": schema.StringAttribute{
-				   Description: "The display name of the OIDC client.",
-				   Required:    true,
-				   Validators: []validator.String{
-					   stringvalidator.LengthBetween(1, 50),
-				   },
-			   },
-			   "client_id": schema.StringAttribute{
-				   Description: "The client ID to use for the OIDC client. If not set, one will be generated.",
-				   Optional:    true,
-				   Validators: []validator.String{
-					   stringvalidator.LengthBetween(3, 50), // Minimum 3 chars, maximum 50 chars
-				   },
-			   },
+			"name": schema.StringAttribute{
+				Description: "The display name of the OIDC client.",
+				Required:    true,
+				Validators: []validator.String{
+					stringvalidator.LengthBetween(1, 50),
+				},
+			},
+			"client_id": schema.StringAttribute{
+				Description: "The client ID to use for the OIDC client. If not set, one will be generated.",
+				Optional:    true,
+				Validators: []validator.String{
+					stringvalidator.LengthBetween(3, 50), // Minimum 3 chars, maximum 50 chars
+				},
+			},
 			"callback_urls": schema.ListAttribute{
 				Description: "List of allowed callback URLs for the OIDC client.",
 				Required:    true,
@@ -106,6 +108,17 @@ func (r *clientResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 				Optional:    true,
 				Computed:    true,
 				Default:     booldefault.StaticBool(false),
+			},
+			"requires_reauthentication": schema.BoolAttribute{
+				Description: "Whether this client requires reauthentication for certain flows. Defaults to false.",
+				Optional:    true,
+				Computed:    true,
+				Default:     booldefault.StaticBool(false),
+			},
+			"launch_url": schema.StringAttribute{
+				Description: "Optional launch URL associated with the client.",
+				Optional:    true,
+				Computed:    true,
 			},
 			"pkce_enabled": schema.BoolAttribute{
 				Description: "Whether PKCE is enabled for this client. Defaults to true.",
@@ -177,19 +190,12 @@ func (r *clientResource) Create(ctx context.Context, req resource.CreateRequest,
 		return
 	}
 
-	// Create the client
-       createReq := &client.OIDCClientCreateRequest{
-	       Name:               plan.Name.ValueString(),
-	       CallbackURLs:       callbackURLs,
-	       LogoutCallbackURLs: logoutCallbackURLs,
-	       IsPublic:           plan.IsPublic.ValueBool(),
-	       PkceEnabled:        plan.PkceEnabled.ValueBool(),
-	       Credentials:        client.OIDCClientCredentials{}, // Empty for now
-       }
-       if !plan.ClientID.IsNull() && !plan.ClientID.IsUnknown() && plan.ClientID.ValueString() != "" {
-	       cid := plan.ClientID.ValueString()
-	       createReq.ClientID = &cid
-       }
+	// Build the create request using helper
+	createReq := buildCreateRequestFromPlan(ctx, &plan)
+	if !plan.ClientID.IsNull() && !plan.ClientID.IsUnknown() && plan.ClientID.ValueString() != "" {
+		cid := plan.ClientID.ValueString()
+		createReq.ClientID = &cid
+	}
 
 	tflog.Debug(ctx, "Creating OIDC client", map[string]any{
 		"name":     createReq.Name,
@@ -205,13 +211,14 @@ func (r *clientResource) Create(ctx context.Context, req resource.CreateRequest,
 		return
 	}
 
-	tflog.Debug(ctx, "Created OIDC client", map[string]any{
-		"id": clientResp.ID,
-	})
+	tflog.Debug(ctx, "Created OIDC client", map[string]any{"id": clientResp.ID})
 
-	// Set state values
-	plan.ID = types.StringValue(clientResp.ID)
-	plan.HasLogo = types.BoolValue(clientResp.HasLogo)
+	// Map API response to Terraform model and preserve fields
+	apiModel := mapAPIClientToModel(ctx, clientResp)
+	plan.ID = apiModel.ID
+	plan.HasLogo = apiModel.HasLogo
+	plan.RequiresReauthentication = apiModel.RequiresReauthentication
+	plan.LaunchURL = apiModel.LaunchURL
 
 	// Generate client secret for non-public clients
 	if !plan.IsPublic.ValueBool() {
@@ -237,9 +244,7 @@ func (r *clientResource) Create(ctx context.Context, req resource.CreateRequest,
 		diags = plan.AllowedUserGroups.ElementsAs(ctx, &groupIDs, false)
 		resp.Diagnostics.Append(diags...)
 		if !resp.Diagnostics.HasError() && len(groupIDs) > 0 {
-			tflog.Debug(ctx, "Updating allowed user groups", map[string]any{
-				"groups": groupIDs,
-			})
+			tflog.Debug(ctx, "Updating allowed user groups", map[string]any{"groups": groupIDs})
 			err = r.client.UpdateClientAllowedUserGroups(clientResp.ID, groupIDs)
 			if err != nil {
 				// Try to clean up the created client
@@ -354,18 +359,26 @@ func (r *clientResource) Update(ctx context.Context, req resource.UpdateRequest,
 	}
 
 	// Update the client
-       updateReq := &client.OIDCClientCreateRequest{
-	       Name:               plan.Name.ValueString(),
-	       CallbackURLs:       callbackURLs,
-	       LogoutCallbackURLs: logoutCallbackURLs,
-	       IsPublic:           plan.IsPublic.ValueBool(),
-	       PkceEnabled:        plan.PkceEnabled.ValueBool(),
-	       Credentials:        client.OIDCClientCredentials{}, // Empty for now
-       }
-       if !plan.ClientID.IsNull() && !plan.ClientID.IsUnknown() && plan.ClientID.ValueString() != "" {
-	       cid := plan.ClientID.ValueString()
-	       updateReq.ClientID = &cid
-       }
+	updateReq := &client.OIDCClientCreateRequest{
+		Name:                     plan.Name.ValueString(),
+		CallbackURLs:             callbackURLs,
+		LogoutCallbackURLs:       logoutCallbackURLs,
+		IsPublic:                 plan.IsPublic.ValueBool(),
+		RequiresReauthentication: plan.RequiresReauthentication.ValueBool(),
+		LaunchURL: func() *string {
+			if !plan.LaunchURL.IsNull() && !plan.LaunchURL.IsUnknown() && plan.LaunchURL.ValueString() != "" {
+				v := plan.LaunchURL.ValueString()
+				return &v
+			}
+			return nil
+		}(),
+		PkceEnabled: plan.PkceEnabled.ValueBool(),
+		Credentials: client.OIDCClientCredentials{}, // Empty for now
+	}
+	if !plan.ClientID.IsNull() && !plan.ClientID.IsUnknown() && plan.ClientID.ValueString() != "" {
+		cid := plan.ClientID.ValueString()
+		updateReq.ClientID = &cid
+	}
 
 	tflog.Debug(ctx, "Updating OIDC client", map[string]any{
 		"id":   plan.ID.ValueString(),
@@ -383,6 +396,12 @@ func (r *clientResource) Update(ctx context.Context, req resource.UpdateRequest,
 
 	// Update state values
 	plan.HasLogo = types.BoolValue(clientResp.HasLogo)
+	plan.RequiresReauthentication = types.BoolValue(clientResp.RequiresReauthentication)
+	if clientResp.LaunchURL != "" {
+		plan.LaunchURL = types.StringValue(clientResp.LaunchURL)
+	} else {
+		plan.LaunchURL = types.StringNull()
+	}
 
 	// Handle allowed user groups
 	var plannedGroupIDs []string
@@ -510,4 +529,72 @@ func (v urlValidator) ValidateString(ctx context.Context, req validator.StringRe
 			fmt.Sprintf("The value %q is not a valid URL: must include scheme and host", value),
 		)
 	}
+}
+
+// buildCreateRequestFromPlan converts the Terraform plan model into an API create request.
+func buildCreateRequestFromPlan(ctx context.Context, plan *clientResourceModel) *client.OIDCClientCreateRequest {
+	var callbackURLs []string
+	_ = plan.CallbackURLs.ElementsAs(ctx, &callbackURLs, false)
+
+	var logoutCallbackURLs []string
+	if !plan.LogoutCallbackURLs.IsNull() {
+		_ = plan.LogoutCallbackURLs.ElementsAs(ctx, &logoutCallbackURLs, false)
+	}
+
+	var launchPtr *string
+	if !plan.LaunchURL.IsNull() && !plan.LaunchURL.IsUnknown() && plan.LaunchURL.ValueString() != "" {
+		v := plan.LaunchURL.ValueString()
+		launchPtr = &v
+	}
+
+	return &client.OIDCClientCreateRequest{
+		Name:                     plan.Name.ValueString(),
+		CallbackURLs:             callbackURLs,
+		LogoutCallbackURLs:       logoutCallbackURLs,
+		IsPublic:                 plan.IsPublic.ValueBool(),
+		RequiresReauthentication: plan.RequiresReauthentication.ValueBool(),
+		LaunchURL:                launchPtr,
+		PkceEnabled:              plan.PkceEnabled.ValueBool(),
+		Credentials:              client.OIDCClientCredentials{},
+	}
+}
+
+// mapAPIClientToModel maps an API OIDCClient response into the Terraform resource model.
+func mapAPIClientToModel(ctx context.Context, api *client.OIDCClient) clientResourceModel {
+	var model clientResourceModel
+	model.ID = types.StringValue(api.ID)
+	model.Name = types.StringValue(api.Name)
+	model.IsPublic = types.BoolValue(api.IsPublic)
+	model.PkceEnabled = types.BoolValue(api.PkceEnabled)
+	model.HasLogo = types.BoolValue(api.HasLogo)
+
+	callbackURLs, _ := types.ListValueFrom(ctx, types.StringType, api.CallbackURLs)
+	model.CallbackURLs = callbackURLs
+
+	if len(api.LogoutCallbackURLs) > 0 {
+		logoutURLs, _ := types.ListValueFrom(ctx, types.StringType, api.LogoutCallbackURLs)
+		model.LogoutCallbackURLs = logoutURLs
+	} else {
+		model.LogoutCallbackURLs = types.ListNull(types.StringType)
+	}
+
+	if len(api.AllowedUserGroups) > 0 {
+		var groupIDs []string
+		for _, g := range api.AllowedUserGroups {
+			groupIDs = append(groupIDs, g.ID)
+		}
+		allowed, _ := types.ListValueFrom(ctx, types.StringType, groupIDs)
+		model.AllowedUserGroups = allowed
+	} else {
+		model.AllowedUserGroups = types.ListNull(types.StringType)
+	}
+
+	model.RequiresReauthentication = types.BoolValue(api.RequiresReauthentication)
+	if api.LaunchURL != "" {
+		model.LaunchURL = types.StringValue(api.LaunchURL)
+	} else {
+		model.LaunchURL = types.StringNull()
+	}
+
+	return model
 }
