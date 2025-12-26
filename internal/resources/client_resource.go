@@ -292,6 +292,12 @@ func (r *clientResource) Read(ctx context.Context, req resource.ReadRequest, res
 	state.IsPublic = types.BoolValue(clientResp.IsPublic)
 	state.PkceEnabled = types.BoolValue(clientResp.PkceEnabled)
 	state.HasLogo = types.BoolValue(clientResp.HasLogo)
+	state.RequiresReauthentication = types.BoolValue(clientResp.RequiresReauthentication)
+	if clientResp.LaunchURL != "" {
+		state.LaunchURL = types.StringValue(clientResp.LaunchURL)
+	} else {
+		state.LaunchURL = types.StringNull()
+	}
 
 	// Update callback URLs
 	callbackURLs, diags := types.ListValueFrom(ctx, types.StringType, clientResp.CallbackURLs)
