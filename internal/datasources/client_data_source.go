@@ -145,14 +145,14 @@ func (d *clientDataSource) Read(ctx context.Context, req datasource.ReadRequest,
 
 	// Map response to model
 	state := clientDataSourceModel{
-		ID:          types.StringValue(clientResp.ID),
-		Name:        types.StringValue(clientResp.Name),
-		IsPublic:    types.BoolValue(clientResp.IsPublic),
-		PkceEnabled: types.BoolValue(clientResp.PkceEnabled),
-		HasLogo:     types.BoolValue(clientResp.HasLogo),
+		ID:                       types.StringValue(clientResp.ID),
+		Name:                     types.StringValue(clientResp.Name),
+		IsPublic:                 types.BoolValue(clientResp.IsPublic),
+		PkceEnabled:              types.BoolValue(clientResp.PkceEnabled),
+		HasLogo:                  types.BoolValue(clientResp.HasLogo),
+		RequiresReauthentication: types.BoolValue(clientResp.RequiresReauthentication),
 	}
 
-	state.RequiresReauthentication = types.BoolValue(clientResp.RequiresReauthentication)
 	if clientResp.LaunchURL != "" {
 		state.LaunchURL = types.StringValue(clientResp.LaunchURL)
 	} else {

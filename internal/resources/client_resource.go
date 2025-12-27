@@ -211,7 +211,9 @@ func (r *clientResource) Create(ctx context.Context, req resource.CreateRequest,
 		return
 	}
 
-	tflog.Debug(ctx, "Created OIDC client", map[string]any{"id": clientResp.ID})
+	tflog.Debug(ctx, "Created OIDC client", map[string]any{
+		"id": clientResp.ID,
+	})
 
 	// Map API response to Terraform model and preserve fields
 	apiModel := mapAPIClientToModel(ctx, clientResp)
@@ -244,7 +246,9 @@ func (r *clientResource) Create(ctx context.Context, req resource.CreateRequest,
 		diags = plan.AllowedUserGroups.ElementsAs(ctx, &groupIDs, false)
 		resp.Diagnostics.Append(diags...)
 		if !resp.Diagnostics.HasError() && len(groupIDs) > 0 {
-			tflog.Debug(ctx, "Updating allowed user groups", map[string]any{"groups": groupIDs})
+			tflog.Debug(ctx, "Updating allowed user groups", map[string]any{
+				"groups": groupIDs,
+			})
 			err = r.client.UpdateClientAllowedUserGroups(clientResp.ID, groupIDs)
 			if err != nil {
 				// Try to clean up the created client
@@ -573,6 +577,7 @@ func mapAPIClientToModel(ctx context.Context, api *client.OIDCClient) clientReso
 	model.IsPublic = types.BoolValue(api.IsPublic)
 	model.PkceEnabled = types.BoolValue(api.PkceEnabled)
 	model.HasLogo = types.BoolValue(api.HasLogo)
+	model.RequiresReauthentication = types.BoolValue(api.RequiresReauthentication)
 
 	callbackURLs, _ := types.ListValueFrom(ctx, types.StringType, api.CallbackURLs)
 	model.CallbackURLs = callbackURLs
@@ -595,7 +600,6 @@ func mapAPIClientToModel(ctx context.Context, api *client.OIDCClient) clientReso
 		model.AllowedUserGroups = types.ListNull(types.StringType)
 	}
 
-	model.RequiresReauthentication = types.BoolValue(api.RequiresReauthentication)
 	if api.LaunchURL != "" {
 		model.LaunchURL = types.StringValue(api.LaunchURL)
 	} else {

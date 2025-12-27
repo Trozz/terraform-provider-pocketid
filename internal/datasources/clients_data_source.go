@@ -153,14 +153,14 @@ func (d *clientsDataSource) Read(ctx context.Context, req datasource.ReadRequest
 	// Convert each client
 	for _, clientResp := range clientsResp.Data {
 		clientState := clientModel{
-			ID:          types.StringValue(clientResp.ID),
-			Name:        types.StringValue(clientResp.Name),
-			IsPublic:    types.BoolValue(clientResp.IsPublic),
-			PkceEnabled: types.BoolValue(clientResp.PkceEnabled),
-			HasLogo:     types.BoolValue(clientResp.HasLogo),
+			ID:                       types.StringValue(clientResp.ID),
+			Name:                     types.StringValue(clientResp.Name),
+			IsPublic:                 types.BoolValue(clientResp.IsPublic),
+			PkceEnabled:              types.BoolValue(clientResp.PkceEnabled),
+			HasLogo:                  types.BoolValue(clientResp.HasLogo),
+			RequiresReauthentication: types.BoolValue(clientResp.RequiresReauthentication),
 		}
 
-		clientState.RequiresReauthentication = types.BoolValue(clientResp.RequiresReauthentication)
 		if clientResp.LaunchURL != "" {
 			clientState.LaunchURL = types.StringValue(clientResp.LaunchURL)
 		} else {

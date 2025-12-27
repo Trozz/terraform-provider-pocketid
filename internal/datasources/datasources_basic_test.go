@@ -44,7 +44,8 @@ func TestClientDataSource_Schema(t *testing.T) {
 	// Verify attributes exist
 	expectedAttributes := []string{
 		"id", "name", "has_logo", "callback_urls", "logout_callback_urls",
-		"is_public", "pkce_enabled", "allowed_user_groups", "requires_reauthentication", "launch_url",
+		"is_public", "pkce_enabled", "allowed_user_groups", "requires_reauthentication",
+		"launch_url",
 	}
 
 	for _, attr := range expectedAttributes {
@@ -150,7 +151,8 @@ func TestClientsDataSource_Schema(t *testing.T) {
 	// Verify nested attributes
 	expectedNestedAttributes := []string{
 		"id", "name", "has_logo", "callback_urls", "logout_callback_urls",
-		"is_public", "pkce_enabled", "allowed_user_groups", "requires_reauthentication", "launch_url",
+		"is_public", "pkce_enabled", "allowed_user_groups", "requires_reauthentication",
+		"launch_url",
 	}
 
 	for _, attr := range expectedNestedAttributes {
