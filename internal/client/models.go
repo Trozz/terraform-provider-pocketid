@@ -79,6 +79,7 @@ type User struct {
 	Email        string        `json:"email"`
 	FirstName    string        `json:"firstName,omitempty"`
 	LastName     string        `json:"lastName,omitempty"`
+	DisplayName  string        `json:"displayName,omitempty"`
 	IsAdmin      bool          `json:"isAdmin"`
 	Locale       *string       `json:"locale,omitempty"`
 	Disabled     bool          `json:"disabled"`
@@ -91,13 +92,14 @@ type User struct {
 
 // UserCreateRequest represents a request to create or update a user
 type UserCreateRequest struct {
-	Username  string  `json:"username"`
-	Email     string  `json:"email"`
-	FirstName string  `json:"firstName,omitempty"`
-	LastName  string  `json:"lastName,omitempty"`
-	IsAdmin   bool    `json:"isAdmin"`
-	Locale    *string `json:"locale,omitempty"`
-	Disabled  bool    `json:"disabled"`
+	Username    string  `json:"username"`
+	Email       string  `json:"email"`
+	FirstName   string  `json:"firstName,omitempty"`
+	LastName    string  `json:"lastName,omitempty"`
+	DisplayName string  `json:"displayName,omitempty"`
+	IsAdmin     bool    `json:"isAdmin"`
+	Locale      *string `json:"locale,omitempty"`
+	Disabled    bool    `json:"disabled"`
 }
 
 // UpdateUserGroupsRequest represents a request to update a user's groups

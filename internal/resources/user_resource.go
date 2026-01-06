@@ -38,15 +38,16 @@ type userResource struct {
 
 // userResourceModel maps the resource schema data.
 type userResourceModel struct {
-	ID        types.String `tfsdk:"id"`
-	Username  types.String `tfsdk:"username"`
-	Email     types.String `tfsdk:"email"`
-	FirstName types.String `tfsdk:"first_name"`
-	LastName  types.String `tfsdk:"last_name"`
-	IsAdmin   types.Bool   `tfsdk:"is_admin"`
-	Locale    types.String `tfsdk:"locale"`
-	Disabled  types.Bool   `tfsdk:"disabled"`
-	Groups    types.Set    `tfsdk:"groups"`
+	ID          types.String `tfsdk:"id"`
+	Username    types.String `tfsdk:"username"`
+	Email       types.String `tfsdk:"email"`
+	FirstName   types.String `tfsdk:"first_name"`
+	LastName    types.String `tfsdk:"last_name"`
+	DisplayName types.String `tfsdk:"display_name"`
+	IsAdmin     types.Bool   `tfsdk:"is_admin"`
+	Locale      types.String `tfsdk:"locale"`
+	Disabled    types.Bool   `tfsdk:"disabled"`
+	Groups      types.Set    `tfsdk:"groups"`
 }
 
 // Metadata returns the resource type name.
@@ -89,6 +90,11 @@ func (r *userResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 			},
 			"last_name": schema.StringAttribute{
 				Description: "The last name of the user.",
+				Optional:    true,
+			},
+			"display_name": schema.StringAttribute{
+				Description: "The display name of the user. Computed from first and last name if not set.",
+				Computed:    true,
 				Optional:    true,
 			},
 			"is_admin": schema.BoolAttribute{
@@ -144,13 +150,28 @@ func (r *userResource) Create(ctx context.Context, req resource.CreateRequest, r
 		return
 	}
 
+	// Build displayName from first and last names if not provided
+	displayName := plan.DisplayName.ValueString()
+	if displayName == "" {
+		firstName := plan.FirstName.ValueString()
+		lastName := plan.LastName.ValueString()
+		if firstName != "" && lastName != "" {
+			displayName = firstName + " " + lastName
+		} else if firstName != "" {
+			displayName = firstName
+		} else if lastName != "" {
+			displayName = lastName
+		}
+	}
+
 	// Create the user
 	createReq := &client.UserCreateRequest{
-		Username:  plan.Username.ValueString(),
-		Email:     plan.Email.ValueString(),
-		FirstName: plan.FirstName.ValueString(),
-		LastName:  plan.LastName.ValueString(),
-		IsAdmin:   plan.IsAdmin.ValueBool(),
+		Username:    plan.Username.ValueString(),
+		Email:       plan.Email.ValueString(),
+		FirstName:   plan.FirstName.ValueString(),
+		LastName:    plan.LastName.ValueString(),
+		DisplayName: displayName,
+		IsAdmin:     plan.IsAdmin.ValueBool(),
 		// Don't set Disabled during creation as the API doesn't support it
 	}
 
@@ -185,6 +206,7 @@ func (r *userResource) Create(ctx context.Context, req resource.CreateRequest, r
 	plan.Email = types.StringValue(userResp.Email)
 	plan.FirstName = types.StringValue(userResp.FirstName)
 	plan.LastName = types.StringValue(userResp.LastName)
+	plan.DisplayName = types.StringValue(userResp.DisplayName)
 	plan.IsAdmin = types.BoolValue(userResp.IsAdmin)
 
 	// The API always returns disabled=false for newly created users, regardless of the request
@@ -266,6 +288,7 @@ func (r *userResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 	state.Email = types.StringValue(userResp.Email)
 	state.FirstName = types.StringValue(userResp.FirstName)
 	state.LastName = types.StringValue(userResp.LastName)
+	state.DisplayName = types.StringValue(userResp.DisplayName)
 	state.IsAdmin = types.BoolValue(userResp.IsAdmin)
 	state.Disabled = types.BoolValue(userResp.Disabled)
 
@@ -310,14 +333,29 @@ func (r *userResource) Update(ctx context.Context, req resource.UpdateRequest, r
 		return
 	}
 
+	// Build displayName from first and last names if not provided
+	displayName := plan.DisplayName.ValueString()
+	if displayName == "" {
+		firstName := plan.FirstName.ValueString()
+		lastName := plan.LastName.ValueString()
+		if firstName != "" && lastName != "" {
+			displayName = firstName + " " + lastName
+		} else if firstName != "" {
+			displayName = firstName
+		} else if lastName != "" {
+			displayName = lastName
+		}
+	}
+
 	// Update the user
 	updateReq := &client.UserCreateRequest{
-		Username:  plan.Username.ValueString(),
-		Email:     plan.Email.ValueString(),
-		FirstName: plan.FirstName.ValueString(),
-		LastName:  plan.LastName.ValueString(),
-		IsAdmin:   plan.IsAdmin.ValueBool(),
-		Disabled:  plan.Disabled.ValueBool(),
+		Username:    plan.Username.ValueString(),
+		Email:       plan.Email.ValueString(),
+		FirstName:   plan.FirstName.ValueString(),
+		LastName:    plan.LastName.ValueString(),
+		DisplayName: displayName,
+		IsAdmin:     plan.IsAdmin.ValueBool(),
+		Disabled:    plan.Disabled.ValueBool(),
 	}
 
 	// Handle locale if provided
@@ -332,13 +370,29 @@ func (r *userResource) Update(ctx context.Context, req resource.UpdateRequest, r
 		"email":    updateReq.Email,
 	})
 
-	_, err := r.client.UpdateUser(plan.ID.ValueString(), updateReq)
+	userResp, err := r.client.UpdateUser(plan.ID.ValueString(), updateReq)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error updating user",
 			"Could not update user, unexpected error: "+err.Error(),
 		)
 		return
+	}
+
+	// Update state values from API response
+	plan.Username = types.StringValue(userResp.Username)
+	plan.Email = types.StringValue(userResp.Email)
+	plan.FirstName = types.StringValue(userResp.FirstName)
+	plan.LastName = types.StringValue(userResp.LastName)
+	plan.DisplayName = types.StringValue(userResp.DisplayName)
+	plan.IsAdmin = types.BoolValue(userResp.IsAdmin)
+	plan.Disabled = types.BoolValue(userResp.Disabled)
+
+	// Handle locale
+	if userResp.Locale != nil && *userResp.Locale != "" {
+		plan.Locale = types.StringValue(*userResp.Locale)
+	} else {
+		plan.Locale = types.StringNull()
 	}
 
 	// Handle user groups
