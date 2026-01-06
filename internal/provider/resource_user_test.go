@@ -49,6 +49,27 @@ func TestAccResourceUser_basic(t *testing.T) {
 	})
 }
 
+func TestAccResourceUser_displayNameDefault(t *testing.T) {
+	resourceName := "pocketid_user.test"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Create user without display_name - should default to "Test User"
+			{
+				Config: testAccResourceUserConfig_displayNameDefault("test-display-name", "testdisplayname@example.com"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "username", "test-display-name"),
+					resource.TestCheckResourceAttr(resourceName, "first_name", "Test"),
+					resource.TestCheckResourceAttr(resourceName, "last_name", "User"),
+					resource.TestCheckResourceAttr(resourceName, "display_name", "Test User"),
+				),
+			},
+		},
+	})
+}
+
 func TestAccResourceUser_withGroups(t *testing.T) {
 	resourceName := "pocketid_user.test"
 
@@ -151,6 +172,17 @@ func testAccCheckUserGroupsSet(resourceName string) resource.TestCheckFunc {
 }
 
 func testAccResourceUserConfig_basic(username, email string) string {
+	return fmt.Sprintf(`
+resource "pocketid_user" "test" {
+  username   = %[1]q
+  email      = %[2]q
+  first_name = "Test"
+  last_name  = "User"
+}
+`, username, email)
+}
+
+func testAccResourceUserConfig_displayNameDefault(username, email string) string {
 	return fmt.Sprintf(`
 resource "pocketid_user" "test" {
   username   = %[1]q

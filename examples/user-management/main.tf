@@ -70,6 +70,26 @@ resource "pocketid_user" "support_user" {
   groups     = [pocketid_group.support.id]
 }
 
+# Create a user with a custom display name
+resource "pocketid_user" "custom_display_name" {
+  username     = "jsmith"
+  email        = "j.smith@example.com"
+  first_name   = "John"
+  last_name    = "Smith"
+  display_name = "JS"  # Custom display name instead of "John Smith"
+  groups       = [pocketid_group.developers.id]
+}
+
+# Create a user where display_name is auto-generated from first and last names
+resource "pocketid_user" "auto_display_name" {
+  username   = "jdoe"
+  email      = "jane.doe@example.com"
+  first_name = "Jane"
+  last_name  = "Doe"
+  # display_name will automatically be set to "Jane Doe" by the API
+  groups = [pocketid_group.support.id]
+}
+
 # Example of a disabled user
 resource "pocketid_user" "disabled_user" {
   username   = "former.employee"
