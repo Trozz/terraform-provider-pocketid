@@ -30,14 +30,16 @@ type clientDataSource struct {
 
 // clientDataSourceModel maps the data source schema data.
 type clientDataSourceModel struct {
-	ID                 types.String `tfsdk:"id"`
-	Name               types.String `tfsdk:"name"`
-	CallbackURLs       types.List   `tfsdk:"callback_urls"`
-	LogoutCallbackURLs types.List   `tfsdk:"logout_callback_urls"`
-	IsPublic           types.Bool   `tfsdk:"is_public"`
-	PkceEnabled        types.Bool   `tfsdk:"pkce_enabled"`
-	AllowedUserGroups  types.List   `tfsdk:"allowed_user_groups"`
-	HasLogo            types.Bool   `tfsdk:"has_logo"`
+	ID                       types.String `tfsdk:"id"`
+	Name                     types.String `tfsdk:"name"`
+	CallbackURLs             types.List   `tfsdk:"callback_urls"`
+	LogoutCallbackURLs       types.List   `tfsdk:"logout_callback_urls"`
+	IsPublic                 types.Bool   `tfsdk:"is_public"`
+	PkceEnabled              types.Bool   `tfsdk:"pkce_enabled"`
+	AllowedUserGroups        types.List   `tfsdk:"allowed_user_groups"`
+	HasLogo                  types.Bool   `tfsdk:"has_logo"`
+	RequiresReauthentication types.Bool   `tfsdk:"requires_reauthentication"`
+	LaunchURL                types.String `tfsdk:"launch_url"`
 }
 
 // Metadata returns the data source type name.
@@ -72,6 +74,14 @@ func (d *clientDataSource) Schema(_ context.Context, _ datasource.SchemaRequest,
 			},
 			"is_public": schema.BoolAttribute{
 				Description: "Whether this is a public client (no client secret).",
+				Computed:    true,
+			},
+			"requires_reauthentication": schema.BoolAttribute{
+				Description: "Whether this client requires reauthentication on each authorization.",
+				Computed:    true,
+			},
+			"launch_url": schema.StringAttribute{
+				Description: "Optional launch URL associated with the client.",
 				Computed:    true,
 			},
 			"pkce_enabled": schema.BoolAttribute{
@@ -135,11 +145,18 @@ func (d *clientDataSource) Read(ctx context.Context, req datasource.ReadRequest,
 
 	// Map response to model
 	state := clientDataSourceModel{
-		ID:          types.StringValue(clientResp.ID),
-		Name:        types.StringValue(clientResp.Name),
-		IsPublic:    types.BoolValue(clientResp.IsPublic),
-		PkceEnabled: types.BoolValue(clientResp.PkceEnabled),
-		HasLogo:     types.BoolValue(clientResp.HasLogo),
+		ID:                       types.StringValue(clientResp.ID),
+		Name:                     types.StringValue(clientResp.Name),
+		IsPublic:                 types.BoolValue(clientResp.IsPublic),
+		PkceEnabled:              types.BoolValue(clientResp.PkceEnabled),
+		HasLogo:                  types.BoolValue(clientResp.HasLogo),
+		RequiresReauthentication: types.BoolValue(clientResp.RequiresReauthentication),
+	}
+
+	if clientResp.LaunchURL != "" {
+		state.LaunchURL = types.StringValue(clientResp.LaunchURL)
+	} else {
+		state.LaunchURL = types.StringNull()
 	}
 
 	// Map callback URLs

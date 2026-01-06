@@ -56,6 +56,7 @@ resource "pocketid_client" "advanced_app" {
   # Security settings
   require_auth_time                     = true
   require_pushed_authorization_requests = false
+  requires_reauthentication = true
 
   # CORS origins for SPAs
   allowed_cors_origins = [
@@ -96,6 +97,7 @@ resource "pocketid_client" "spa_app" {
     "https://spa.example.com",
     "http://localhost:8080"
   ]
+  launch_url = "https://spa.example.com/launch"
 }
 
 # Example: Mobile Application Client
@@ -177,4 +179,6 @@ resource "pocketid_client" "restricted_app" {
 
   # Restrict access to specific groups (requires group IDs)
   # allowed_user_groups = [pocketid_group.admins.id]
+  # Optional: require reauthentication for admin/restricted clients
+  requires_reauthentication = true
 }

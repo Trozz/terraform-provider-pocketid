@@ -66,6 +66,7 @@ resource "pocketid_client" "spa_app" {
   ]
   is_public    = true
   pkce_enabled = true
+  launch_url = "https://spa.example.com/launch"
 }
 
 # Confidential web application
@@ -81,6 +82,8 @@ resource "pocketid_client" "web_app" {
   ]
   is_public    = false
   pkce_enabled = true
+  requires_reauthentication = true
+  launch_url = "https://app.example.com/launch"
 }
 
 # Mobile application client

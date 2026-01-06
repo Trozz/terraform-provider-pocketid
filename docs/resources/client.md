@@ -32,6 +32,7 @@ resource "pocketid_client" "spa_app" {
 
   is_public    = true
   pkce_enabled = true
+  launch_url = "https://spa.example.com/launch"
 }
 
 ## Create a client with a custom client ID
@@ -45,6 +46,8 @@ resource "pocketid_client" "custom_id_app" {
 
   is_public    = false
   pkce_enabled = true
+  requires_reauthentication = true
+  launch_url = "https://custom.example.com/launch"
 }
 
 # Create a confidential web application
@@ -149,6 +152,8 @@ output "spa_client_id" {
 - `is_public` (Boolean) Whether this is a public client (no client secret). Defaults to false.
 - `logout_callback_urls` (List of String) List of allowed logout callback URLs for the OIDC client.
 - `pkce_enabled` (Boolean) Whether PKCE is enabled for this client. Defaults to true.
+ - `requires_reauthentication` (Boolean) Whether this client requires reauthentication on each authorization. Defaults to false.
+ - `launch_url` (String) Optional launch URL associated with the client.
 
 ### Read-Only
 

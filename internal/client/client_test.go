@@ -74,12 +74,14 @@ func TestNewClient(t *testing.T) {
 
 func TestClient_CreateClient(t *testing.T) {
 	expectedClient := &client.OIDCClient{
-		ID:           "test-client-id",
-		Name:         "Test Client",
-		CallbackURLs: []string{"https://example.com/callback"},
-		IsPublic:     false,
-		PkceEnabled:  true,
-		HasLogo:      false,
+		ID:                       "test-client-id",
+		Name:                     "Test Client",
+		CallbackURLs:             []string{"https://example.com/callback"},
+		IsPublic:                 false,
+		PkceEnabled:              true,
+		HasLogo:                  false,
+		RequiresReauthentication: true,
+		LaunchURL:                "https://example.com/start",
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -104,11 +106,14 @@ func TestClient_CreateClient(t *testing.T) {
 	c, err := client.NewClient(server.URL, "test-token", false, 30)
 	require.NoError(t, err)
 
+	launchUrl := "https://example.com/start"
 	createReq := &client.OIDCClientCreateRequest{
-		Name:         "Test Client",
-		CallbackURLs: []string{"https://example.com/callback"},
-		IsPublic:     false,
-		PkceEnabled:  true,
+		Name:                     "Test Client",
+		CallbackURLs:             []string{"https://example.com/callback"},
+		IsPublic:                 false,
+		PkceEnabled:              true,
+		RequiresReauthentication: true,
+		LaunchURL:                &launchUrl,
 	}
 
 	result, err := c.CreateClient(createReq)
@@ -118,12 +123,14 @@ func TestClient_CreateClient(t *testing.T) {
 
 func TestClient_GetClient(t *testing.T) {
 	expectedClient := &client.OIDCClient{
-		ID:           "test-client-id",
-		Name:         "Test Client",
-		CallbackURLs: []string{"https://example.com/callback"},
-		IsPublic:     false,
-		PkceEnabled:  true,
-		HasLogo:      false,
+		ID:                       "test-client-id",
+		Name:                     "Test Client",
+		CallbackURLs:             []string{"https://example.com/callback"},
+		IsPublic:                 false,
+		PkceEnabled:              true,
+		HasLogo:                  false,
+		RequiresReauthentication: true,
+		LaunchURL:                "https://example.com/start",
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -148,12 +155,14 @@ func TestClient_GetClient(t *testing.T) {
 
 func TestClient_UpdateClient(t *testing.T) {
 	expectedClient := &client.OIDCClient{
-		ID:           "test-client-id",
-		Name:         "Updated Client",
-		CallbackURLs: []string{"https://example.com/callback", "https://example.com/callback2"},
-		IsPublic:     false,
-		PkceEnabled:  true,
-		HasLogo:      false,
+		ID:                       "test-client-id",
+		Name:                     "Updated Client",
+		CallbackURLs:             []string{"https://example.com/callback", "https://example.com/callback2"},
+		IsPublic:                 false,
+		PkceEnabled:              true,
+		HasLogo:                  false,
+		RequiresReauthentication: true,
+		LaunchURL:                "https://example.com/start",
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -176,11 +185,14 @@ func TestClient_UpdateClient(t *testing.T) {
 	c, err := client.NewClient(server.URL, "test-token", false, 30)
 	require.NoError(t, err)
 
+	launchUrl := "https://example.com/start"
 	updateReq := &client.OIDCClientCreateRequest{
-		Name:         "Updated Client",
-		CallbackURLs: []string{"https://example.com/callback", "https://example.com/callback2"},
-		IsPublic:     false,
-		PkceEnabled:  true,
+		Name:                     "Updated Client",
+		CallbackURLs:             []string{"https://example.com/callback", "https://example.com/callback2"},
+		IsPublic:                 false,
+		PkceEnabled:              true,
+		RequiresReauthentication: true,
+		LaunchURL:                &launchUrl,
 	}
 
 	result, err := c.UpdateClient("test-client-id", updateReq)
