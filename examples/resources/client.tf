@@ -56,7 +56,7 @@ resource "pocketid_client" "advanced_app" {
   # Security settings
   require_auth_time                     = true
   require_pushed_authorization_requests = false
-  requires_reauthentication = true
+  requires_reauthentication             = true
 
   # CORS origins for SPAs
   allowed_cors_origins = [

@@ -76,7 +76,7 @@ resource "pocketid_user" "custom_display_name" {
   email        = "j.smith@example.com"
   first_name   = "John"
   last_name    = "Smith"
-  display_name = "JS"  # Custom display name instead of "John Smith"
+  display_name = "JS" # Custom display name instead of "John Smith"
   groups       = [pocketid_group.developers.id]
 }
 

@@ -29,6 +29,20 @@ resource "pocketid_client" "spa_app" {
 
   is_public    = true
   pkce_enabled = true
+  launch_url   = "https://spa.example.com"
+}
+
+# Create a client with a custom client ID
+resource "pocketid_client" "custom_id_app" {
+  name      = "Custom ID Application"
+  client_id = "my-custom-client-id"
+
+  callback_urls = [
+    "https://custom.example.com/callback"
+  ]
+
+  is_public    = false
+  pkce_enabled = true
 }
 
 # Create a confidential web application
@@ -85,8 +99,10 @@ resource "pocketid_client" "admin_portal" {
     "https://admin.example.com/logout"
   ]
 
-  is_public    = false
-  pkce_enabled = true
+  is_public                 = false
+  pkce_enabled              = true
+  requires_reauthentication = true
+  launch_url                = "https://admin.example.com"
 
   # Only admins and developers can access this client
   allowed_user_groups = [
