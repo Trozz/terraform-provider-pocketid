@@ -15,6 +15,6 @@ resource "pocketid_ldap_sync" "on_config_change" {
 # Manual sync trigger (change the value to trigger)
 resource "pocketid_ldap_sync" "manual" {
   triggers = {
-    manual = "2024-01-15"
+    manual = "change-this-to-trigger-sync"
   }
 }
