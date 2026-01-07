@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
@@ -518,9 +519,25 @@ func (v urlValidator) ValidateString(ctx context.Context, req validator.StringRe
 	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
 		return
 	}
+	value := strings.TrimSpace(req.ConfigValue.ValueString())
 
-	value := req.ConfigValue.ValueString()
-	_, err := url.Parse(value)
+	// Reject empty strings after trimming
+	if value == "" {
+		resp.Diagnostics.AddAttributeError(
+			req.Path,
+			"invalid callback URL",
+			"Callback URL must not be empty",
+		)
+		return
+	}
+
+	// Allow wildcard patterns containing '*'
+	if strings.Contains(value, "*") {
+		return
+	}
+
+	// Parse and require a scheme and some content (host or path)
+	u, err := url.Parse(value)
 	if err != nil {
 		resp.Diagnostics.AddAttributeError(
 			req.Path,
@@ -530,14 +547,13 @@ func (v urlValidator) ValidateString(ctx context.Context, req validator.StringRe
 		return
 	}
 
-	// Additional validation - must have scheme and host
-	u, _ := url.Parse(value)
-	if u.Scheme == "" || u.Host == "" {
+	if u.Scheme == "" || (u.Host == "" && u.Path == "" && u.Opaque == "") {
 		resp.Diagnostics.AddAttributeError(
 			req.Path,
 			"invalid callback URL",
-			fmt.Sprintf("The value %q is not a valid URL: must include scheme and host", value),
+			fmt.Sprintf("The value %q is not a valid URL: must include a scheme and a host, path, or opaque data", value),
 		)
+		return
 	}
 }
 
