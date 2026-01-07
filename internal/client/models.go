@@ -143,3 +143,54 @@ type APIKey struct {
 	CreatedAt           string `json:"createdAt,omitempty"`
 	ExpirationEmailSent bool   `json:"expirationEmailSent"`
 }
+
+// AppConfigVariable represents a single configuration variable from the API
+type AppConfigVariable struct {
+	Key   string `json:"key"`
+	Type  string `json:"type"`
+	Value any    `json:"value"`
+}
+
+// LDAPConfig represents the LDAP configuration for Pocket ID
+type LDAPConfig struct {
+	Enabled                bool   `json:"ldapEnabled"`
+	URL                    string `json:"ldapUrl"`
+	BindDN                 string `json:"ldapBindDn"`
+	BindPassword           string `json:"ldapBindPassword"`
+	BaseDN                 string `json:"ldapBase"`
+	SkipCertVerify         bool   `json:"ldapSkipCertVerify"`
+	UserSearchFilter       string `json:"ldapUserSearchFilter"`
+	UserGroupSearchFilter  string `json:"ldapGroupSearchFilter"`
+	UserUniqueAttribute    string `json:"ldapAttributeUserUniqueIdentifier"`
+	UserUsernameAttribute  string `json:"ldapAttributeUserUsername"`
+	UserEmailAttribute     string `json:"ldapAttributeUserEmail"`
+	UserFirstNameAttribute string `json:"ldapAttributeUserFirstName"`
+	UserLastNameAttribute  string `json:"ldapAttributeUserLastName"`
+	GroupMemberAttribute   string `json:"ldapAttributeGroupMember"`
+	GroupUniqueAttribute   string `json:"ldapAttributeGroupUniqueIdentifier"`
+	GroupNameAttribute     string `json:"ldapAttributeGroupName"`
+	AdminGroupName         string `json:"ldapAttributeAdminGroup"`
+	SoftDeleteUsers        bool   `json:"ldapSoftDeleteUsers"`
+}
+
+// LDAPConfigUpdateRequest represents the request to update LDAP configuration
+type LDAPConfigUpdateRequest struct {
+	LdapEnabled                        bool   `json:"ldapEnabled"`
+	LdapUrl                            string `json:"ldapUrl,omitempty"`
+	LdapBindDn                         string `json:"ldapBindDn,omitempty"`
+	LdapBindPassword                   string `json:"ldapBindPassword,omitempty"`
+	LdapBase                           string `json:"ldapBase,omitempty"`
+	LdapSkipCertVerify                 bool   `json:"ldapSkipCertVerify"`
+	LdapUserSearchFilter               string `json:"ldapUserSearchFilter,omitempty"`
+	LdapGroupSearchFilter              string `json:"ldapGroupSearchFilter,omitempty"`
+	LdapAttributeUserUniqueIdentifier  string `json:"ldapAttributeUserUniqueIdentifier,omitempty"`
+	LdapAttributeUserUsername          string `json:"ldapAttributeUserUsername,omitempty"`
+	LdapAttributeUserEmail             string `json:"ldapAttributeUserEmail,omitempty"`
+	LdapAttributeUserFirstName         string `json:"ldapAttributeUserFirstName,omitempty"`
+	LdapAttributeUserLastName          string `json:"ldapAttributeUserLastName,omitempty"`
+	LdapAttributeGroupMember           string `json:"ldapAttributeGroupMember,omitempty"`
+	LdapAttributeGroupUniqueIdentifier string `json:"ldapAttributeGroupUniqueIdentifier,omitempty"`
+	LdapAttributeGroupName             string `json:"ldapAttributeGroupName,omitempty"`
+	LdapAttributeAdminGroup            string `json:"ldapAttributeAdminGroup,omitempty"`
+	LdapSoftDeleteUsers                bool   `json:"ldapSoftDeleteUsers"`
+}
