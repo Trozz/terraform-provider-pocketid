@@ -29,7 +29,7 @@ type OIDCClient struct {
 	LogoutCallbackURLs       []string              `json:"logoutCallbackURLs,omitempty"`
 	IsPublic                 bool                  `json:"isPublic"`
 	RequiresReauthentication bool                  `json:"requiresReauthentication,omitempty"`
-	LaunchURL                string                `json:"launchUrl,omitempty"`
+	LaunchURL                string                `json:"launchURL,omitempty"`
 	PkceEnabled              bool                  `json:"pkceEnabled"`
 	Credentials              OIDCClientCredentials `json:"credentials"`
 	AllowedUserGroups        []UserGroup           `json:"allowedUserGroups,omitempty"`
@@ -57,7 +57,7 @@ type OIDCClientCreateRequest struct {
 	LogoutCallbackURLs       []string              `json:"logoutCallbackURLs,omitempty"`
 	IsPublic                 bool                  `json:"isPublic"`
 	RequiresReauthentication bool                  `json:"requiresReauthentication,omitempty"`
-	LaunchURL                *string               `json:"launchUrl,omitempty"`
+	LaunchURL                *string               `json:"launchURL,omitempty"`
 	PkceEnabled              bool                  `json:"pkceEnabled"`
 	Credentials              OIDCClientCredentials `json:"credentials"`
 }
