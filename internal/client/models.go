@@ -31,6 +31,7 @@ type OIDCClient struct {
 	RequiresReauthentication bool                  `json:"requiresReauthentication,omitempty"`
 	LaunchURL                string                `json:"launchURL,omitempty"`
 	PkceEnabled              bool                  `json:"pkceEnabled"`
+	IsGroupRestricted        bool                  `json:"isGroupRestricted"`
 	Credentials              OIDCClientCredentials `json:"credentials"`
 	AllowedUserGroups        []UserGroup           `json:"allowedUserGroups,omitempty"`
 	AllowedUserGroupsCount   int64                 `json:"allowedUserGroupsCount,omitempty"`
@@ -59,6 +60,7 @@ type OIDCClientCreateRequest struct {
 	RequiresReauthentication bool                  `json:"requiresReauthentication,omitempty"`
 	LaunchURL                *string               `json:"launchURL,omitempty"`
 	PkceEnabled              bool                  `json:"pkceEnabled"`
+	IsGroupRestricted        bool                  `json:"isGroupRestricted"`
 	Credentials              OIDCClientCredentials `json:"credentials"`
 }
 

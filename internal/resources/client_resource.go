@@ -368,6 +368,14 @@ func (r *clientResource) Update(ctx context.Context, req resource.UpdateRequest,
 		return
 	}
 
+	// Determine if group restriction is enabled based on allowed_user_groups
+	var isGroupRestricted bool
+	if !plan.AllowedUserGroups.IsNull() && !plan.AllowedUserGroups.IsUnknown() {
+		var groupIDs []string
+		_ = plan.AllowedUserGroups.ElementsAs(ctx, &groupIDs, false)
+		isGroupRestricted = len(groupIDs) > 0
+	}
+
 	// Update the client
 	updateReq := &client.OIDCClientCreateRequest{
 		Name:                     plan.Name.ValueString(),
@@ -382,8 +390,9 @@ func (r *clientResource) Update(ctx context.Context, req resource.UpdateRequest,
 			}
 			return nil
 		}(),
-		PkceEnabled: plan.PkceEnabled.ValueBool(),
-		Credentials: client.OIDCClientCredentials{}, // Empty for now
+		PkceEnabled:       plan.PkceEnabled.ValueBool(),
+		IsGroupRestricted: isGroupRestricted,
+		Credentials:       client.OIDCClientCredentials{}, // Empty for now
 	}
 	if !plan.ClientID.IsNull() && !plan.ClientID.IsUnknown() && plan.ClientID.ValueString() != "" {
 		cid := plan.ClientID.ValueString()
@@ -557,6 +566,14 @@ func buildCreateRequestFromPlan(ctx context.Context, plan *clientResourceModel) 
 		launchPtr = &v
 	}
 
+	// Determine if group restriction is enabled based on allowed_user_groups
+	var isGroupRestricted bool
+	if !plan.AllowedUserGroups.IsNull() && !plan.AllowedUserGroups.IsUnknown() {
+		var groupIDs []string
+		_ = plan.AllowedUserGroups.ElementsAs(ctx, &groupIDs, false)
+		isGroupRestricted = len(groupIDs) > 0
+	}
+
 	return &client.OIDCClientCreateRequest{
 		Name:                     plan.Name.ValueString(),
 		CallbackURLs:             callbackURLs,
@@ -565,6 +582,7 @@ func buildCreateRequestFromPlan(ctx context.Context, plan *clientResourceModel) 
 		RequiresReauthentication: plan.RequiresReauthentication.ValueBool(),
 		LaunchURL:                launchPtr,
 		PkceEnabled:              plan.PkceEnabled.ValueBool(),
+		IsGroupRestricted:        isGroupRestricted,
 		Credentials:              client.OIDCClientCredentials{},
 	}
 }
