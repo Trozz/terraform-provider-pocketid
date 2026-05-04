@@ -49,7 +49,7 @@ jobs:
 
       - name: Set up Go
         if: steps.go_changes.outputs.changed == 'true'
-        uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v5
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
@@ -88,7 +88,7 @@ jobs:
 
       - name: Run GoReleaser (snapshot)
         if: steps.go_changes.outputs.changed == 'true'
-        uses: goreleaser/goreleaser-action@ec59f474b9834571250b370d4735c50f8e2d1e29 # v6
+        uses: goreleaser/goreleaser-action@1a80836c5c9d9e5755a25cb59ec6f45a3b5f41a8 # v6
         with:
           version: latest
           args: release --snapshot --skip=sign --clean --skip=validate
@@ -105,14 +105,14 @@ jobs:
 
       - name: Upload artifacts
         if: steps.go_changes.outputs.changed == 'true'
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: pre-release-artifacts
           path: dist/*
 
       - name: Create GitHub pre-release
         if: steps.go_changes.outputs.changed == 'true'
-        uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2
+        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v2
         with:
           name: "Development Build v${{ steps.version.outputs.version }}"
           tag_name: "v${{ steps.version.outputs.version }}"
