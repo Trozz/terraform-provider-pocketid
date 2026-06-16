@@ -71,15 +71,13 @@ resource "pocketid_user" "disabled_user" {
 
 # One-time access tokens
 resource "pocketid_one_time_access_token" "admin_token" {
-  user_id       = pocketid_user.admin_user.id
-  expires_at    = timeadd(timestamp(), "24h")
-  skip_recreate = true
+  user_id = pocketid_user.admin_user.id
+  ttl     = "24h"
 }
 
 resource "pocketid_one_time_access_token" "dev_token" {
-  user_id       = pocketid_user.dev_user.id
-  expires_at    = timeadd(timestamp(), "1h")
-  skip_recreate = false
+  user_id = pocketid_user.dev_user.id
+  ttl     = "1h"
 }
 
 # OAuth2 Clients

@@ -12,9 +12,7 @@ import {
 
 # The resource block that the import will populate:
 resource "pocketid_one_time_access_token" "example" {
-  # These values will be populated from the import
-  # except for the token which cannot be retrieved
-  user_id       = "user-id-123"
-  expires_at    = "2024-12-31T23:59:59Z"
-  skip_recreate = true
+  # user_id is populated from the import; the token value cannot be retrieved.
+  user_id = "user-id-123"
+  ttl     = "1h"
 }

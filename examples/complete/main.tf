@@ -238,20 +238,16 @@ resource "pocketid_user" "test_users" {
   groups = [pocketid_group.users.id]
 }
 
-# Note: one_time_access_token resource is not available in v0.1.5
-# Uncomment when using a newer version that supports this resource
-#
-# # Create one-time access tokens for initial user setup
+# Create one-time access tokens for initial user setup.
+# The token value is returned only on creation and cannot be read back.
 # resource "pocketid_one_time_access_token" "admin_token" {
-#   user_id       = pocketid_user.admin_user.id
-#   expires_at    = timeadd(timestamp(), "24h")
-#   skip_recreate = true
+#   user_id = pocketid_user.admin_user.id
+#   ttl     = "24h"
 # }
 #
 # resource "pocketid_one_time_access_token" "dev_onboarding" {
-#   user_id       = pocketid_user.developer.id
-#   expires_at    = timeadd(timestamp(), "168h") # 7 days
-#   skip_recreate = true
+#   user_id = pocketid_user.developer.id
+#   ttl     = "168h" # 7 days
 # }
 #
 # output "admin_token_value" {

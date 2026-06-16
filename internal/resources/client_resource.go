@@ -82,10 +82,10 @@ func (r *clientResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 				},
 			},
 			"client_id": schema.StringAttribute{
-				Description: "The client ID to use for the OIDC client. If not set, one will be generated.",
+				Description: "The client ID to use for the OIDC client. If not set, one will be generated. Must be between 2 and 128 characters.",
 				Optional:    true,
 				Validators: []validator.String{
-					stringvalidator.LengthBetween(3, 50), // Minimum 3 chars, maximum 50 chars
+					stringvalidator.LengthBetween(2, 128), // Matches the API binding (min=2, max=128)
 				},
 			},
 			"callback_urls": schema.ListAttribute{

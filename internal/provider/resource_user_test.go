@@ -117,18 +117,11 @@ func TestAccResourceUser_disabled(t *testing.T) {
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
-			// Create user (API limitation: cannot create as disabled)
-			{
-				Config: testAccResourceUserConfig_basic("disabled-user", "disabled@example.com"),
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr(resourceName, "username", "disabled-user"),
-					resource.TestCheckResourceAttr(resourceName, "disabled", "false"),
-				),
-			},
-			// Update to disable user
+			// Create user directly as disabled (supported by the API).
 			{
 				Config: testAccResourceUserConfig_disabled("disabled-user", "disabled@example.com"),
 				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "username", "disabled-user"),
 					resource.TestCheckResourceAttr(resourceName, "disabled", "true"),
 				),
 			},
