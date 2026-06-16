@@ -187,6 +187,14 @@ func (r *OneTimeAccessTokenResource) Read(ctx context.Context, req resource.Read
 
 	_, err := r.client.GetOneTimeAccessToken(data.UserID.ValueString())
 	if err != nil {
+		// pocket-id v2 removed the GET one-time-access-token endpoint. When the
+		// endpoint itself is unavailable we cannot determine the token's state,
+		// so preserve the resource in state rather than churning it on every plan.
+		if strings.Contains(err.Error(), "API endpoint not found") {
+			tflog.Debug(ctx, "One-time access token GET endpoint unavailable, preserving resource in state")
+			resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+			return
+		}
 		// If the token is not found
 		if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "not found") {
 			// Check if we should skip recreation

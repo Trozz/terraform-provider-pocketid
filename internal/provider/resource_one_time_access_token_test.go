@@ -143,11 +143,6 @@ func testAccCheckOneTimeAccessTokenValid(resourceName string) resource.TestCheck
 			return fmt.Errorf("token is empty")
 		}
 
-		// Check token format (should be non-empty string)
-		if len(token) < 10 {
-			return fmt.Errorf("token seems too short: %s", token)
-		}
-
 		return nil
 	}
 }

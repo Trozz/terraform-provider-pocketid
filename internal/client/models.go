@@ -29,8 +29,9 @@ type OIDCClient struct {
 	LogoutCallbackURLs       []string              `json:"logoutCallbackURLs,omitempty"`
 	IsPublic                 bool                  `json:"isPublic"`
 	RequiresReauthentication bool                  `json:"requiresReauthentication,omitempty"`
-	LaunchURL                string                `json:"launchUrl,omitempty"`
+	LaunchURL                string                `json:"launchURL,omitempty"`
 	PkceEnabled              bool                  `json:"pkceEnabled"`
+	IsGroupRestricted        bool                  `json:"isGroupRestricted"`
 	Credentials              OIDCClientCredentials `json:"credentials"`
 	AllowedUserGroups        []UserGroup           `json:"allowedUserGroups,omitempty"`
 	AllowedUserGroupsCount   int64                 `json:"allowedUserGroupsCount,omitempty"`
@@ -52,13 +53,14 @@ type OIDCClientFederatedIdentity struct {
 // OIDCClientCreateRequest represents a request to create or update an OIDC client
 type OIDCClientCreateRequest struct {
 	Name                     string                `json:"name"`
-	ClientID                 *string               `json:"clientId,omitempty"`
+	ClientID                 *string               `json:"id,omitempty"`
 	CallbackURLs             []string              `json:"callbackURLs"`
 	LogoutCallbackURLs       []string              `json:"logoutCallbackURLs,omitempty"`
 	IsPublic                 bool                  `json:"isPublic"`
 	RequiresReauthentication bool                  `json:"requiresReauthentication,omitempty"`
-	LaunchURL                *string               `json:"launchUrl,omitempty"`
+	LaunchURL                *string               `json:"launchURL,omitempty"`
 	PkceEnabled              bool                  `json:"pkceEnabled"`
+	IsGroupRestricted        bool                  `json:"isGroupRestricted"`
 	Credentials              OIDCClientCredentials `json:"credentials"`
 }
 

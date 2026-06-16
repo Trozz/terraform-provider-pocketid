@@ -33,14 +33,11 @@ if [ ! -f "$POCKET_ID_BINARY" ]; then
         darwin) OS="macos" ;;
     esac
 
-    # Get latest release version
-    LATEST_VERSION=$(curl -s https://api.github.com/repos/pocket-id/pocket-id/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
-    if [ -z "$LATEST_VERSION" ]; then
-        echo "Failed to get latest version, using v1.6.2"
-        LATEST_VERSION="v1.6.2"
-    fi
+    # Pin to a known-good pocket-id version for reproducible tests.
+    # Override with POCKET_ID_VERSION to test against a different release.
+    POCKET_ID_VERSION="${POCKET_ID_VERSION:-v2.8.0}"
 
-    DOWNLOAD_URL="https://github.com/pocket-id/pocket-id/releases/download/${LATEST_VERSION}/pocket-id-${OS}-${ARCH}"
+    DOWNLOAD_URL="https://github.com/pocket-id/pocket-id/releases/download/${POCKET_ID_VERSION}/pocket-id-${OS}-${ARCH}"
     echo "Downloading from: $DOWNLOAD_URL"
 
     curl -L -o "$POCKET_ID_BINARY" "$DOWNLOAD_URL"
@@ -51,7 +48,12 @@ fi
 mkdir -p "$TEST_DATA_DIR/data"
 
 # Start pocket-id in background
+# pocket-id v2 requires APP_URL and an ENCRYPTION_KEY of at least 16 bytes.
 echo "Starting pocket-id..."
+export APP_URL="${APP_URL:-http://localhost:1411}"
+export ENCRYPTION_KEY="${ENCRYPTION_KEY:-test-terraform-provider-encryption-key}"
+export TRUST_PROXY="${TRUST_PROXY:-false}"
+export MAXMIND_LICENSE_KEY="${MAXMIND_LICENSE_KEY:-}"
 cd "$TEST_DATA_DIR" && ./pocket-id > pocket-id.log 2>&1 &
 POCKET_ID_PID=$!
 cd "$PROJECT_ROOT"
@@ -117,6 +119,7 @@ INSERT INTO users (
     username,
     first_name,
     last_name,
+    display_name,
     is_admin,
     disabled,
     created_at
@@ -126,6 +129,7 @@ INSERT INTO users (
     'admin',
     'Test',
     'Admin',
+    'Test Admin',
     1,
     0,
     datetime('now')
