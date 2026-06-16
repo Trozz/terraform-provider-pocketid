@@ -416,13 +416,37 @@ func TestAccResourceClient_requiresPushedAuthorizationRequests(t *testing.T) {
 }
 
 func testAccResourceClientConfig_par(name string, par bool) string {
+	// PAR applies to confidential clients; Pocket-ID coerces it to false for
+	// public clients, so this must use a non-public client.
 	return testAccProviderConfig() + fmt.Sprintf(`
 resource "pocketid_client" "test" {
   name          = %[1]q
   callback_urls = ["https://example.com/callback"]
-  is_public     = true
+  is_public     = false
 
   requires_pushed_authorization_requests = %[2]t
 }
 `, name, par)
+}
+
+func TestAccResourceClient_parPublicConflict(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				// PAR on a public client is rejected at plan time.
+				Config: testAccProviderConfig() + `
+resource "pocketid_client" "test" {
+  name          = "par-public-conflict"
+  callback_urls = ["https://example.com/callback"]
+  is_public     = true
+
+  requires_pushed_authorization_requests = true
+}
+`,
+				ExpectError: regexp.MustCompile("Invalid PAR configuration"),
+			},
+		},
+	})
 }

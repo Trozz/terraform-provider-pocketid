@@ -174,7 +174,7 @@ output "spa_client_id" {
 - `launch_url` (String) Optional launch URL associated with the client.
 - `logout_callback_urls` (List of String) List of allowed logout callback URLs for the OIDC client.
 - `pkce_enabled` (Boolean) Whether PKCE is enabled for this client. Defaults to true.
-- `requires_pushed_authorization_requests` (Boolean) Whether this client requires Pushed Authorization Requests (PAR, RFC 9126). Defaults to false. Note: this is enforced only by Pocket-ID versions that support PAR (added after v2.8.0); on older servers the value is stored in state but not enforced.
+- `requires_pushed_authorization_requests` (Boolean) Whether this client requires Pushed Authorization Requests (PAR, RFC 9126). Defaults to false. Applies to confidential clients only — Pocket-ID coerces this to false for public clients (is_public = true). Enforced only by Pocket-ID versions that support PAR (v2.9.0+); on older versions the value is stored in state but not enforced.
 - `requires_reauthentication` (Boolean) Whether this client requires reauthentication for certain flows. Defaults to false.
 
 ### Read-Only

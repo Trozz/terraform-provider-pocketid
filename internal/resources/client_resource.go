@@ -24,9 +24,10 @@ import (
 
 // Ensure the implementation satisfies the expected interfaces.
 var (
-	_ resource.Resource                = &clientResource{}
-	_ resource.ResourceWithConfigure   = &clientResource{}
-	_ resource.ResourceWithImportState = &clientResource{}
+	_ resource.Resource                   = &clientResource{}
+	_ resource.ResourceWithConfigure      = &clientResource{}
+	_ resource.ResourceWithImportState    = &clientResource{}
+	_ resource.ResourceWithValidateConfig = &clientResource{}
 )
 
 // NewClientResource is a helper function to simplify the provider implementation.
@@ -137,7 +138,8 @@ func (r *clientResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 			},
 			"requires_pushed_authorization_requests": schema.BoolAttribute{
 				Description: "Whether this client requires Pushed Authorization Requests (PAR, RFC 9126). Defaults to false. " +
-					"Note: this is enforced only by Pocket-ID versions that support PAR (added after v2.8.0); on older servers the value is stored in state but not enforced.",
+					"Applies to confidential clients only — Pocket-ID coerces this to false for public clients (is_public = true). " +
+					"Enforced only by Pocket-ID versions that support PAR (v2.9.0+); on older versions the value is stored in state but not enforced.",
 				Optional: true,
 				Computed: true,
 				Default:  booldefault.StaticBool(false),
@@ -214,6 +216,27 @@ func (r *clientResource) Configure(_ context.Context, req resource.ConfigureRequ
 	}
 
 	r.client = client
+}
+
+// ValidateConfig rejects configurations the API would silently coerce, giving a
+// clear plan-time error instead of an inconsistent-result error after apply.
+func (r *clientResource) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
+	var config clientResourceModel
+	resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Pocket-ID coerces requires_pushed_authorization_requests to false for
+	// public clients, so true + is_public is never satisfiable.
+	if config.IsPublic.ValueBool() && config.RequiresPushedAuthorizationRequests.ValueBool() {
+		resp.Diagnostics.AddAttributeError(
+			path.Root("requires_pushed_authorization_requests"),
+			"Invalid PAR configuration",
+			"requires_pushed_authorization_requests can only be true for confidential clients. "+
+				"Set is_public = false to use Pushed Authorization Requests.",
+		)
+	}
 }
 
 // Create creates the resource and sets the initial Terraform state.
