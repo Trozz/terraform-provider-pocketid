@@ -606,3 +606,57 @@ func (c *Client) CreateOneTimeAccessToken(userID string, req *OneTimeAccessToken
 
 	return &token, nil
 }
+
+// SCIM service provider methods
+
+// CreateScimServiceProvider creates a new SCIM service provider configuration.
+func (c *Client) CreateScimServiceProvider(req *ScimServiceProviderCreateRequest) (*ScimServiceProvider, error) {
+	body, err := c.doRequest("POST", "/api/scim/service-provider", req)
+	if err != nil {
+		return nil, err
+	}
+
+	var result ScimServiceProvider
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("error unmarshaling response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// GetClientScimServiceProvider retrieves the SCIM service provider configuration
+// for an OIDC client. The token is returned decrypted.
+func (c *Client) GetClientScimServiceProvider(clientID string) (*ScimServiceProvider, error) {
+	body, err := c.doRequest("GET", fmt.Sprintf("/api/oidc/clients/%s/scim-service-provider", clientID), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var result ScimServiceProvider
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("error unmarshaling response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// UpdateScimServiceProvider updates an existing SCIM service provider configuration.
+func (c *Client) UpdateScimServiceProvider(id string, req *ScimServiceProviderCreateRequest) (*ScimServiceProvider, error) {
+	body, err := c.doRequest("PUT", fmt.Sprintf("/api/scim/service-provider/%s", id), req)
+	if err != nil {
+		return nil, err
+	}
+
+	var result ScimServiceProvider
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("error unmarshaling response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// DeleteScimServiceProvider deletes a SCIM service provider configuration by ID.
+func (c *Client) DeleteScimServiceProvider(id string) error {
+	_, err := c.doRequest("DELETE", fmt.Sprintf("/api/scim/service-provider/%s", id), nil)
+	return err
+}

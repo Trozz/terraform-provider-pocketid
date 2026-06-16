@@ -147,3 +147,30 @@ type APIKey struct {
 	CreatedAt           string `json:"createdAt,omitempty"`
 	ExpirationEmailSent bool   `json:"expirationEmailSent"`
 }
+
+// ScimServiceProvider represents a SCIM service provider configuration attached
+// to an OIDC client in Pocket-ID. The token is stored encrypted server-side but
+// is returned (decrypted) on read.
+type ScimServiceProvider struct {
+	ID           string              `json:"id,omitempty"`
+	Endpoint     string              `json:"endpoint"`
+	Token        string              `json:"token,omitempty"`
+	LastSyncedAt *string             `json:"lastSyncedAt,omitempty"`
+	OidcClient   *OIDCClientMetadata `json:"oidcClient,omitempty"`
+	CreatedAt    string              `json:"createdAt,omitempty"`
+}
+
+// OIDCClientMetadata represents the OIDC client metadata embedded in a SCIM
+// service provider response.
+type OIDCClientMetadata struct {
+	ID   string `json:"id,omitempty"`
+	Name string `json:"name,omitempty"`
+}
+
+// ScimServiceProviderCreateRequest represents a request to create or update a
+// SCIM service provider configuration for an OIDC client.
+type ScimServiceProviderCreateRequest struct {
+	Endpoint     string `json:"endpoint"`
+	Token        string `json:"token,omitempty"`
+	OidcClientID string `json:"oidcClientId"`
+}
