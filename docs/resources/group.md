@@ -82,6 +82,19 @@ resource "pocketid_group" "departments" {
   friendly_name = each.value
 }
 
+# Create a group with custom claims included in member OIDC tokens.
+# Setting custom_claims replaces all custom claims for the group.
+# Reserved claim names (e.g. "email", "groups", "sub") are rejected by Pocket-ID.
+resource "pocketid_group" "with_claims" {
+  name          = "platform"
+  friendly_name = "Platform Team"
+
+  custom_claims = {
+    role        = "admin"
+    environment = "production"
+  }
+}
+
 # Output group IDs for use in other configurations
 output "developer_group_id" {
   value = pocketid_group.developers.id
@@ -101,6 +114,10 @@ output "department_groups" {
 
 - `friendly_name` (String) The friendly display name of the user group.
 - `name` (String) The unique name identifier of the user group. This is used as the technical identifier and will be included in tokens.
+
+### Optional
+
+- `custom_claims` (Map of String) Custom claims to include in the OIDC tokens of users in this group, as a map of claim name to value. Setting this attribute replaces all custom claims for the group. Reserved claim names (e.g. `email`, `groups`, `sub`) are rejected by Pocket-ID.
 
 ### Read-Only
 

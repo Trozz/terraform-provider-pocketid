@@ -49,6 +49,56 @@ func TestAccResourceUser_basic(t *testing.T) {
 	})
 }
 
+func TestAccResourceUser_customClaims(t *testing.T) {
+	resourceName := "pocketid_user.test"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Create with custom claims
+			{
+				Config: testAccResourceUserConfig_customClaims("test-claims-user", "claims@example.com", map[string]string{
+					"department": "engineering",
+					"level":      "senior",
+				}),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "username", "test-claims-user"),
+					resource.TestCheckResourceAttr(resourceName, "custom_claims.%", "2"),
+					resource.TestCheckResourceAttr(resourceName, "custom_claims.department", "engineering"),
+					resource.TestCheckResourceAttr(resourceName, "custom_claims.level", "senior"),
+				),
+			},
+			// ImportState testing
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+			// Update claims (change value, remove one, add one)
+			{
+				Config: testAccResourceUserConfig_customClaims("test-claims-user", "claims@example.com", map[string]string{
+					"department": "platform",
+					"location":   "remote",
+				}),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "custom_claims.%", "2"),
+					resource.TestCheckResourceAttr(resourceName, "custom_claims.department", "platform"),
+					resource.TestCheckResourceAttr(resourceName, "custom_claims.location", "remote"),
+					resource.TestCheckNoResourceAttr(resourceName, "custom_claims.level"),
+				),
+			},
+			// Clear claims
+			{
+				Config: testAccResourceUserConfig_basic("test-claims-user", "claims@example.com"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckNoResourceAttr(resourceName, "custom_claims.%"),
+				),
+			},
+		},
+	})
+}
+
 func TestAccResourceUser_displayNameDefault(t *testing.T) {
 	resourceName := "pocketid_user.test"
 
@@ -173,6 +223,23 @@ resource "pocketid_user" "test" {
   last_name  = "User"
 }
 `, username, email)
+}
+
+func testAccResourceUserConfig_customClaims(username, email string, claims map[string]string) string {
+	var claimLines string
+	for k, v := range claims {
+		claimLines += fmt.Sprintf("\n    %q = %q", k, v)
+	}
+	return fmt.Sprintf(`
+resource "pocketid_user" "test" {
+  username   = %[1]q
+  email      = %[2]q
+  first_name = "Test"
+  last_name  = "User"
+  custom_claims = {%[3]s
+  }
+}
+`, username, email, claimLines)
 }
 
 func testAccResourceUserConfig_displayNameDefault(username, email string) string {
