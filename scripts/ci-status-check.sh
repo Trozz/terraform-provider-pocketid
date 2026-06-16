@@ -13,20 +13,23 @@ check_status() {
     local acceptance_result="$3"
     local build_result="$4"
     local terraform_result="$5"
+    local opentofu_result="$6"
 
     # Check if any required jobs failed (skipped is acceptable)
     if [ "$lint_result" = "failure" ] || \
        [ "$test_result" = "failure" ] || \
        [ "$acceptance_result" = "failure" ] || \
        [ "$build_result" = "failure" ] || \
-       [ "$terraform_result" = "failure" ]; then
+       [ "$terraform_result" = "failure" ] || \
+       [ "$opentofu_result" = "failure" ]; then
         echo "::error::One or more CI jobs failed"
         echo "status=failed" >> "$GITHUB_OUTPUT"
     elif [ "$lint_result" = "cancelled" ] || \
          [ "$test_result" = "cancelled" ] || \
          [ "$acceptance_result" = "cancelled" ] || \
          [ "$build_result" = "cancelled" ] || \
-         [ "$terraform_result" = "cancelled" ]; then
+         [ "$terraform_result" = "cancelled" ] || \
+         [ "$opentofu_result" = "cancelled" ]; then
         echo "::error::One or more CI jobs were cancelled"
         echo "status=cancelled" >> "$GITHUB_OUTPUT"
     else
@@ -34,7 +37,7 @@ check_status() {
         local success_count=0
         local skip_count=0
 
-        for result in "$lint_result" "$test_result" "$acceptance_result" "$build_result" "$terraform_result"; do
+        for result in "$lint_result" "$test_result" "$acceptance_result" "$build_result" "$terraform_result" "$opentofu_result"; do
             if [ "$result" = "success" ]; then
                 success_count=$((success_count + 1))
             elif [ "$result" = "skipped" ]; then
@@ -58,9 +61,10 @@ echo "Test: $TEST_RESULT"
 echo "Acceptance Test: $ACCEPTANCE_RESULT"
 echo "Build Provider: $BUILD_RESULT"
 echo "Terraform Compatibility: $TERRAFORM_RESULT"
+echo "OpenTofu Compatibility: $OPENTOFU_RESULT"
 
 # Call check_status - it will set the status output
-check_status "$LINT_RESULT" "$TEST_RESULT" "$ACCEPTANCE_RESULT" "$BUILD_RESULT" "$TERRAFORM_RESULT"
+check_status "$LINT_RESULT" "$TEST_RESULT" "$ACCEPTANCE_RESULT" "$BUILD_RESULT" "$TERRAFORM_RESULT" "$OPENTOFU_RESULT"
 
 # Always exit successfully so subsequent steps can run
 # The actual CI status is communicated via the GITHUB_OUTPUT
