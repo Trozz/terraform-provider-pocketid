@@ -65,9 +65,23 @@ else
             darwin) OS="macos" ;;
         esac
 
-        # Pin to a known-good pocket-id version for reproducible tests.
-        # Override with POCKET_ID_VERSION to test against a different release.
-        POCKET_ID_VERSION="${POCKET_ID_VERSION:-v2.9.0}"
+        # Default to the latest stable pocket-id release so CI tests what most
+        # users run. Override with POCKET_ID_VERSION (e.g. for a reproducible
+        # local run); fall back to a known-good version if the release API is
+        # unavailable (e.g. rate limited).
+        if [ -z "$POCKET_ID_VERSION" ]; then
+            GH_AUTH=()
+            TOKEN="${GH_TOKEN:-${GITHUB_TOKEN:-}}"
+            [ -n "$TOKEN" ] && GH_AUTH=(-H "Authorization: Bearer $TOKEN")
+            POCKET_ID_VERSION=$(curl -fsSL "${GH_AUTH[@]}" \
+                https://api.github.com/repos/pocket-id/pocket-id/releases/latest 2>/dev/null \
+                | grep '"tag_name":' | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
+            if [ -z "$POCKET_ID_VERSION" ]; then
+                echo "Could not resolve latest pocket-id release; falling back to v2.9.0"
+                POCKET_ID_VERSION="v2.9.0"
+            fi
+        fi
+        echo "Using pocket-id version: $POCKET_ID_VERSION"
 
         DOWNLOAD_URL="https://github.com/pocket-id/pocket-id/releases/download/${POCKET_ID_VERSION}/pocket-id-${OS}-${ARCH}"
         echo "Downloading from: $DOWNLOAD_URL"
