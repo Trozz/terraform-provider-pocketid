@@ -1,8 +1,11 @@
 name: Cleanup Pre-releases
 
 on:
+  # When a stable release is published, clear out the dev pre-releases it supersedes.
+  release:
+    types: [published]
   schedule:
-    # Run daily at 2 AM UTC
+    # Run daily at 2 AM UTC (backstop: keep the latest few)
     - cron: "0 2 * * *"
   workflow_dispatch:
     inputs:
@@ -30,8 +33,22 @@ jobs:
         with:
           script: |
             const { owner, repo } = context.repo;
-            const keepCount = parseInt(context.payload.inputs?.keep_count || '5');
             const dryRun = context.payload.inputs?.dry_run === 'true';
+
+            // Determine how many pre-releases to keep.
+            // On a stable release publish, remove all dev pre-releases it supersedes.
+            // (Pre-release publishes also fire this event, so skip those to avoid
+            // deleting dev tags the moment they are created.)
+            let keepCount = parseInt(context.payload.inputs?.keep_count || '5');
+            if (context.eventName === 'release') {
+              const published = context.payload.release;
+              if (published?.prerelease) {
+                console.log(`Pre-release ${published.tag_name} published; nothing to clean up.`);
+                return;
+              }
+              keepCount = 0;
+              console.log(`Stable release ${published?.tag_name} published; removing all dev pre-releases.`);
+            }
 
             console.log(`Configuration: Keep ${keepCount} pre-releases, Dry run: ${dryRun}`);
 
