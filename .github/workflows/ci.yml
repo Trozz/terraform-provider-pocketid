@@ -126,7 +126,9 @@ jobs:
           files: ./coverage.out,./junit.xml
           flags: unittests
           name: codecov-umbrella
-          fail_ci_if_error: true
+          # Coverage upload is best-effort: tokenless fork PRs and codecov CLI
+          # signature checks are unreliable and must not fail the build.
+          fail_ci_if_error: false
           verbose: true
 
   acceptance-test:
@@ -185,7 +187,9 @@ jobs:
           files: ./acceptance-coverage.out
           flags: acceptancetests
           name: codecov-acceptance
-          fail_ci_if_error: true
+          # Coverage upload is best-effort: tokenless fork PRs and codecov CLI
+          # signature checks are unreliable and must not fail the build.
+          fail_ci_if_error: false
           verbose: true
 
       - name: Stop test environment
