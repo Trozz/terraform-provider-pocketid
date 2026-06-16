@@ -22,19 +22,22 @@ type PaginatedResponse[T any] struct {
 
 // OIDCClient represents an OIDC client in Pocket-ID
 type OIDCClient struct {
-	ID                       string                `json:"id,omitempty"`
-	Name                     string                `json:"name"`
-	HasLogo                  bool                  `json:"hasLogo,omitempty"`
-	CallbackURLs             []string              `json:"callbackURLs"`
-	LogoutCallbackURLs       []string              `json:"logoutCallbackURLs,omitempty"`
-	IsPublic                 bool                  `json:"isPublic"`
-	RequiresReauthentication bool                  `json:"requiresReauthentication,omitempty"`
-	LaunchURL                string                `json:"launchURL,omitempty"`
-	PkceEnabled              bool                  `json:"pkceEnabled"`
-	IsGroupRestricted        bool                  `json:"isGroupRestricted"`
-	Credentials              OIDCClientCredentials `json:"credentials"`
-	AllowedUserGroups        []UserGroup           `json:"allowedUserGroups,omitempty"`
-	AllowedUserGroupsCount   int64                 `json:"allowedUserGroupsCount,omitempty"`
+	ID                       string   `json:"id,omitempty"`
+	Name                     string   `json:"name"`
+	HasLogo                  bool     `json:"hasLogo,omitempty"`
+	CallbackURLs             []string `json:"callbackURLs"`
+	LogoutCallbackURLs       []string `json:"logoutCallbackURLs,omitempty"`
+	IsPublic                 bool     `json:"isPublic"`
+	RequiresReauthentication bool     `json:"requiresReauthentication,omitempty"`
+	// Pointer so an absent field (Pocket-ID <= v2.8.0, which has no PAR support)
+	// is distinguishable from an explicit false.
+	RequiresPushedAuthorizationRequests *bool                 `json:"requiresPushedAuthorizationRequests,omitempty"`
+	LaunchURL                           string                `json:"launchURL,omitempty"`
+	PkceEnabled                         bool                  `json:"pkceEnabled"`
+	IsGroupRestricted                   bool                  `json:"isGroupRestricted"`
+	Credentials                         OIDCClientCredentials `json:"credentials"`
+	AllowedUserGroups                   []UserGroup           `json:"allowedUserGroups,omitempty"`
+	AllowedUserGroupsCount              int64                 `json:"allowedUserGroupsCount,omitempty"`
 }
 
 // OIDCClientCredentials represents federated identity credentials for an OIDC client
@@ -52,16 +55,17 @@ type OIDCClientFederatedIdentity struct {
 
 // OIDCClientCreateRequest represents a request to create or update an OIDC client
 type OIDCClientCreateRequest struct {
-	Name                     string                `json:"name"`
-	ClientID                 *string               `json:"id,omitempty"`
-	CallbackURLs             []string              `json:"callbackURLs"`
-	LogoutCallbackURLs       []string              `json:"logoutCallbackURLs,omitempty"`
-	IsPublic                 bool                  `json:"isPublic"`
-	RequiresReauthentication bool                  `json:"requiresReauthentication,omitempty"`
-	LaunchURL                *string               `json:"launchURL,omitempty"`
-	PkceEnabled              bool                  `json:"pkceEnabled"`
-	IsGroupRestricted        bool                  `json:"isGroupRestricted"`
-	Credentials              OIDCClientCredentials `json:"credentials"`
+	Name                                string                `json:"name"`
+	ClientID                            *string               `json:"id,omitempty"`
+	CallbackURLs                        []string              `json:"callbackURLs"`
+	LogoutCallbackURLs                  []string              `json:"logoutCallbackURLs,omitempty"`
+	IsPublic                            bool                  `json:"isPublic"`
+	RequiresReauthentication            bool                  `json:"requiresReauthentication,omitempty"`
+	RequiresPushedAuthorizationRequests bool                  `json:"requiresPushedAuthorizationRequests"`
+	LaunchURL                           *string               `json:"launchURL,omitempty"`
+	PkceEnabled                         bool                  `json:"pkceEnabled"`
+	IsGroupRestricted                   bool                  `json:"isGroupRestricted"`
+	Credentials                         OIDCClientCredentials `json:"credentials"`
 }
 
 // ClientSecretResponse represents the response when generating a client secret
