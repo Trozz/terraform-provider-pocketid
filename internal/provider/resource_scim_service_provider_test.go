@@ -40,8 +40,17 @@ func TestAccResourceScimServiceProvider_basic(t *testing.T) {
 				ResourceName:      resourceName,
 				ImportState:       true,
 				ImportStateVerify: true,
-				// The token cannot be re-derived on import without the original
-				// config, so the framework compares it against the API response.
+				// Import is keyed on the OIDC client ID, not the SCIM config ID,
+				// so the import ID must be the client_id attribute value.
+				ImportStateIdFunc: func(s *terraform.State) (string, error) {
+					rs, ok := s.RootModule().Resources[resourceName]
+					if !ok {
+						return "", fmt.Errorf("Not found: %s", resourceName)
+					}
+					return rs.Primary.Attributes["client_id"], nil
+				},
+				// The token is returned by the API on read, so it round-trips
+				// and is verified against the imported state.
 				ImportStateVerifyIgnore: []string{},
 			},
 			// Update and Read testing.
