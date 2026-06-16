@@ -26,6 +26,7 @@ The CI pipeline has encountered failures. Please review the results below:
 | 🧪 **Test** | $(get_status_emoji "$TEST_RESULT") |
 | 🔬 **Acceptance Test** | $(get_status_emoji "$ACCEPTANCE_RESULT") |
 | 🔧 **Terraform Compatibility** | $(get_status_emoji "$TERRAFORM_RESULT") |
+| 🐮 **OpenTofu Compatibility** | $(get_status_emoji "$OPENTOFU_RESULT") |
 
 Please check the [workflow run]($WORKFLOW_URL) for detailed logs.
 
