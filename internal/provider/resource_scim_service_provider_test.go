@@ -51,7 +51,10 @@ func TestAccResourceScimServiceProvider_basic(t *testing.T) {
 				},
 				// The token is returned by the API on read, so it round-trips
 				// and is verified against the imported state.
-				ImportStateVerifyIgnore: []string{},
+				// pocket-id returns created_at with nanosecond precision on
+				// create but truncated to seconds on GET, so it cannot be
+				// verified byte-for-byte after import.
+				ImportStateVerifyIgnore: []string{"created_at"},
 			},
 			// Update and Read testing.
 			{
