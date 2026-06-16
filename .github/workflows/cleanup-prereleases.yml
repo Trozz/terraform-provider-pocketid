@@ -1,9 +1,13 @@
 name: Cleanup Pre-releases
 
 on:
-  # When a stable release is published, clear out the dev pre-releases it supersedes.
-  release:
-    types: [published]
+  # When a stable release tag is pushed, clear out the dev pre-releases it
+  # supersedes. We trigger on the tag push (a user action) rather than the
+  # `release: published` event, because releases created by GoReleaser use the
+  # default GITHUB_TOKEN, whose events do not trigger other workflows.
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
   schedule:
     # Run daily at 2 AM UTC (backstop: keep the latest few)
     - cron: "0 2 * * *"
@@ -35,19 +39,14 @@ jobs:
             const { owner, repo } = context.repo;
             const dryRun = context.payload.inputs?.dry_run === 'true';
 
-            // Determine how many pre-releases to keep.
-            // On a stable release publish, remove all dev pre-releases it supersedes.
-            // (Pre-release publishes also fire this event, so skip those to avoid
-            // deleting dev tags the moment they are created.)
+            // Determine how many pre-releases to keep. When a stable release tag
+            // is pushed, remove all dev pre-releases it supersedes (the tag filter
+            // already restricts this trigger to stable vX.Y.Z tags). The daily
+            // schedule keeps the latest few as a backstop.
             let keepCount = parseInt(context.payload.inputs?.keep_count || '5');
-            if (context.eventName === 'release') {
-              const published = context.payload.release;
-              if (published?.prerelease) {
-                console.log(`Pre-release ${published.tag_name} published; nothing to clean up.`);
-                return;
-              }
+            if (context.eventName === 'push') {
               keepCount = 0;
-              console.log(`Stable release ${published?.tag_name} published; removing all dev pre-releases.`);
+              console.log(`Stable tag ${context.ref.replace('refs/tags/', '')} pushed; removing all dev pre-releases.`);
             }
 
             console.log(`Configuration: Keep ${keepCount} pre-releases, Dry run: ${dryRun}`);
