@@ -13,7 +13,11 @@ import (
 
 func TestAccResourceApplicationConfig_basic(t *testing.T) {
 	resourceName := "pocketid_application_config.test"
-	appName := acctest.RandomWithPrefix("tf-acc")
+	// Pocket-ID enforces appName max length of 30 characters, so keep both the
+	// create and update names short and distinct.
+	suffix := acctest.RandString(8)
+	appName := "tf-acc-" + suffix
+	appNameUpdated := "tf-upd-" + suffix
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
@@ -38,9 +42,9 @@ func TestAccResourceApplicationConfig_basic(t *testing.T) {
 			},
 			// Update and Read testing
 			{
-				Config: testAccResourceApplicationConfigConfig_basic(appName+"-updated", "120"),
+				Config: testAccResourceApplicationConfigConfig_basic(appNameUpdated, "120"),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr(resourceName, "app_name", appName+"-updated"),
+					resource.TestCheckResourceAttr(resourceName, "app_name", appNameUpdated),
 					resource.TestCheckResourceAttr(resourceName, "session_duration", "120"),
 				),
 			},
@@ -49,7 +53,8 @@ func TestAccResourceApplicationConfig_basic(t *testing.T) {
 }
 
 func TestAccResourceApplicationConfig_dataSource(t *testing.T) {
-	appName := acctest.RandomWithPrefix("tf-acc")
+	// Pocket-ID enforces appName max length of 30 characters.
+	appName := "tf-acc-" + acctest.RandString(8)
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
