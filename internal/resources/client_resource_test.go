@@ -62,11 +62,6 @@ func TestClientResource_Schema(t *testing.T) {
 	assert.True(t, launchURLAttr.IsOptional(), "launch_url should be optional")
 	assert.True(t, launchURLAttr.IsComputed(), "launch_url should be computed")
 
-	parAttr, ok := schemaResponse.Schema.Attributes["requires_pushed_authorization_requests"]
-	assert.True(t, ok, "requires_pushed_authorization_requests attribute should exist")
-	assert.True(t, parAttr.IsOptional(), "requires_pushed_authorization_requests should be optional")
-	assert.True(t, parAttr.IsComputed(), "requires_pushed_authorization_requests should be computed")
-
 	fedAttr, ok := schemaResponse.Schema.Attributes["federated_identities"]
 	assert.True(t, ok, "federated_identities attribute should exist")
 	assert.True(t, fedAttr.IsOptional(), "federated_identities should be optional")

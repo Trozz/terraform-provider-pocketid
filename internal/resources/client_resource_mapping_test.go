@@ -33,14 +33,13 @@ func TestBuildCreateRequestFromPlan(t *testing.T) {
 	}
 
 	plan := &clientResourceModel{
-		Name:                                types.StringValue("Test Client"),
-		CallbackURLs:                        cb,
-		IsPublic:                            types.BoolValue(false),
-		PkceEnabled:                         types.BoolValue(true),
-		RequiresReauthentication:            types.BoolValue(true),
-		RequiresPushedAuthorizationRequests: types.BoolValue(true),
-		LaunchURL:                           types.StringValue(launch),
-		FederatedIdentities:                 fedList,
+		Name:                     types.StringValue("Test Client"),
+		CallbackURLs:             cb,
+		IsPublic:                 types.BoolValue(false),
+		PkceEnabled:              types.BoolValue(true),
+		RequiresReauthentication: types.BoolValue(true),
+		LaunchURL:                types.StringValue(launch),
+		FederatedIdentities:      fedList,
 	}
 
 	req := buildCreateRequestFromPlan(ctx, plan)
@@ -51,7 +50,6 @@ func TestBuildCreateRequestFromPlan(t *testing.T) {
 	assert.Equal(t, "Test Client", req.Name)
 	assert.Equal(t, []string{"https://example.com/callback"}, req.CallbackURLs)
 	assert.True(t, req.RequiresReauthentication)
-	assert.True(t, req.RequiresPushedAuthorizationRequests)
 	if assert.NotNil(t, req.LaunchURL) {
 		assert.Equal(t, launch, *req.LaunchURL)
 	}
@@ -67,17 +65,16 @@ func TestMapAPIClientToModel(t *testing.T) {
 	ctx := context.Background()
 
 	api := &client.OIDCClient{
-		ID:                                  "client-1",
-		Name:                                "API Client",
-		CallbackURLs:                        []string{"https://example.com/callback"},
-		LogoutCallbackURLs:                  []string{"https://example.com/logout"},
-		IsPublic:                            false,
-		PkceEnabled:                         true,
-		HasLogo:                             false,
-		RequiresReauthentication:            true,
-		RequiresPushedAuthorizationRequests: true,
-		LaunchURL:                           "https://example.com/launch",
-		AllowedUserGroups:                   []client.UserGroup{{ID: "g1"}},
+		ID:                       "client-1",
+		Name:                     "API Client",
+		CallbackURLs:             []string{"https://example.com/callback"},
+		LogoutCallbackURLs:       []string{"https://example.com/logout"},
+		IsPublic:                 false,
+		PkceEnabled:              true,
+		HasLogo:                  false,
+		RequiresReauthentication: true,
+		LaunchURL:                "https://example.com/launch",
+		AllowedUserGroups:        []client.UserGroup{{ID: "g1"}},
 		Credentials: client.OIDCClientCredentials{
 			FederatedIdentities: []client.OIDCClientFederatedIdentity{
 				{Issuer: "https://issuer.example.com", Subject: "subject-1"},
@@ -90,7 +87,6 @@ func TestMapAPIClientToModel(t *testing.T) {
 	assert.Equal(t, "client-1", model.ID.ValueString())
 	assert.Equal(t, "API Client", model.Name.ValueString())
 	assert.Equal(t, true, model.RequiresReauthentication.ValueBool())
-	assert.Equal(t, true, model.RequiresPushedAuthorizationRequests.ValueBool())
 	assert.Equal(t, "https://example.com/launch", model.LaunchURL.ValueString())
 
 	// Callback URLs
@@ -127,5 +123,4 @@ func TestMapAPIClientToModelNoFederatedIdentities(t *testing.T) {
 	model := mapAPIClientToModel(ctx, api)
 
 	assert.True(t, model.FederatedIdentities.IsNull())
-	assert.False(t, model.RequiresPushedAuthorizationRequests.ValueBool())
 }
