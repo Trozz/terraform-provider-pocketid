@@ -37,6 +37,10 @@ jobs:
               - 'go.mod'
               - 'go.sum'
               - '.golangci.yml'
+              # Re-run the integration suite when the test harness or this
+              # workflow changes, so harness/CI edits are actually validated.
+              - 'scripts/**'
+              - '.github/workflows/ci.yml'
             scripts:
               - 'scripts/**'
               - '.github/workflows/ci.yml'
