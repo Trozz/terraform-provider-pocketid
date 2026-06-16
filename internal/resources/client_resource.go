@@ -137,7 +137,8 @@ func (r *clientResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 			},
 			"requires_pushed_authorization_requests": schema.BoolAttribute{
 				Description: "Whether this client requires Pushed Authorization Requests (PAR, RFC 9126). Defaults to false. " +
-					"Note: this is enforced only by Pocket-ID versions that support PAR (added after v2.8.0); on older servers the value is stored in state but not enforced.",
+					"Applies to confidential clients only — Pocket-ID coerces this to false for public clients (is_public = true). " +
+					"Enforced only by Pocket-ID versions that support PAR (v2.9.0+); on older versions the value is stored in state but not enforced.",
 				Optional: true,
 				Computed: true,
 				Default:  booldefault.StaticBool(false),

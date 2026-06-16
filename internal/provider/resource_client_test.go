@@ -416,11 +416,13 @@ func TestAccResourceClient_requiresPushedAuthorizationRequests(t *testing.T) {
 }
 
 func testAccResourceClientConfig_par(name string, par bool) string {
+	// PAR applies to confidential clients; Pocket-ID coerces it to false for
+	// public clients, so this must use a non-public client.
 	return testAccProviderConfig() + fmt.Sprintf(`
 resource "pocketid_client" "test" {
   name          = %[1]q
   callback_urls = ["https://example.com/callback"]
-  is_public     = true
+  is_public     = false
 
   requires_pushed_authorization_requests = %[2]t
 }
