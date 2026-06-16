@@ -15,64 +15,103 @@ POCKET_ID_BINARY="$TEST_DATA_DIR/pocket-id"
 # Create test data directory
 mkdir -p "$TEST_DATA_DIR"
 
-# Download pocket-id binary if not present
-if [ ! -f "$POCKET_ID_BINARY" ]; then
-    echo "Downloading pocket-id binary..."
-    # Detect OS and architecture
-    OS=$(uname -s | tr '[:upper:]' '[:lower:]')
-    ARCH=$(uname -m)
+# pocket-id can run either from a downloaded binary (default) or from a
+# container image. Set POCKET_ID_IMAGE (e.g. ghcr.io/pocket-id/pocket-id:next)
+# to use container mode; otherwise the binary is downloaded and run directly.
+POCKET_ID_IMAGE="${POCKET_ID_IMAGE:-}"
 
-    # Map architecture names
-    case "$ARCH" in
-        x86_64) ARCH="amd64" ;;
-        aarch64|arm64) ARCH="arm64" ;;
-    esac
-
-    # Map OS names for pocket-id releases
-    case "$OS" in
-        darwin) OS="macos" ;;
-    esac
-
-    # Pin to a known-good pocket-id version for reproducible tests.
-    # Override with POCKET_ID_VERSION to test against a different release.
-    POCKET_ID_VERSION="${POCKET_ID_VERSION:-v2.8.0}"
-
-    DOWNLOAD_URL="https://github.com/pocket-id/pocket-id/releases/download/${POCKET_ID_VERSION}/pocket-id-${OS}-${ARCH}"
-    echo "Downloading from: $DOWNLOAD_URL"
-
-    curl -L -o "$POCKET_ID_BINARY" "$DOWNLOAD_URL"
-    chmod +x "$POCKET_ID_BINARY"
-fi
-
-# Create data directory for pocket-id
-mkdir -p "$TEST_DATA_DIR/data"
-
-# Start pocket-id in background
 # pocket-id v2 requires APP_URL and an ENCRYPTION_KEY of at least 16 bytes.
-echo "Starting pocket-id..."
 export APP_URL="${APP_URL:-http://localhost:1411}"
 export ENCRYPTION_KEY="${ENCRYPTION_KEY:-test-terraform-provider-encryption-key}"
 export TRUST_PROXY="${TRUST_PROXY:-false}"
 export MAXMIND_LICENSE_KEY="${MAXMIND_LICENSE_KEY:-}"
-cd "$TEST_DATA_DIR" && ./pocket-id > pocket-id.log 2>&1 &
-POCKET_ID_PID=$!
-cd "$PROJECT_ROOT"
 
-echo "Pocket-ID started with PID: $POCKET_ID_PID"
+# Create data directory for pocket-id (shared with the container volume mount)
+mkdir -p "$TEST_DATA_DIR/data"
 
-# Give pocket-id a moment to start
-sleep 2
+if [ -n "$POCKET_ID_IMAGE" ]; then
+    # Container mode: run pocket-id from a container image. The mounted
+    # $TEST_DATA_DIR/data is the same sqlite location the binary would use,
+    # so the wait-for-DB-and-seed logic below works identically.
+    echo "Starting pocket-id container from image: $POCKET_ID_IMAGE"
+    docker rm -f pocket-id-test >/dev/null 2>&1 || true
+    docker run -d --name pocket-id-test \
+        -e APP_URL \
+        -e ENCRYPTION_KEY \
+        -e TRUST_PROXY \
+        -e MAXMIND_LICENSE_KEY \
+        -e PUID="$(id -u)" \
+        -e PGID="$(id -g)" \
+        -p 1411:1411 \
+        -v "$TEST_DATA_DIR/data:/app/data" \
+        "$POCKET_ID_IMAGE"
+    echo "Pocket-ID container started."
+else
+    # Binary mode: download pocket-id binary if not present.
+    if [ ! -f "$POCKET_ID_BINARY" ]; then
+        echo "Downloading pocket-id binary..."
+        # Detect OS and architecture
+        OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+        ARCH=$(uname -m)
 
-# Check if the process is still running
-if ! kill -0 $POCKET_ID_PID 2>/dev/null; then
-    echo "ERROR: Pocket-ID process died immediately!"
-    echo "Checking log file..."
-    if [ -f "$TEST_DATA_DIR/pocket-id.log" ]; then
-        cat "$TEST_DATA_DIR/pocket-id.log"
-    else
-        echo "No log file found!"
+        # Map architecture names
+        case "$ARCH" in
+            x86_64) ARCH="amd64" ;;
+            aarch64|arm64) ARCH="arm64" ;;
+        esac
+
+        # Map OS names for pocket-id releases
+        case "$OS" in
+            darwin) OS="macos" ;;
+        esac
+
+        # Default to the latest stable pocket-id release so CI tests what most
+        # users run. Override with POCKET_ID_VERSION (e.g. for a reproducible
+        # local run); fall back to a known-good version if the release API is
+        # unavailable (e.g. rate limited).
+        if [ -z "$POCKET_ID_VERSION" ]; then
+            GH_AUTH=()
+            TOKEN="${GH_TOKEN:-${GITHUB_TOKEN:-}}"
+            [ -n "$TOKEN" ] && GH_AUTH=(-H "Authorization: Bearer $TOKEN")
+            POCKET_ID_VERSION=$(curl -fsSL "${GH_AUTH[@]}" \
+                https://api.github.com/repos/pocket-id/pocket-id/releases/latest 2>/dev/null \
+                | grep '"tag_name":' | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
+            if [ -z "$POCKET_ID_VERSION" ]; then
+                echo "Could not resolve latest pocket-id release; falling back to v2.9.0"
+                POCKET_ID_VERSION="v2.9.0"
+            fi
+        fi
+        echo "Using pocket-id version: $POCKET_ID_VERSION"
+
+        DOWNLOAD_URL="https://github.com/pocket-id/pocket-id/releases/download/${POCKET_ID_VERSION}/pocket-id-${OS}-${ARCH}"
+        echo "Downloading from: $DOWNLOAD_URL"
+
+        curl -L -o "$POCKET_ID_BINARY" "$DOWNLOAD_URL"
+        chmod +x "$POCKET_ID_BINARY"
     fi
-    exit 1
+
+    # Start pocket-id in background
+    echo "Starting pocket-id..."
+    cd "$TEST_DATA_DIR" && ./pocket-id > pocket-id.log 2>&1 &
+    POCKET_ID_PID=$!
+    cd "$PROJECT_ROOT"
+
+    echo "Pocket-ID started with PID: $POCKET_ID_PID"
+
+    # Give pocket-id a moment to start
+    sleep 2
+
+    # Check if the process is still running
+    if ! kill -0 $POCKET_ID_PID 2>/dev/null; then
+        echo "ERROR: Pocket-ID process died immediately!"
+        echo "Checking log file..."
+        if [ -f "$TEST_DATA_DIR/pocket-id.log" ]; then
+            cat "$TEST_DATA_DIR/pocket-id.log"
+        else
+            echo "No log file found!"
+        fi
+        exit 1
+    fi
 fi
 
 # Wait for database to exist and migrations to complete
@@ -97,8 +136,13 @@ if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
     ls -la "$TEST_DATA_DIR/data/" || true
     if [ ! -f "$DB_PATH" ]; then
         echo "Database file does not exist!"
-        echo "Checking pocket-id log..."
-        cat "$TEST_DATA_DIR/pocket-id.log" || true
+        if [ -n "$POCKET_ID_IMAGE" ]; then
+            echo "Checking pocket-id container logs..."
+            docker logs pocket-id-test || true
+        else
+            echo "Checking pocket-id log..."
+            cat "$TEST_DATA_DIR/pocket-id.log" || true
+        fi
     else
         echo "Tables in database:"
         sqlite3 "$DB_PATH" "SELECT name FROM sqlite_master WHERE type='table';" || true
@@ -172,4 +216,8 @@ for i in {1..10}; do
 done
 
 echo "Pocket-ID test environment ready!"
-echo "PID: $POCKET_ID_PID"
+if [ -n "$POCKET_ID_IMAGE" ]; then
+    echo "Container: pocket-id-test"
+else
+    echo "PID: $POCKET_ID_PID"
+fi
