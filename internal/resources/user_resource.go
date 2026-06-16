@@ -108,7 +108,7 @@ func (r *userResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 				Optional:    true,
 			},
 			"disabled": schema.BoolAttribute{
-				Description: "Whether the user account is disabled. Defaults to false. Note: Due to API limitations, this field cannot be set during user creation. To create a disabled user, first create the user and then update it to set disabled to true.",
+				Description: "Whether the user account is disabled. Defaults to false.",
 				Optional:    true,
 				Computed:    true,
 				Default:     booldefault.StaticBool(false),
@@ -172,7 +172,7 @@ func (r *userResource) Create(ctx context.Context, req resource.CreateRequest, r
 		LastName:    plan.LastName.ValueString(),
 		DisplayName: displayName,
 		IsAdmin:     plan.IsAdmin.ValueBool(),
-		// Don't set Disabled during creation as the API doesn't support it
+		Disabled:    plan.Disabled.ValueBool(),
 	}
 
 	// Handle locale if provided
@@ -209,18 +209,7 @@ func (r *userResource) Create(ctx context.Context, req resource.CreateRequest, r
 	plan.DisplayName = types.StringValue(userResp.DisplayName)
 	plan.IsAdmin = types.BoolValue(userResp.IsAdmin)
 
-	// The API always returns disabled=false for newly created users, regardless of the request
-	// If the plan requested disabled=true, we need to inform the user about this limitation
-	if plan.Disabled.ValueBool() && !userResp.Disabled {
-		resp.Diagnostics.AddWarning(
-			"API Limitation",
-			"The Pocket-ID API does not support creating disabled users. The user was created but remains enabled. To disable the user, please run 'terraform apply' again or update the user manually.",
-		)
-		// Set the actual value from the API to maintain consistency
-		plan.Disabled = types.BoolValue(false)
-	} else {
-		plan.Disabled = types.BoolValue(userResp.Disabled)
-	}
+	plan.Disabled = types.BoolValue(userResp.Disabled)
 
 	// Handle locale
 	if userResp.Locale != nil && *userResp.Locale != "" {

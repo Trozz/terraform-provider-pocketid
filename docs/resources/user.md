@@ -96,7 +96,7 @@ resource "pocketid_user" "team" {
 
 ### Optional
 
-- `disabled` (Boolean) Whether the user account is disabled. Defaults to false. Note: Due to API limitations, this field cannot be set during user creation. To create a disabled user, first create the user and then update it to set disabled to true.
+- `disabled` (Boolean) Whether the user account is disabled. Defaults to false.
 - `display_name` (String) The display name of the user. Computed from first and last name if not set.
 - `first_name` (String) The first name of the user.
 - `groups` (Set of String) List of group IDs the user belongs to.
