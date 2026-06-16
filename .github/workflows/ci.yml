@@ -7,7 +7,7 @@ on:
       - develop
 
 env:
-  GO_VERSION: "1.24"
+  GO_VERSION: "1.25"
   GOLANGCI_LINT_VERSION: "v2.2.1"
 
 permissions:
@@ -97,7 +97,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v5
         with:
-          go-version: "1.24"
+          go-version: "1.25"
           cache: true
 
       - name: Download dependencies
