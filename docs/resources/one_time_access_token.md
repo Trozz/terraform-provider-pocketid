@@ -3,26 +3,20 @@
 page_title: "pocketid_one_time_access_token Resource - terraform-provider-pocketid"
 subcategory: ""
 description: |-
-  Manages a one-time access token for a user in Pocket-ID. These tokens allow users to authenticate when they don't have access to their passkey.
+  Manages a one-time access token for a user in Pocket-ID. These tokens let a user authenticate when they don't have access to their passkey. The token value is returned only once on creation and cannot be read back (pocket-id exposes no read endpoint), so it is stored in Terraform state as a sensitive value.
 ---
 
 # pocketid_one_time_access_token (Resource)
 
-Manages a one-time access token for a user in Pocket-ID. These tokens allow users to authenticate when they don't have access to their passkey.
+Manages a one-time access token for a user in Pocket-ID. These tokens let a user authenticate when they don't have access to their passkey. The token value is returned only once on creation and cannot be read back (pocket-id exposes no read endpoint), so it is stored in Terraform state as a sensitive value.
 
 ## Example Usage
 
 ```terraform
-# Create a one-time access token for a user (expires_at is required)
+# Create a one-time access token for a user, valid for 1 hour
 resource "pocketid_one_time_access_token" "example" {
-  user_id    = pocketid_user.example.id
-  expires_at = timeadd(timestamp(), "24h") # Token expires in 24 hours
-}
-
-# Create a one-time access token with custom expiry (1 hour from now)
-resource "pocketid_one_time_access_token" "temporary" {
-  user_id    = pocketid_user.example.id
-  expires_at = timeadd(timestamp(), "1h")
+  user_id = pocketid_user.example.id
+  ttl     = "1h"
 }
 
 # Example with user creation
@@ -40,7 +34,7 @@ output "access_token" {
   sensitive   = true
 }
 
-# Use case: Create a token for emergency access
+# Use case: Create a token for emergency access, valid for 24 hours
 resource "pocketid_user" "emergency" {
   username   = "emergency.access"
   email      = "emergency@example.com"
@@ -50,16 +44,16 @@ resource "pocketid_user" "emergency" {
 }
 
 resource "pocketid_one_time_access_token" "emergency" {
-  user_id    = pocketid_user.emergency.id
-  expires_at = timeadd(timestamp(), "24h") # Valid for 24 hours
+  user_id = pocketid_user.emergency.id
+  ttl     = "24h"
 }
 
 # Note: One-time access tokens are useful when users need to authenticate
 # from a device where they don't have access to their passkey.
-# The token can only be used once and should be treated as a secret.
+# The token can only be used once and should be treated as a secret. Its value
+# is returned only on creation and cannot be read back from the API.
 
-# Use case: Initial user setup with skip_recreate
-# This prevents Terraform from recreating the token after it's been used
+# Use case: Initial user setup, token valid for 7 days
 resource "pocketid_user" "new_user" {
   username   = "new.employee"
   email      = "new.employee@company.com"
@@ -68,9 +62,8 @@ resource "pocketid_user" "new_user" {
 }
 
 resource "pocketid_one_time_access_token" "onboarding" {
-  user_id       = pocketid_user.new_user.id
-  expires_at    = timeadd(timestamp(), "168h") # Valid for 7 days
-  skip_recreate = true                         # Don't recreate if token is used
+  user_id = pocketid_user.new_user.id
+  ttl     = "168h" # 7 days (max ttl is 744h / 31 days)
 }
 
 # Send the token via another provider (e.g., email, SMS)
@@ -94,18 +87,15 @@ resource "example_email" "welcome" {
 
 ### Required
 
-- `expires_at` (String) The expiration time of the token in RFC3339 format
-- `user_id` (String) The ID of the user this token belongs to
-
-### Optional
-
-- `skip_recreate` (Boolean) If true (default), the resource will not be recreated when the token is not found (used or expired). This is useful for initial user setup where the token is sent via another provider. Note: Setting this to false will enable standard Terraform behavior, where the resource is recreated if the token is missing.
+- `ttl` (String) Lifetime of the token expressed as a Go duration string (e.g. `15m`, `1h`, `24h`). Must be greater than 1 second and at most 744h (31 days). Changing this forces a new token to be created.
+- `user_id` (String) The ID of the user this token belongs to.
 
 ### Read-Only
 
-- `created_at` (String) The creation time of the token in RFC3339 format
-- `id` (String) The unique identifier of the one-time access token (same as user_id)
-- `token` (String, Sensitive) The one-time access token value
+- `created_at` (String) The creation time of the token in RFC3339 format.
+- `expires_at` (String) The computed expiration time of the token in RFC3339 format (created_at + ttl).
+- `id` (String) The unique identifier of the one-time access token (same as user_id).
+- `token` (String, Sensitive) The one-time access token value. Returned only on creation.
 
 ## Import
 

@@ -1,13 +1,7 @@
-# Create a one-time access token for a user
+# Create a one-time access token for a user, valid for 1 hour
 resource "pocketid_one_time_access_token" "example" {
-  user_id    = pocketid_user.example.id
-  expires_at = timeadd(timestamp(), "1h") # Valid for 1 hour
-}
-
-# Create a one-time access token with custom expiry (1 hour from now)
-resource "pocketid_one_time_access_token" "temporary" {
-  user_id    = pocketid_user.example.id
-  expires_at = timeadd(timestamp(), "1h")
+  user_id = pocketid_user.example.id
+  ttl     = "1h"
 }
 
 # Example with user creation
@@ -25,7 +19,7 @@ output "access_token" {
   sensitive   = true
 }
 
-# Use case: Create a token for emergency access
+# Use case: Create a token for emergency access, valid for 24 hours
 resource "pocketid_user" "emergency" {
   username   = "emergency.access"
   email      = "emergency@example.com"
@@ -35,16 +29,16 @@ resource "pocketid_user" "emergency" {
 }
 
 resource "pocketid_one_time_access_token" "emergency" {
-  user_id    = pocketid_user.emergency.id
-  expires_at = timeadd(timestamp(), "24h") # Valid for 24 hours
+  user_id = pocketid_user.emergency.id
+  ttl     = "24h"
 }
 
 # Note: One-time access tokens are useful when users need to authenticate
 # from a device where they don't have access to their passkey.
-# The token can only be used once and should be treated as a secret.
+# The token can only be used once and should be treated as a secret. Its value
+# is returned only on creation and cannot be read back from the API.
 
-# Use case: Initial user setup with skip_recreate
-# This prevents Terraform from recreating the token after it's been used
+# Use case: Initial user setup, token valid for 7 days
 resource "pocketid_user" "new_user" {
   username   = "new.employee"
   email      = "new.employee@company.com"
@@ -53,9 +47,8 @@ resource "pocketid_user" "new_user" {
 }
 
 resource "pocketid_one_time_access_token" "onboarding" {
-  user_id       = pocketid_user.new_user.id
-  expires_at    = timeadd(timestamp(), "168h") # Valid for 7 days
-  skip_recreate = true                         # Don't recreate if token is used
+  user_id = pocketid_user.new_user.id
+  ttl     = "168h" # 7 days (max ttl is 744h / 31 days)
 }
 
 # Send the token via another provider (e.g., email, SMS)
