@@ -102,10 +102,11 @@ resource "pocketid_client" "admin_portal" {
     "https://admin.example.com/logout"
   ]
 
-  is_public                 = false
-  pkce_enabled              = true
-  requires_reauthentication = true
-  launch_url                = "https://admin.example.com"
+  is_public                              = false
+  pkce_enabled                           = true
+  requires_reauthentication              = true
+  requires_pushed_authorization_requests = true
+  launch_url                             = "https://admin.example.com"
 
   # Only admins and developers can access this client
   allowed_user_groups = [
@@ -173,6 +174,7 @@ output "spa_client_id" {
 - `launch_url` (String) Optional launch URL associated with the client.
 - `logout_callback_urls` (List of String) List of allowed logout callback URLs for the OIDC client.
 - `pkce_enabled` (Boolean) Whether PKCE is enabled for this client. Defaults to true.
+- `requires_pushed_authorization_requests` (Boolean) Whether this client requires Pushed Authorization Requests (PAR, RFC 9126). Defaults to false. Note: this is enforced only by Pocket-ID versions that support PAR (added after v2.8.0); on older servers the value is stored in state but not enforced.
 - `requires_reauthentication` (Boolean) Whether this client requires reauthentication for certain flows. Defaults to false.
 
 ### Read-Only

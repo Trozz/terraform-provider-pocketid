@@ -41,19 +41,20 @@ type clientResource struct {
 
 // clientResourceModel maps the resource schema data.
 type clientResourceModel struct {
-	ID                       types.String `tfsdk:"id"`
-	Name                     types.String `tfsdk:"name"`
-	ClientID                 types.String `tfsdk:"client_id"`
-	CallbackURLs             types.List   `tfsdk:"callback_urls"`
-	LogoutCallbackURLs       types.List   `tfsdk:"logout_callback_urls"`
-	IsPublic                 types.Bool   `tfsdk:"is_public"`
-	PkceEnabled              types.Bool   `tfsdk:"pkce_enabled"`
-	AllowedUserGroups        types.List   `tfsdk:"allowed_user_groups"`
-	HasLogo                  types.Bool   `tfsdk:"has_logo"`
-	RequiresReauthentication types.Bool   `tfsdk:"requires_reauthentication"`
-	LaunchURL                types.String `tfsdk:"launch_url"`
-	FederatedIdentities      types.List   `tfsdk:"federated_identities"`
-	ClientSecret             types.String `tfsdk:"client_secret"`
+	ID                                  types.String `tfsdk:"id"`
+	Name                                types.String `tfsdk:"name"`
+	ClientID                            types.String `tfsdk:"client_id"`
+	CallbackURLs                        types.List   `tfsdk:"callback_urls"`
+	LogoutCallbackURLs                  types.List   `tfsdk:"logout_callback_urls"`
+	IsPublic                            types.Bool   `tfsdk:"is_public"`
+	PkceEnabled                         types.Bool   `tfsdk:"pkce_enabled"`
+	AllowedUserGroups                   types.List   `tfsdk:"allowed_user_groups"`
+	HasLogo                             types.Bool   `tfsdk:"has_logo"`
+	RequiresReauthentication            types.Bool   `tfsdk:"requires_reauthentication"`
+	RequiresPushedAuthorizationRequests types.Bool   `tfsdk:"requires_pushed_authorization_requests"`
+	LaunchURL                           types.String `tfsdk:"launch_url"`
+	FederatedIdentities                 types.List   `tfsdk:"federated_identities"`
+	ClientSecret                        types.String `tfsdk:"client_secret"`
 }
 
 // clientFederatedIdentityModel maps a single federated identity nested object.
@@ -133,6 +134,13 @@ func (r *clientResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 				Optional:    true,
 				Computed:    true,
 				Default:     booldefault.StaticBool(false),
+			},
+			"requires_pushed_authorization_requests": schema.BoolAttribute{
+				Description: "Whether this client requires Pushed Authorization Requests (PAR, RFC 9126). Defaults to false. " +
+					"Note: this is enforced only by Pocket-ID versions that support PAR (added after v2.8.0); on older servers the value is stored in state but not enforced.",
+				Optional: true,
+				Computed: true,
+				Default:  booldefault.StaticBool(false),
 			},
 			"launch_url": schema.StringAttribute{
 				Description: "Optional launch URL associated with the client.",
@@ -265,6 +273,11 @@ func (r *clientResource) Create(ctx context.Context, req resource.CreateRequest,
 	plan.RequiresReauthentication = apiModel.RequiresReauthentication
 	plan.FederatedIdentities = apiModel.FederatedIdentities
 	plan.LaunchURL = apiModel.LaunchURL
+	// Preserve the configured PAR value when the server does not return the field
+	// (Pocket-ID <= v2.8.0). Only override from the API when it is present.
+	if clientResp.RequiresPushedAuthorizationRequests != nil {
+		plan.RequiresPushedAuthorizationRequests = types.BoolValue(*clientResp.RequiresPushedAuthorizationRequests)
+	}
 
 	// Generate client secret for non-public clients
 	if !plan.IsPublic.ValueBool() {
@@ -341,6 +354,14 @@ func (r *clientResource) Read(ctx context.Context, req resource.ReadRequest, res
 	state.PkceEnabled = types.BoolValue(clientResp.PkceEnabled)
 	state.HasLogo = types.BoolValue(clientResp.HasLogo)
 	state.RequiresReauthentication = types.BoolValue(clientResp.RequiresReauthentication)
+	// Only refresh PAR from the API when the server returns the field; otherwise
+	// preserve the existing state value (Pocket-ID <= v2.8.0 omits it). On import
+	// there is no prior value, so fall back to the default of false.
+	if clientResp.RequiresPushedAuthorizationRequests != nil {
+		state.RequiresPushedAuthorizationRequests = types.BoolValue(*clientResp.RequiresPushedAuthorizationRequests)
+	} else if state.RequiresPushedAuthorizationRequests.IsNull() || state.RequiresPushedAuthorizationRequests.IsUnknown() {
+		state.RequiresPushedAuthorizationRequests = types.BoolValue(false)
+	}
 	state.FederatedIdentities = federatedIdentitiesToList(ctx, clientResp.Credentials.FederatedIdentities)
 	if clientResp.LaunchURL != "" {
 		state.LaunchURL = types.StringValue(clientResp.LaunchURL)
@@ -423,11 +444,12 @@ func (r *clientResource) Update(ctx context.Context, req resource.UpdateRequest,
 
 	// Update the client
 	updateReq := &client.OIDCClientCreateRequest{
-		Name:                     plan.Name.ValueString(),
-		CallbackURLs:             callbackURLs,
-		LogoutCallbackURLs:       logoutCallbackURLs,
-		IsPublic:                 plan.IsPublic.ValueBool(),
-		RequiresReauthentication: plan.RequiresReauthentication.ValueBool(),
+		Name:                                plan.Name.ValueString(),
+		CallbackURLs:                        callbackURLs,
+		LogoutCallbackURLs:                  logoutCallbackURLs,
+		IsPublic:                            plan.IsPublic.ValueBool(),
+		RequiresReauthentication:            plan.RequiresReauthentication.ValueBool(),
+		RequiresPushedAuthorizationRequests: plan.RequiresPushedAuthorizationRequests.ValueBool(),
 		LaunchURL: func() *string {
 			if !plan.LaunchURL.IsNull() && !plan.LaunchURL.IsUnknown() && plan.LaunchURL.ValueString() != "" {
 				v := plan.LaunchURL.ValueString()
@@ -462,6 +484,10 @@ func (r *clientResource) Update(ctx context.Context, req resource.UpdateRequest,
 	plan.HasLogo = types.BoolValue(clientResp.HasLogo)
 	plan.RequiresReauthentication = types.BoolValue(clientResp.RequiresReauthentication)
 	plan.FederatedIdentities = federatedIdentitiesToList(ctx, clientResp.Credentials.FederatedIdentities)
+	// Preserve the configured PAR value unless the server returns the field.
+	if clientResp.RequiresPushedAuthorizationRequests != nil {
+		plan.RequiresPushedAuthorizationRequests = types.BoolValue(*clientResp.RequiresPushedAuthorizationRequests)
+	}
 	if clientResp.LaunchURL != "" {
 		plan.LaunchURL = types.StringValue(clientResp.LaunchURL)
 	} else {
@@ -636,15 +662,16 @@ func buildCreateRequestFromPlan(ctx context.Context, plan *clientResourceModel) 
 	}
 
 	return &client.OIDCClientCreateRequest{
-		Name:                     plan.Name.ValueString(),
-		CallbackURLs:             callbackURLs,
-		LogoutCallbackURLs:       logoutCallbackURLs,
-		IsPublic:                 plan.IsPublic.ValueBool(),
-		RequiresReauthentication: plan.RequiresReauthentication.ValueBool(),
-		LaunchURL:                launchPtr,
-		PkceEnabled:              plan.PkceEnabled.ValueBool(),
-		IsGroupRestricted:        isGroupRestricted,
-		Credentials:              buildCredentialsFromPlan(ctx, plan),
+		Name:                                plan.Name.ValueString(),
+		CallbackURLs:                        callbackURLs,
+		LogoutCallbackURLs:                  logoutCallbackURLs,
+		IsPublic:                            plan.IsPublic.ValueBool(),
+		RequiresReauthentication:            plan.RequiresReauthentication.ValueBool(),
+		RequiresPushedAuthorizationRequests: plan.RequiresPushedAuthorizationRequests.ValueBool(),
+		LaunchURL:                           launchPtr,
+		PkceEnabled:                         plan.PkceEnabled.ValueBool(),
+		IsGroupRestricted:                   isGroupRestricted,
+		Credentials:                         buildCredentialsFromPlan(ctx, plan),
 	}
 }
 

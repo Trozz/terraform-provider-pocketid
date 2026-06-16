@@ -99,10 +99,11 @@ resource "pocketid_client" "admin_portal" {
     "https://admin.example.com/logout"
   ]
 
-  is_public                 = false
-  pkce_enabled              = true
-  requires_reauthentication = true
-  launch_url                = "https://admin.example.com"
+  is_public                              = false
+  pkce_enabled                           = true
+  requires_reauthentication              = true
+  requires_pushed_authorization_requests = true
+  launch_url                             = "https://admin.example.com"
 
   # Only admins and developers can access this client
   allowed_user_groups = [

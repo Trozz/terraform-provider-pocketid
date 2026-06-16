@@ -387,3 +387,42 @@ func testAccCheckClientSecretNotEmpty(resourceName string) resource.TestCheckFun
 		return nil
 	}
 }
+
+func TestAccResourceClient_requiresPushedAuthorizationRequests(t *testing.T) {
+	resourceName := "pocketid_client.test"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Set PAR to true. On Pocket-ID <= v2.8.0 the API does not echo the
+			// field, so the provider preserves the configured value (no
+			// inconsistent-result error, no perpetual diff).
+			{
+				Config: testAccResourceClientConfig_par("par-client", true),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "requires_pushed_authorization_requests", "true"),
+				),
+			},
+			// Flip it back to false and confirm it applies cleanly.
+			{
+				Config: testAccResourceClientConfig_par("par-client", false),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "requires_pushed_authorization_requests", "false"),
+				),
+			},
+		},
+	})
+}
+
+func testAccResourceClientConfig_par(name string, par bool) string {
+	return testAccProviderConfig() + fmt.Sprintf(`
+resource "pocketid_client" "test" {
+  name          = %[1]q
+  callback_urls = ["https://example.com/callback"]
+  is_public     = true
+
+  requires_pushed_authorization_requests = %[2]t
+}
+`, name, par)
+}
