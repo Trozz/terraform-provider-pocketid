@@ -102,15 +102,35 @@ resource "pocketid_client" "admin_portal" {
     "https://admin.example.com/logout"
   ]
 
-  is_public                 = false
-  pkce_enabled              = true
-  requires_reauthentication = true
-  launch_url                = "https://admin.example.com"
+  is_public                              = false
+  pkce_enabled                           = true
+  requires_reauthentication              = true
+  requires_pushed_authorization_requests = true
+  launch_url                             = "https://admin.example.com"
 
   # Only admins and developers can access this client
   allowed_user_groups = [
     pocketid_group.admins.id,
     pocketid_group.developers.id
+  ]
+}
+
+# Create a client that accepts a federated (workload) identity
+resource "pocketid_client" "federated_app" {
+  name = "Federated Workload Client"
+
+  callback_urls = [
+    "https://workload.example.com/callback"
+  ]
+
+  is_public = false
+
+  federated_identities = [
+    {
+      issuer   = "https://token.actions.githubusercontent.com"
+      subject  = "repo:example/repo:ref:refs/heads/main"
+      audience = "https://pocket-id.example.com"
+    }
   ]
 }
 
@@ -149,10 +169,12 @@ output "spa_client_id" {
 
 - `allowed_user_groups` (List of String) List of user group IDs that are allowed to use this client. If empty, all users can use this client.
 - `client_id` (String) The client ID to use for the OIDC client. If not set, one will be generated. Must be between 2 and 128 characters.
+- `federated_identities` (Attributes List) List of federated identities (workload identity federation) allowed to authenticate as this client. (see [below for nested schema](#nestedatt--federated_identities))
 - `is_public` (Boolean) Whether this is a public client (no client secret). Defaults to false.
 - `launch_url` (String) Optional launch URL associated with the client.
 - `logout_callback_urls` (List of String) List of allowed logout callback URLs for the OIDC client.
 - `pkce_enabled` (Boolean) Whether PKCE is enabled for this client. Defaults to true.
+- `requires_pushed_authorization_requests` (Boolean) Whether this client requires Pushed Authorization Requests (PAR). Defaults to false.
 - `requires_reauthentication` (Boolean) Whether this client requires reauthentication for certain flows. Defaults to false.
 
 ### Read-Only
@@ -160,3 +182,16 @@ output "spa_client_id" {
 - `client_secret` (String, Sensitive) The client secret. Only available during resource creation for non-public clients.
 - `has_logo` (Boolean) Whether the client has a logo configured.
 - `id` (String) The ID of the OIDC client.
+
+<a id="nestedatt--federated_identities"></a>
+### Nested Schema for `federated_identities`
+
+Required:
+
+- `issuer` (String) The issuer of the federated identity token.
+
+Optional:
+
+- `audience` (String) The expected audience of the federated identity token.
+- `jwks` (String) Optional JWKS used to validate the federated identity token.
+- `subject` (String) The expected subject of the federated identity token.

@@ -413,3 +413,39 @@ resource "pocketid_user" "second" {
 }
 `, username, email)
 }
+
+func TestAccResourceUser_emailVerified(t *testing.T) {
+	resourceName := "pocketid_user.test"
+	username := "emailverified-user"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccResourceUserConfig_emailVerified(username, "emailverified@example.com", true),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "email_verified", "true"),
+				),
+			},
+			{
+				Config: testAccResourceUserConfig_emailVerified(username, "emailverified@example.com", false),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "email_verified", "false"),
+				),
+			},
+		},
+	})
+}
+
+func testAccResourceUserConfig_emailVerified(username, email string, verified bool) string {
+	return fmt.Sprintf(`
+resource "pocketid_user" "test" {
+  username       = %[1]q
+  email          = %[2]q
+  first_name     = "Test"
+  last_name      = "User"
+  email_verified = %[3]t
+}
+`, username, email, verified)
+}

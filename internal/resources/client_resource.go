@@ -8,6 +8,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -40,18 +41,36 @@ type clientResource struct {
 
 // clientResourceModel maps the resource schema data.
 type clientResourceModel struct {
-	ID                       types.String `tfsdk:"id"`
-	Name                     types.String `tfsdk:"name"`
-	ClientID                 types.String `tfsdk:"client_id"`
-	CallbackURLs             types.List   `tfsdk:"callback_urls"`
-	LogoutCallbackURLs       types.List   `tfsdk:"logout_callback_urls"`
-	IsPublic                 types.Bool   `tfsdk:"is_public"`
-	PkceEnabled              types.Bool   `tfsdk:"pkce_enabled"`
-	AllowedUserGroups        types.List   `tfsdk:"allowed_user_groups"`
-	HasLogo                  types.Bool   `tfsdk:"has_logo"`
-	RequiresReauthentication types.Bool   `tfsdk:"requires_reauthentication"`
-	LaunchURL                types.String `tfsdk:"launch_url"`
-	ClientSecret             types.String `tfsdk:"client_secret"`
+	ID                                  types.String `tfsdk:"id"`
+	Name                                types.String `tfsdk:"name"`
+	ClientID                            types.String `tfsdk:"client_id"`
+	CallbackURLs                        types.List   `tfsdk:"callback_urls"`
+	LogoutCallbackURLs                  types.List   `tfsdk:"logout_callback_urls"`
+	IsPublic                            types.Bool   `tfsdk:"is_public"`
+	PkceEnabled                         types.Bool   `tfsdk:"pkce_enabled"`
+	AllowedUserGroups                   types.List   `tfsdk:"allowed_user_groups"`
+	HasLogo                             types.Bool   `tfsdk:"has_logo"`
+	RequiresReauthentication            types.Bool   `tfsdk:"requires_reauthentication"`
+	RequiresPushedAuthorizationRequests types.Bool   `tfsdk:"requires_pushed_authorization_requests"`
+	LaunchURL                           types.String `tfsdk:"launch_url"`
+	FederatedIdentities                 types.List   `tfsdk:"federated_identities"`
+	ClientSecret                        types.String `tfsdk:"client_secret"`
+}
+
+// clientFederatedIdentityModel maps a single federated identity nested object.
+type clientFederatedIdentityModel struct {
+	Issuer   types.String `tfsdk:"issuer"`
+	Subject  types.String `tfsdk:"subject"`
+	Audience types.String `tfsdk:"audience"`
+	JWKS     types.String `tfsdk:"jwks"`
+}
+
+// federatedIdentityAttrTypes is the attribute-type map for a federated identity object.
+var federatedIdentityAttrTypes = map[string]attr.Type{
+	"issuer":   types.StringType,
+	"subject":  types.StringType,
+	"audience": types.StringType,
+	"jwks":     types.StringType,
 }
 
 // Metadata returns the resource type name.
@@ -116,10 +135,40 @@ func (r *clientResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 				Computed:    true,
 				Default:     booldefault.StaticBool(false),
 			},
+			"requires_pushed_authorization_requests": schema.BoolAttribute{
+				Description: "Whether this client requires Pushed Authorization Requests (PAR). Defaults to false.",
+				Optional:    true,
+				Computed:    true,
+				Default:     booldefault.StaticBool(false),
+			},
 			"launch_url": schema.StringAttribute{
 				Description: "Optional launch URL associated with the client.",
 				Optional:    true,
 				Computed:    true,
+			},
+			"federated_identities": schema.ListNestedAttribute{
+				Description: "List of federated identities (workload identity federation) allowed to authenticate as this client.",
+				Optional:    true,
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"issuer": schema.StringAttribute{
+							Description: "The issuer of the federated identity token.",
+							Required:    true,
+						},
+						"subject": schema.StringAttribute{
+							Description: "The expected subject of the federated identity token.",
+							Optional:    true,
+						},
+						"audience": schema.StringAttribute{
+							Description: "The expected audience of the federated identity token.",
+							Optional:    true,
+						},
+						"jwks": schema.StringAttribute{
+							Description: "Optional JWKS used to validate the federated identity token.",
+							Optional:    true,
+						},
+					},
+				},
 			},
 			"pkce_enabled": schema.BoolAttribute{
 				Description: "Whether PKCE is enabled for this client. Defaults to true.",
@@ -221,6 +270,8 @@ func (r *clientResource) Create(ctx context.Context, req resource.CreateRequest,
 	plan.ID = apiModel.ID
 	plan.HasLogo = apiModel.HasLogo
 	plan.RequiresReauthentication = apiModel.RequiresReauthentication
+	plan.RequiresPushedAuthorizationRequests = apiModel.RequiresPushedAuthorizationRequests
+	plan.FederatedIdentities = apiModel.FederatedIdentities
 	plan.LaunchURL = apiModel.LaunchURL
 
 	// Generate client secret for non-public clients
@@ -298,6 +349,8 @@ func (r *clientResource) Read(ctx context.Context, req resource.ReadRequest, res
 	state.PkceEnabled = types.BoolValue(clientResp.PkceEnabled)
 	state.HasLogo = types.BoolValue(clientResp.HasLogo)
 	state.RequiresReauthentication = types.BoolValue(clientResp.RequiresReauthentication)
+	state.RequiresPushedAuthorizationRequests = types.BoolValue(clientResp.RequiresPushedAuthorizationRequests)
+	state.FederatedIdentities = federatedIdentitiesToList(ctx, clientResp.Credentials.FederatedIdentities)
 	if clientResp.LaunchURL != "" {
 		state.LaunchURL = types.StringValue(clientResp.LaunchURL)
 	} else {
@@ -391,9 +444,10 @@ func (r *clientResource) Update(ctx context.Context, req resource.UpdateRequest,
 			}
 			return nil
 		}(),
-		PkceEnabled:       plan.PkceEnabled.ValueBool(),
-		IsGroupRestricted: isGroupRestricted,
-		Credentials:       client.OIDCClientCredentials{}, // Empty for now
+		PkceEnabled:                         plan.PkceEnabled.ValueBool(),
+		IsGroupRestricted:                   isGroupRestricted,
+		RequiresPushedAuthorizationRequests: plan.RequiresPushedAuthorizationRequests.ValueBool(),
+		Credentials:                         buildCredentialsFromPlan(ctx, &plan),
 	}
 	if !plan.ClientID.IsNull() && !plan.ClientID.IsUnknown() && plan.ClientID.ValueString() != "" {
 		cid := plan.ClientID.ValueString()
@@ -417,6 +471,8 @@ func (r *clientResource) Update(ctx context.Context, req resource.UpdateRequest,
 	// Update state values
 	plan.HasLogo = types.BoolValue(clientResp.HasLogo)
 	plan.RequiresReauthentication = types.BoolValue(clientResp.RequiresReauthentication)
+	plan.RequiresPushedAuthorizationRequests = types.BoolValue(clientResp.RequiresPushedAuthorizationRequests)
+	plan.FederatedIdentities = federatedIdentitiesToList(ctx, clientResp.Credentials.FederatedIdentities)
 	if clientResp.LaunchURL != "" {
 		plan.LaunchURL = types.StringValue(clientResp.LaunchURL)
 	} else {
@@ -591,16 +647,72 @@ func buildCreateRequestFromPlan(ctx context.Context, plan *clientResourceModel) 
 	}
 
 	return &client.OIDCClientCreateRequest{
-		Name:                     plan.Name.ValueString(),
-		CallbackURLs:             callbackURLs,
-		LogoutCallbackURLs:       logoutCallbackURLs,
-		IsPublic:                 plan.IsPublic.ValueBool(),
-		RequiresReauthentication: plan.RequiresReauthentication.ValueBool(),
-		LaunchURL:                launchPtr,
-		PkceEnabled:              plan.PkceEnabled.ValueBool(),
-		IsGroupRestricted:        isGroupRestricted,
-		Credentials:              client.OIDCClientCredentials{},
+		Name:                                plan.Name.ValueString(),
+		CallbackURLs:                        callbackURLs,
+		LogoutCallbackURLs:                  logoutCallbackURLs,
+		IsPublic:                            plan.IsPublic.ValueBool(),
+		RequiresReauthentication:            plan.RequiresReauthentication.ValueBool(),
+		LaunchURL:                           launchPtr,
+		PkceEnabled:                         plan.PkceEnabled.ValueBool(),
+		IsGroupRestricted:                   isGroupRestricted,
+		RequiresPushedAuthorizationRequests: plan.RequiresPushedAuthorizationRequests.ValueBool(),
+		Credentials:                         buildCredentialsFromPlan(ctx, plan),
 	}
+}
+
+// buildCredentialsFromPlan converts the federated_identities plan list into API credentials.
+func buildCredentialsFromPlan(ctx context.Context, plan *clientResourceModel) client.OIDCClientCredentials {
+	if plan.FederatedIdentities.IsNull() || plan.FederatedIdentities.IsUnknown() {
+		return client.OIDCClientCredentials{}
+	}
+
+	var identities []clientFederatedIdentityModel
+	_ = plan.FederatedIdentities.ElementsAs(ctx, &identities, false)
+
+	if len(identities) == 0 {
+		return client.OIDCClientCredentials{}
+	}
+
+	federated := make([]client.OIDCClientFederatedIdentity, 0, len(identities))
+	for _, identity := range identities {
+		federated = append(federated, client.OIDCClientFederatedIdentity{
+			Issuer:   identity.Issuer.ValueString(),
+			Subject:  identity.Subject.ValueString(),
+			Audience: identity.Audience.ValueString(),
+			JWKS:     identity.JWKS.ValueString(),
+		})
+	}
+
+	return client.OIDCClientCredentials{FederatedIdentities: federated}
+}
+
+// federatedIdentitiesToList converts API federated identities into a Terraform list value.
+func federatedIdentitiesToList(ctx context.Context, identities []client.OIDCClientFederatedIdentity) types.List {
+	objType := types.ObjectType{AttrTypes: federatedIdentityAttrTypes}
+	if len(identities) == 0 {
+		return types.ListNull(objType)
+	}
+
+	models := make([]clientFederatedIdentityModel, 0, len(identities))
+	for _, identity := range identities {
+		models = append(models, clientFederatedIdentityModel{
+			Issuer:   types.StringValue(identity.Issuer),
+			Subject:  optionalString(identity.Subject),
+			Audience: optionalString(identity.Audience),
+			JWKS:     optionalString(identity.JWKS),
+		})
+	}
+
+	list, _ := types.ListValueFrom(ctx, objType, models)
+	return list
+}
+
+// optionalString returns a null string value when the input is empty.
+func optionalString(value string) types.String {
+	if value == "" {
+		return types.StringNull()
+	}
+	return types.StringValue(value)
 }
 
 // mapAPIClientToModel maps an API OIDCClient response into the Terraform resource model.
@@ -612,6 +724,8 @@ func mapAPIClientToModel(ctx context.Context, api *client.OIDCClient) clientReso
 	model.PkceEnabled = types.BoolValue(api.PkceEnabled)
 	model.HasLogo = types.BoolValue(api.HasLogo)
 	model.RequiresReauthentication = types.BoolValue(api.RequiresReauthentication)
+	model.RequiresPushedAuthorizationRequests = types.BoolValue(api.RequiresPushedAuthorizationRequests)
+	model.FederatedIdentities = federatedIdentitiesToList(ctx, api.Credentials.FederatedIdentities)
 
 	callbackURLs, _ := types.ListValueFrom(ctx, types.StringType, api.CallbackURLs)
 	model.CallbackURLs = callbackURLs

@@ -332,6 +332,78 @@ func TestAccResourceClient_longName(t *testing.T) {
 	})
 }
 
+func TestAccResourceClient_requiresPushedAuthorizationRequests(t *testing.T) {
+	resourceName := "pocketid_client.test"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccResourceClientConfig_par("par-client", true),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "name", "par-client"),
+					resource.TestCheckResourceAttr(resourceName, "requires_pushed_authorization_requests", "true"),
+				),
+			},
+			{
+				Config: testAccResourceClientConfig_par("par-client", false),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "requires_pushed_authorization_requests", "false"),
+				),
+			},
+		},
+	})
+}
+
+func TestAccResourceClient_federatedIdentities(t *testing.T) {
+	resourceName := "pocketid_client.test"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccResourceClientConfig_federatedIdentities("fed-client"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "name", "fed-client"),
+					resource.TestCheckResourceAttr(resourceName, "federated_identities.#", "1"),
+					resource.TestCheckResourceAttr(resourceName, "federated_identities.0.issuer", "https://issuer.example.com"),
+					resource.TestCheckResourceAttr(resourceName, "federated_identities.0.subject", "subject-1"),
+					resource.TestCheckResourceAttr(resourceName, "federated_identities.0.audience", "audience-1"),
+				),
+			},
+		},
+	})
+}
+
+func testAccResourceClientConfig_par(name string, par bool) string {
+	return fmt.Sprintf(`
+resource "pocketid_client" "test" {
+  name                                   = %[1]q
+  callback_urls                          = ["https://example.com/callback"]
+  requires_pushed_authorization_requests = %[2]t
+}
+`, name, par)
+}
+
+func testAccResourceClientConfig_federatedIdentities(name string) string {
+	return fmt.Sprintf(`
+resource "pocketid_client" "test" {
+  name          = %[1]q
+  callback_urls = ["https://example.com/callback"]
+
+  federated_identities = [
+    {
+      issuer   = "https://issuer.example.com"
+      subject  = "subject-1"
+      audience = "audience-1"
+    },
+  ]
+}
+`, name)
+}
+
 // Test helper functions
 
 func testAccCheckClientSecretNotEmpty(resourceName string) resource.TestCheckFunc {

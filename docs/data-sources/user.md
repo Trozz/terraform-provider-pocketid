@@ -65,7 +65,9 @@ output "admin_user_id" {
 ### Read-Only
 
 - `disabled` (Boolean) Whether the user account is disabled.
+- `display_name` (String) The display name of the user.
 - `email` (String) The email address of the user.
+- `email_verified` (Boolean) Whether the user's email address is verified.
 - `first_name` (String) The first name of the user.
 - `groups` (Set of String) List of group IDs the user belongs to.
 - `is_admin` (Boolean) Whether the user has administrator privileges.

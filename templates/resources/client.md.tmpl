@@ -99,15 +99,35 @@ resource "pocketid_client" "admin_portal" {
     "https://admin.example.com/logout"
   ]
 
-  is_public                 = false
-  pkce_enabled              = true
-  requires_reauthentication = true
-  launch_url                = "https://admin.example.com"
+  is_public                              = false
+  pkce_enabled                           = true
+  requires_reauthentication              = true
+  requires_pushed_authorization_requests = true
+  launch_url                             = "https://admin.example.com"
 
   # Only admins and developers can access this client
   allowed_user_groups = [
     pocketid_group.admins.id,
     pocketid_group.developers.id
+  ]
+}
+
+# Create a client that accepts a federated (workload) identity
+resource "pocketid_client" "federated_app" {
+  name = "Federated Workload Client"
+
+  callback_urls = [
+    "https://workload.example.com/callback"
+  ]
+
+  is_public = false
+
+  federated_identities = [
+    {
+      issuer   = "https://token.actions.githubusercontent.com"
+      subject  = "repo:example/repo:ref:refs/heads/main"
+      audience = "https://pocket-id.example.com"
+    }
   ]
 }
 

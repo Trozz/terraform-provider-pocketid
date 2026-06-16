@@ -243,6 +243,7 @@ func TestUserDataSource_Schema(t *testing.T) {
 	// Verify attributes exist
 	expectedAttributes := []string{
 		"id", "username", "email", "first_name", "last_name",
+		"display_name", "email_verified",
 		"is_admin", "locale", "disabled", "groups",
 	}
 
@@ -261,6 +262,14 @@ func TestUserDataSource_Schema(t *testing.T) {
 	assert.True(t, ok)
 	assert.True(t, usernameAttr.Optional)
 	assert.True(t, usernameAttr.Computed)
+
+	displayNameAttr, ok := resp.Schema.Attributes["display_name"].(schema.StringAttribute)
+	assert.True(t, ok)
+	assert.True(t, displayNameAttr.Computed)
+
+	emailVerifiedAttr, ok := resp.Schema.Attributes["email_verified"].(schema.BoolAttribute)
+	assert.True(t, ok)
+	assert.True(t, emailVerifiedAttr.Computed)
 
 	groupsAttr, ok := resp.Schema.Attributes["groups"].(schema.SetAttribute)
 	assert.True(t, ok, "groups should be a SetAttribute")
@@ -355,6 +364,7 @@ func TestUsersDataSource_Schema(t *testing.T) {
 	// Verify nested attributes
 	expectedNestedAttributes := []string{
 		"id", "username", "email", "first_name", "last_name",
+		"display_name", "email_verified",
 		"is_admin", "locale", "disabled", "groups",
 	}
 

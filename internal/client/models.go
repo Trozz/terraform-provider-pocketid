@@ -22,19 +22,20 @@ type PaginatedResponse[T any] struct {
 
 // OIDCClient represents an OIDC client in Pocket-ID
 type OIDCClient struct {
-	ID                       string                `json:"id,omitempty"`
-	Name                     string                `json:"name"`
-	HasLogo                  bool                  `json:"hasLogo,omitempty"`
-	CallbackURLs             []string              `json:"callbackURLs"`
-	LogoutCallbackURLs       []string              `json:"logoutCallbackURLs,omitempty"`
-	IsPublic                 bool                  `json:"isPublic"`
-	RequiresReauthentication bool                  `json:"requiresReauthentication,omitempty"`
-	LaunchURL                string                `json:"launchURL,omitempty"`
-	PkceEnabled              bool                  `json:"pkceEnabled"`
-	IsGroupRestricted        bool                  `json:"isGroupRestricted"`
-	Credentials              OIDCClientCredentials `json:"credentials"`
-	AllowedUserGroups        []UserGroup           `json:"allowedUserGroups,omitempty"`
-	AllowedUserGroupsCount   int64                 `json:"allowedUserGroupsCount,omitempty"`
+	ID                                  string                `json:"id,omitempty"`
+	Name                                string                `json:"name"`
+	HasLogo                             bool                  `json:"hasLogo,omitempty"`
+	CallbackURLs                        []string              `json:"callbackURLs"`
+	LogoutCallbackURLs                  []string              `json:"logoutCallbackURLs,omitempty"`
+	IsPublic                            bool                  `json:"isPublic"`
+	RequiresReauthentication            bool                  `json:"requiresReauthentication,omitempty"`
+	LaunchURL                           string                `json:"launchURL,omitempty"`
+	PkceEnabled                         bool                  `json:"pkceEnabled"`
+	IsGroupRestricted                   bool                  `json:"isGroupRestricted"`
+	RequiresPushedAuthorizationRequests bool                  `json:"requiresPushedAuthorizationRequests"`
+	Credentials                         OIDCClientCredentials `json:"credentials"`
+	AllowedUserGroups                   []UserGroup           `json:"allowedUserGroups,omitempty"`
+	AllowedUserGroupsCount              int64                 `json:"allowedUserGroupsCount,omitempty"`
 }
 
 // OIDCClientCredentials represents federated identity credentials for an OIDC client
@@ -52,16 +53,17 @@ type OIDCClientFederatedIdentity struct {
 
 // OIDCClientCreateRequest represents a request to create or update an OIDC client
 type OIDCClientCreateRequest struct {
-	Name                     string                `json:"name"`
-	ClientID                 *string               `json:"id,omitempty"`
-	CallbackURLs             []string              `json:"callbackURLs"`
-	LogoutCallbackURLs       []string              `json:"logoutCallbackURLs,omitempty"`
-	IsPublic                 bool                  `json:"isPublic"`
-	RequiresReauthentication bool                  `json:"requiresReauthentication,omitempty"`
-	LaunchURL                *string               `json:"launchURL,omitempty"`
-	PkceEnabled              bool                  `json:"pkceEnabled"`
-	IsGroupRestricted        bool                  `json:"isGroupRestricted"`
-	Credentials              OIDCClientCredentials `json:"credentials"`
+	Name                                string                `json:"name"`
+	ClientID                            *string               `json:"id,omitempty"`
+	CallbackURLs                        []string              `json:"callbackURLs"`
+	LogoutCallbackURLs                  []string              `json:"logoutCallbackURLs,omitempty"`
+	IsPublic                            bool                  `json:"isPublic"`
+	RequiresReauthentication            bool                  `json:"requiresReauthentication,omitempty"`
+	LaunchURL                           *string               `json:"launchURL,omitempty"`
+	PkceEnabled                         bool                  `json:"pkceEnabled"`
+	IsGroupRestricted                   bool                  `json:"isGroupRestricted"`
+	RequiresPushedAuthorizationRequests bool                  `json:"requiresPushedAuthorizationRequests"`
+	Credentials                         OIDCClientCredentials `json:"credentials"`
 }
 
 // ClientSecretResponse represents the response when generating a client secret
@@ -76,32 +78,34 @@ type UpdateAllowedUserGroupsRequest struct {
 
 // User represents a user in Pocket-ID
 type User struct {
-	ID           string        `json:"id,omitempty"`
-	Username     string        `json:"username"`
-	Email        string        `json:"email"`
-	FirstName    string        `json:"firstName,omitempty"`
-	LastName     string        `json:"lastName,omitempty"`
-	DisplayName  string        `json:"displayName,omitempty"`
-	IsAdmin      bool          `json:"isAdmin"`
-	Locale       *string       `json:"locale,omitempty"`
-	Disabled     bool          `json:"disabled"`
-	UserGroups   []UserGroup   `json:"userGroups,omitempty"`
-	CustomClaims []CustomClaim `json:"customClaims,omitempty"`
-	LdapID       *string       `json:"ldapId,omitempty"`
-	CreatedAt    string        `json:"createdAt,omitempty"`
-	UpdatedAt    string        `json:"updatedAt,omitempty"`
+	ID            string        `json:"id,omitempty"`
+	Username      string        `json:"username"`
+	Email         string        `json:"email"`
+	FirstName     string        `json:"firstName,omitempty"`
+	LastName      string        `json:"lastName,omitempty"`
+	DisplayName   string        `json:"displayName,omitempty"`
+	EmailVerified bool          `json:"emailVerified"`
+	IsAdmin       bool          `json:"isAdmin"`
+	Locale        *string       `json:"locale,omitempty"`
+	Disabled      bool          `json:"disabled"`
+	UserGroups    []UserGroup   `json:"userGroups,omitempty"`
+	CustomClaims  []CustomClaim `json:"customClaims,omitempty"`
+	LdapID        *string       `json:"ldapId,omitempty"`
+	CreatedAt     string        `json:"createdAt,omitempty"`
+	UpdatedAt     string        `json:"updatedAt,omitempty"`
 }
 
 // UserCreateRequest represents a request to create or update a user
 type UserCreateRequest struct {
-	Username    string  `json:"username"`
-	Email       string  `json:"email"`
-	FirstName   string  `json:"firstName,omitempty"`
-	LastName    string  `json:"lastName,omitempty"`
-	DisplayName string  `json:"displayName,omitempty"`
-	IsAdmin     bool    `json:"isAdmin"`
-	Locale      *string `json:"locale,omitempty"`
-	Disabled    bool    `json:"disabled"`
+	Username      string  `json:"username"`
+	Email         string  `json:"email"`
+	FirstName     string  `json:"firstName,omitempty"`
+	LastName      string  `json:"lastName,omitempty"`
+	DisplayName   string  `json:"displayName,omitempty"`
+	EmailVerified bool    `json:"emailVerified"`
+	IsAdmin       bool    `json:"isAdmin"`
+	Locale        *string `json:"locale,omitempty"`
+	Disabled      bool    `json:"disabled"`
 }
 
 // UpdateUserGroupsRequest represents a request to update a user's groups
