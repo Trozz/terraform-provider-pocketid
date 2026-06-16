@@ -201,6 +201,7 @@ func (p *pocketIDProvider) DataSources(_ context.Context) []func() datasource.Da
 		datasources.NewUsersDataSource,
 		datasources.NewGroupDataSource,
 		datasources.NewGroupsDataSource,
+		datasources.NewApplicationConfigDataSource,
 	}
 }
 
@@ -211,6 +212,7 @@ func (p *pocketIDProvider) Resources(_ context.Context) []func() resource.Resour
 		resources.NewUserResource,
 		resources.NewGroupResource,
 		resources.NewOneTimeAccessTokenResource,
+		resources.NewApplicationConfigResource,
 		resources.NewScimServiceProviderResource,
 	}
 }

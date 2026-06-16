@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -584,6 +585,65 @@ type OneTimeAccessToken struct {
 // The API expects a ttl (lifetime) as a duration string, e.g. "15m" or "1h".
 type OneTimeAccessTokenRequest struct {
 	TTL string `json:"ttl"`
+}
+
+// Application configuration methods
+
+// appConfigVariablesToConfig converts the key/value variable slice returned by
+// the application configuration endpoints into an ApplicationConfig struct.
+func appConfigVariablesToConfig(vars []AppConfigVariable) *ApplicationConfig {
+	values := make(map[string]string, len(vars))
+	for _, v := range vars {
+		values[v.Key] = v.Value
+	}
+
+	cfg := &ApplicationConfig{}
+	cfgValue := reflect.ValueOf(cfg).Elem()
+	cfgType := cfgValue.Type()
+	for i := 0; i < cfgType.NumField(); i++ {
+		key, _, _ := strings.Cut(cfgType.Field(i).Tag.Get("json"), ",")
+		if key == "" {
+			continue
+		}
+		if value, ok := values[key]; ok {
+			cfgValue.Field(i).SetString(value)
+		}
+	}
+
+	return cfg
+}
+
+// GetApplicationConfig retrieves the full application configuration, including
+// private values, from GET /api/application-configuration/all.
+func (c *Client) GetApplicationConfig() (*ApplicationConfig, error) {
+	body, err := c.doRequest("GET", "/api/application-configuration/all", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var vars []AppConfigVariable
+	if err := json.Unmarshal(body, &vars); err != nil {
+		return nil, fmt.Errorf("error unmarshaling response: %w", err)
+	}
+
+	return appConfigVariablesToConfig(vars), nil
+}
+
+// UpdateApplicationConfig updates the application configuration via
+// PUT /api/application-configuration. The provided config is sent in full; any
+// empty string field is reset to its server-side default by Pocket-ID.
+func (c *Client) UpdateApplicationConfig(cfg *ApplicationConfig) (*ApplicationConfig, error) {
+	body, err := c.doRequest("PUT", "/api/application-configuration", cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	var vars []AppConfigVariable
+	if err := json.Unmarshal(body, &vars); err != nil {
+		return nil, fmt.Errorf("error unmarshaling response: %w", err)
+	}
+
+	return appConfigVariablesToConfig(vars), nil
 }
 
 // CreateOneTimeAccessToken creates a new one-time access token for a user

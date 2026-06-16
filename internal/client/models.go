@@ -136,6 +136,70 @@ type CustomClaim struct {
 	Value string `json:"value"`
 }
 
+// ApplicationConfig represents the writable application configuration of a
+// Pocket-ID instance. Every value is stored as a string by the API. The JSON
+// tags match the keys returned by GET /api/application-configuration/all and
+// the body expected by PUT /api/application-configuration.
+type ApplicationConfig struct {
+	// General
+	AppName                   string `json:"appName"`
+	SessionDuration           string `json:"sessionDuration"`
+	HomePageURL               string `json:"homePageUrl"`
+	EmailsVerified            string `json:"emailsVerified"`
+	DisableAnimations         string `json:"disableAnimations"`
+	AllowOwnAccountEdit       string `json:"allowOwnAccountEdit"`
+	AllowUserSignups          string `json:"allowUserSignups"`
+	SignupDefaultUserGroupIDs string `json:"signupDefaultUserGroupIDs"`
+	SignupDefaultCustomClaims string `json:"signupDefaultCustomClaims"`
+	AccentColor               string `json:"accentColor"`
+	RequireUserEmail          string `json:"requireUserEmail"`
+
+	// Email / SMTP
+	SmtpHost           string `json:"smtpHost"`
+	SmtpPort           string `json:"smtpPort"`
+	SmtpFrom           string `json:"smtpFrom"`
+	SmtpUser           string `json:"smtpUser"`
+	SmtpPassword       string `json:"smtpPassword"`
+	SmtpTls            string `json:"smtpTls"`
+	SmtpSkipCertVerify string `json:"smtpSkipCertVerify"`
+
+	EmailOneTimeAccessAsAdminEnabled           string `json:"emailOneTimeAccessAsAdminEnabled"`
+	EmailOneTimeAccessAsUnauthenticatedEnabled string `json:"emailOneTimeAccessAsUnauthenticatedEnabled"`
+	EmailLoginNotificationEnabled              string `json:"emailLoginNotificationEnabled"`
+	EmailApiKeyExpirationEnabled               string `json:"emailApiKeyExpirationEnabled"`
+	EmailVerificationEnabled                   string `json:"emailVerificationEnabled"`
+
+	// LDAP
+	LdapEnabled                        string `json:"ldapEnabled"`
+	LdapUrl                            string `json:"ldapUrl"`
+	LdapBindDn                         string `json:"ldapBindDn"`
+	LdapBindPassword                   string `json:"ldapBindPassword"`
+	LdapBase                           string `json:"ldapBase"`
+	LdapUserSearchFilter               string `json:"ldapUserSearchFilter"`
+	LdapUserGroupSearchFilter          string `json:"ldapUserGroupSearchFilter"`
+	LdapSkipCertVerify                 string `json:"ldapSkipCertVerify"`
+	LdapAttributeUserUniqueIdentifier  string `json:"ldapAttributeUserUniqueIdentifier"`
+	LdapAttributeUserUsername          string `json:"ldapAttributeUserUsername"`
+	LdapAttributeUserEmail             string `json:"ldapAttributeUserEmail"`
+	LdapAttributeUserFirstName         string `json:"ldapAttributeUserFirstName"`
+	LdapAttributeUserLastName          string `json:"ldapAttributeUserLastName"`
+	LdapAttributeUserDisplayName       string `json:"ldapAttributeUserDisplayName"`
+	LdapAttributeUserProfilePicture    string `json:"ldapAttributeUserProfilePicture"`
+	LdapAttributeGroupMember           string `json:"ldapAttributeGroupMember"`
+	LdapAttributeGroupUniqueIdentifier string `json:"ldapAttributeGroupUniqueIdentifier"`
+	LdapAttributeGroupName             string `json:"ldapAttributeGroupName"`
+	LdapAdminGroupName                 string `json:"ldapAdminGroupName"`
+	LdapSoftDeleteUsers                string `json:"ldapSoftDeleteUsers"`
+}
+
+// AppConfigVariable represents a single key/value entry as returned by the
+// application configuration endpoints.
+type AppConfigVariable struct {
+	Key   string `json:"key"`
+	Type  string `json:"type"`
+	Value string `json:"value"`
+}
+
 // APIKey represents an API key
 type APIKey struct {
 	ID                  string `json:"id,omitempty"`
