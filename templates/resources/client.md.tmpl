@@ -111,6 +111,25 @@ resource "pocketid_client" "admin_portal" {
   ]
 }
 
+# Create a client that accepts a federated (workload) identity
+resource "pocketid_client" "federated_app" {
+  name = "Federated Workload Client"
+
+  callback_urls = [
+    "https://workload.example.com/callback"
+  ]
+
+  is_public = false
+
+  federated_identities = [
+    {
+      issuer   = "https://token.actions.githubusercontent.com"
+      subject  = "repo:example/repo:ref:refs/heads/main"
+      audience = "https://pocket-id.example.com"
+    }
+  ]
+}
+
 # Store the client secret securely
 resource "pocketid_client" "api_client" {
   name = "API Service Client"

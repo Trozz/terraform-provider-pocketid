@@ -170,6 +170,59 @@ func TestAccResourceGroup_multipleGroups(t *testing.T) {
 	})
 }
 
+func TestAccResourceGroup_customClaims(t *testing.T) {
+	resourceName := "pocketid_group.test"
+	rName := acctest.RandomWithPrefix("tf-acc-test")
+	groupName := rName + "-claims"
+	friendlyName := "Claims Test Group"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Create with custom claims
+			{
+				Config: testAccResourceGroupConfig_customClaims(groupName, friendlyName, map[string]string{
+					"role":        "admin",
+					"environment": "production",
+				}),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "name", groupName),
+					resource.TestCheckResourceAttr(resourceName, "custom_claims.%", "2"),
+					resource.TestCheckResourceAttr(resourceName, "custom_claims.role", "admin"),
+					resource.TestCheckResourceAttr(resourceName, "custom_claims.environment", "production"),
+				),
+			},
+			// ImportState testing
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+			// Update claims (change value, remove one, add one)
+			{
+				Config: testAccResourceGroupConfig_customClaims(groupName, friendlyName, map[string]string{
+					"role": "viewer",
+					"team": "platform",
+				}),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "custom_claims.%", "2"),
+					resource.TestCheckResourceAttr(resourceName, "custom_claims.role", "viewer"),
+					resource.TestCheckResourceAttr(resourceName, "custom_claims.team", "platform"),
+					resource.TestCheckNoResourceAttr(resourceName, "custom_claims.environment"),
+				),
+			},
+			// Clear claims
+			{
+				Config: testAccResourceGroupConfig_basic(groupName, friendlyName),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckNoResourceAttr(resourceName, "custom_claims.%"),
+				),
+			},
+		},
+	})
+}
+
 // Helper function to check if group exists
 func testAccCheckGroupExists(resourceName string) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
@@ -227,6 +280,21 @@ resource "pocketid_group" "second" {
   friendly_name = %[2]q
 }
 `, name, friendlyName)
+}
+
+func testAccResourceGroupConfig_customClaims(name, friendlyName string, claims map[string]string) string {
+	var claimLines string
+	for k, v := range claims {
+		claimLines += fmt.Sprintf("\n    %q = %q", k, v)
+	}
+	return fmt.Sprintf(`
+resource "pocketid_group" "test" {
+  name          = %[1]q
+  friendly_name = %[2]q
+  custom_claims = {%[3]s
+  }
+}
+`, name, friendlyName, claimLines)
 }
 
 func testAccResourceGroupConfig_multipleWithPrefix(rName string) string {

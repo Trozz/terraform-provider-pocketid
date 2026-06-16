@@ -38,16 +38,18 @@ type userResource struct {
 
 // userResourceModel maps the resource schema data.
 type userResourceModel struct {
-	ID          types.String `tfsdk:"id"`
-	Username    types.String `tfsdk:"username"`
-	Email       types.String `tfsdk:"email"`
-	FirstName   types.String `tfsdk:"first_name"`
-	LastName    types.String `tfsdk:"last_name"`
-	DisplayName types.String `tfsdk:"display_name"`
-	IsAdmin     types.Bool   `tfsdk:"is_admin"`
-	Locale      types.String `tfsdk:"locale"`
-	Disabled    types.Bool   `tfsdk:"disabled"`
-	Groups      types.Set    `tfsdk:"groups"`
+	ID            types.String `tfsdk:"id"`
+	Username      types.String `tfsdk:"username"`
+	Email         types.String `tfsdk:"email"`
+	FirstName     types.String `tfsdk:"first_name"`
+	LastName      types.String `tfsdk:"last_name"`
+	DisplayName   types.String `tfsdk:"display_name"`
+	EmailVerified types.Bool   `tfsdk:"email_verified"`
+	IsAdmin       types.Bool   `tfsdk:"is_admin"`
+	Locale        types.String `tfsdk:"locale"`
+	Disabled      types.Bool   `tfsdk:"disabled"`
+	Groups        types.Set    `tfsdk:"groups"`
+	CustomClaims  types.Map    `tfsdk:"custom_claims"`
 }
 
 // Metadata returns the resource type name.
@@ -97,6 +99,12 @@ func (r *userResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 				Computed:    true,
 				Optional:    true,
 			},
+			"email_verified": schema.BoolAttribute{
+				Description: "Whether the user's email address is verified. Defaults to false.",
+				Optional:    true,
+				Computed:    true,
+				Default:     booldefault.StaticBool(false),
+			},
 			"is_admin": schema.BoolAttribute{
 				Description: "Whether the user has administrator privileges. Defaults to false.",
 				Optional:    true,
@@ -117,6 +125,12 @@ func (r *userResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 				Description: "List of group IDs the user belongs to.",
 				Optional:    true,
 				ElementType: types.StringType,
+			},
+			"custom_claims": schema.MapAttribute{
+				Description:         "Custom claims to include in the user's OIDC tokens, as a map of claim name to value. Reserved claim names (e.g. 'email', 'groups', 'sub') are rejected by Pocket-ID.",
+				MarkdownDescription: "Custom claims to include in the user's OIDC tokens, as a map of claim name to value. Setting this attribute replaces all custom claims for the user. Reserved claim names (e.g. `email`, `groups`, `sub`) are rejected by Pocket-ID.",
+				Optional:            true,
+				ElementType:         types.StringType,
 			},
 		},
 	}
@@ -166,13 +180,14 @@ func (r *userResource) Create(ctx context.Context, req resource.CreateRequest, r
 
 	// Create the user
 	createReq := &client.UserCreateRequest{
-		Username:    plan.Username.ValueString(),
-		Email:       plan.Email.ValueString(),
-		FirstName:   plan.FirstName.ValueString(),
-		LastName:    plan.LastName.ValueString(),
-		DisplayName: displayName,
-		IsAdmin:     plan.IsAdmin.ValueBool(),
-		Disabled:    plan.Disabled.ValueBool(),
+		Username:      plan.Username.ValueString(),
+		Email:         plan.Email.ValueString(),
+		FirstName:     plan.FirstName.ValueString(),
+		LastName:      plan.LastName.ValueString(),
+		DisplayName:   displayName,
+		EmailVerified: plan.EmailVerified.ValueBool(),
+		IsAdmin:       plan.IsAdmin.ValueBool(),
+		Disabled:      plan.Disabled.ValueBool(),
 	}
 
 	// Handle locale if provided
@@ -207,6 +222,7 @@ func (r *userResource) Create(ctx context.Context, req resource.CreateRequest, r
 	plan.FirstName = types.StringValue(userResp.FirstName)
 	plan.LastName = types.StringValue(userResp.LastName)
 	plan.DisplayName = types.StringValue(userResp.DisplayName)
+	plan.EmailVerified = types.BoolValue(userResp.EmailVerified)
 	plan.IsAdmin = types.BoolValue(userResp.IsAdmin)
 
 	plan.Disabled = types.BoolValue(userResp.Disabled)
@@ -240,6 +256,36 @@ func (r *userResource) Create(ctx context.Context, req resource.CreateRequest, r
 				)
 				return
 			}
+		}
+	}
+
+	// Handle custom claims
+	if !plan.CustomClaims.IsNull() && !plan.CustomClaims.IsUnknown() {
+		claims, claimDiags := customClaimsToAPI(ctx, plan.CustomClaims)
+		resp.Diagnostics.Append(claimDiags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		if len(claims) > 0 {
+			tflog.Debug(ctx, "Updating user custom claims", map[string]any{
+				"id": userResp.ID,
+			})
+			updatedClaims, err := r.client.UpdateUserCustomClaims(userResp.ID, claims)
+			if err != nil {
+				// Try to clean up the created user
+				_ = r.client.DeleteUser(userResp.ID)
+				resp.Diagnostics.AddError(
+					"Error updating user custom claims",
+					"Could not update user custom claims, the user was deleted. Error: "+err.Error(),
+				)
+				return
+			}
+			claimsMap, claimDiags := customClaimsToState(ctx, updatedClaims)
+			resp.Diagnostics.Append(claimDiags...)
+			if resp.Diagnostics.HasError() {
+				return
+			}
+			plan.CustomClaims = claimsMap
 		}
 	}
 
@@ -278,6 +324,7 @@ func (r *userResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 	state.FirstName = types.StringValue(userResp.FirstName)
 	state.LastName = types.StringValue(userResp.LastName)
 	state.DisplayName = types.StringValue(userResp.DisplayName)
+	state.EmailVerified = types.BoolValue(userResp.EmailVerified)
 	state.IsAdmin = types.BoolValue(userResp.IsAdmin)
 	state.Disabled = types.BoolValue(userResp.Disabled)
 
@@ -300,6 +347,14 @@ func (r *userResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 	} else {
 		state.Groups = types.SetNull(types.StringType)
 	}
+
+	// Update custom claims
+	claimsMap, claimDiags := customClaimsToState(ctx, userResp.CustomClaims)
+	resp.Diagnostics.Append(claimDiags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	state.CustomClaims = claimsMap
 
 	// Set the state
 	diags = resp.State.Set(ctx, &state)
@@ -338,13 +393,14 @@ func (r *userResource) Update(ctx context.Context, req resource.UpdateRequest, r
 
 	// Update the user
 	updateReq := &client.UserCreateRequest{
-		Username:    plan.Username.ValueString(),
-		Email:       plan.Email.ValueString(),
-		FirstName:   plan.FirstName.ValueString(),
-		LastName:    plan.LastName.ValueString(),
-		DisplayName: displayName,
-		IsAdmin:     plan.IsAdmin.ValueBool(),
-		Disabled:    plan.Disabled.ValueBool(),
+		Username:      plan.Username.ValueString(),
+		Email:         plan.Email.ValueString(),
+		FirstName:     plan.FirstName.ValueString(),
+		LastName:      plan.LastName.ValueString(),
+		DisplayName:   displayName,
+		EmailVerified: plan.EmailVerified.ValueBool(),
+		IsAdmin:       plan.IsAdmin.ValueBool(),
+		Disabled:      plan.Disabled.ValueBool(),
 	}
 
 	// Handle locale if provided
@@ -374,6 +430,7 @@ func (r *userResource) Update(ctx context.Context, req resource.UpdateRequest, r
 	plan.FirstName = types.StringValue(userResp.FirstName)
 	plan.LastName = types.StringValue(userResp.LastName)
 	plan.DisplayName = types.StringValue(userResp.DisplayName)
+	plan.EmailVerified = types.BoolValue(userResp.EmailVerified)
 	plan.IsAdmin = types.BoolValue(userResp.IsAdmin)
 	plan.Disabled = types.BoolValue(userResp.Disabled)
 
@@ -429,6 +486,35 @@ func (r *userResource) Update(ctx context.Context, req resource.UpdateRequest, r
 				return
 			}
 		}
+	}
+
+	// Handle custom claims. The API performs a full replace, so any change to the
+	// map (including clearing it) is applied by sending the full desired list.
+	if !plan.CustomClaims.Equal(state.CustomClaims) {
+		claims, claimDiags := customClaimsToAPI(ctx, plan.CustomClaims)
+		resp.Diagnostics.Append(claimDiags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+
+		tflog.Debug(ctx, "Updating user custom claims", map[string]any{
+			"id": plan.ID.ValueString(),
+		})
+		updatedClaims, err := r.client.UpdateUserCustomClaims(plan.ID.ValueString(), claims)
+		if err != nil {
+			resp.Diagnostics.AddError(
+				"Error updating user custom claims",
+				"Could not update user custom claims: "+err.Error(),
+			)
+			return
+		}
+
+		claimsMap, claimDiags := customClaimsToState(ctx, updatedClaims)
+		resp.Diagnostics.Append(claimDiags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		plan.CustomClaims = claimsMap
 	}
 
 	// Set the state

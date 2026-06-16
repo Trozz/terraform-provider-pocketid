@@ -54,9 +54,8 @@ resource "pocketid_client" "advanced_app" {
   ]
 
   # Security settings
-  require_auth_time                     = true
-  require_pushed_authorization_requests = false
-  requires_reauthentication             = true
+  require_auth_time         = true
+  requires_reauthentication = true
 
   # CORS origins for SPAs
   allowed_cors_origins = [
@@ -84,9 +83,6 @@ resource "pocketid_client" "spa_app" {
 
   # SPAs use public client authentication (no secret)
   auth_method = "none"
-
-  # SPAs should always use PKCE
-  require_pushed_authorization_requests = true
 
   # SPAs typically don't use refresh tokens for security
   # If you do enable refresh tokens, ensure proper storage
@@ -124,9 +120,6 @@ resource "pocketid_client" "mobile_app" {
 
   # Mobile apps use public client authentication (no secret)
   auth_method = "none"
-
-  # Mobile apps should use PKCE
-  require_pushed_authorization_requests = true
 
   # All available scopes for mobile
   scopes = ["openid", "profile", "email", "groups", "offline_access"]

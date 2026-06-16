@@ -469,6 +469,25 @@ func (c *Client) UpdateUserGroups(userID string, groupIDs []string) error {
 	return err
 }
 
+// UpdateUserCustomClaims replaces all custom claims for a user. The API
+// performs a full replace: claims not present in the list are removed.
+func (c *Client) UpdateUserCustomClaims(userID string, claims []CustomClaim) ([]CustomClaim, error) {
+	if claims == nil {
+		claims = []CustomClaim{}
+	}
+	body, err := c.doRequest("PUT", fmt.Sprintf("/api/custom-claims/user/%s", userID), claims)
+	if err != nil {
+		return nil, err
+	}
+
+	var result []CustomClaim
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("error unmarshaling response: %w", err)
+	}
+
+	return result, nil
+}
+
 // User Group methods
 
 // CreateUserGroup creates a new user group
@@ -535,6 +554,25 @@ func (c *Client) ListUserGroups() (*PaginatedResponse[UserGroup], error) {
 	}
 
 	return &result, nil
+}
+
+// UpdateGroupCustomClaims replaces all custom claims for a user group. The API
+// performs a full replace: claims not present in the list are removed.
+func (c *Client) UpdateGroupCustomClaims(groupID string, claims []CustomClaim) ([]CustomClaim, error) {
+	if claims == nil {
+		claims = []CustomClaim{}
+	}
+	body, err := c.doRequest("PUT", fmt.Sprintf("/api/custom-claims/user-group/%s", groupID), claims)
+	if err != nil {
+		return nil, err
+	}
+
+	var result []CustomClaim
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("error unmarshaling response: %w", err)
+	}
+
+	return result, nil
 }
 
 // OneTimeAccessToken represents a one-time access token. The create endpoint
@@ -627,4 +665,58 @@ func (c *Client) CreateOneTimeAccessToken(userID string, req *OneTimeAccessToken
 	}
 
 	return &token, nil
+}
+
+// SCIM service provider methods
+
+// CreateScimServiceProvider creates a new SCIM service provider configuration.
+func (c *Client) CreateScimServiceProvider(req *ScimServiceProviderCreateRequest) (*ScimServiceProvider, error) {
+	body, err := c.doRequest("POST", "/api/scim/service-provider", req)
+	if err != nil {
+		return nil, err
+	}
+
+	var result ScimServiceProvider
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("error unmarshaling response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// GetClientScimServiceProvider retrieves the SCIM service provider configuration
+// for an OIDC client. The token is returned decrypted.
+func (c *Client) GetClientScimServiceProvider(clientID string) (*ScimServiceProvider, error) {
+	body, err := c.doRequest("GET", fmt.Sprintf("/api/oidc/clients/%s/scim-service-provider", clientID), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var result ScimServiceProvider
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("error unmarshaling response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// UpdateScimServiceProvider updates an existing SCIM service provider configuration.
+func (c *Client) UpdateScimServiceProvider(id string, req *ScimServiceProviderCreateRequest) (*ScimServiceProvider, error) {
+	body, err := c.doRequest("PUT", fmt.Sprintf("/api/scim/service-provider/%s", id), req)
+	if err != nil {
+		return nil, err
+	}
+
+	var result ScimServiceProvider
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("error unmarshaling response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// DeleteScimServiceProvider deletes a SCIM service provider configuration by ID.
+func (c *Client) DeleteScimServiceProvider(id string) error {
+	_, err := c.doRequest("DELETE", fmt.Sprintf("/api/scim/service-provider/%s", id), nil)
+	return err
 }

@@ -20,6 +20,18 @@ func TestBuildCreateRequestFromPlan(t *testing.T) {
 
 	launch := "https://example.com/launch"
 
+	fedList, diags := types.ListValueFrom(ctx, types.ObjectType{AttrTypes: federatedIdentityAttrTypes}, []clientFederatedIdentityModel{
+		{
+			Issuer:   types.StringValue("https://issuer.example.com"),
+			Subject:  types.StringValue("subject-1"),
+			Audience: types.StringValue("audience-1"),
+			JWKS:     types.StringNull(),
+		},
+	})
+	if diags.HasError() {
+		t.Fatalf("diags: %v", diags)
+	}
+
 	plan := &clientResourceModel{
 		Name:                     types.StringValue("Test Client"),
 		CallbackURLs:             cb,
@@ -27,6 +39,7 @@ func TestBuildCreateRequestFromPlan(t *testing.T) {
 		PkceEnabled:              types.BoolValue(true),
 		RequiresReauthentication: types.BoolValue(true),
 		LaunchURL:                types.StringValue(launch),
+		FederatedIdentities:      fedList,
 	}
 
 	req := buildCreateRequestFromPlan(ctx, plan)
@@ -39,6 +52,12 @@ func TestBuildCreateRequestFromPlan(t *testing.T) {
 	assert.True(t, req.RequiresReauthentication)
 	if assert.NotNil(t, req.LaunchURL) {
 		assert.Equal(t, launch, *req.LaunchURL)
+	}
+	if assert.Len(t, req.Credentials.FederatedIdentities, 1) {
+		assert.Equal(t, "https://issuer.example.com", req.Credentials.FederatedIdentities[0].Issuer)
+		assert.Equal(t, "subject-1", req.Credentials.FederatedIdentities[0].Subject)
+		assert.Equal(t, "audience-1", req.Credentials.FederatedIdentities[0].Audience)
+		assert.Equal(t, "", req.Credentials.FederatedIdentities[0].JWKS)
 	}
 }
 
@@ -56,6 +75,11 @@ func TestMapAPIClientToModel(t *testing.T) {
 		RequiresReauthentication: true,
 		LaunchURL:                "https://example.com/launch",
 		AllowedUserGroups:        []client.UserGroup{{ID: "g1"}},
+		Credentials: client.OIDCClientCredentials{
+			FederatedIdentities: []client.OIDCClientFederatedIdentity{
+				{Issuer: "https://issuer.example.com", Subject: "subject-1"},
+			},
+		},
 	}
 
 	model := mapAPIClientToModel(ctx, api)
@@ -74,4 +98,29 @@ func TestMapAPIClientToModel(t *testing.T) {
 	var gids []string
 	_ = model.AllowedUserGroups.ElementsAs(ctx, &gids, false)
 	assert.Equal(t, []string{"g1"}, gids)
+
+	// Federated identities
+	assert.False(t, model.FederatedIdentities.IsNull())
+	var fed []clientFederatedIdentityModel
+	_ = model.FederatedIdentities.ElementsAs(ctx, &fed, false)
+	if assert.Len(t, fed, 1) {
+		assert.Equal(t, "https://issuer.example.com", fed[0].Issuer.ValueString())
+		assert.Equal(t, "subject-1", fed[0].Subject.ValueString())
+		assert.True(t, fed[0].Audience.IsNull())
+		assert.True(t, fed[0].JWKS.IsNull())
+	}
+}
+
+func TestMapAPIClientToModelNoFederatedIdentities(t *testing.T) {
+	ctx := context.Background()
+
+	api := &client.OIDCClient{
+		ID:           "client-2",
+		Name:         "No Fed",
+		CallbackURLs: []string{"https://example.com/callback"},
+	}
+
+	model := mapAPIClientToModel(ctx, api)
+
+	assert.True(t, model.FederatedIdentities.IsNull())
 }

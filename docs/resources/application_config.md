@@ -23,10 +23,10 @@ resource "pocketid_application_config" "this" {
   session_duration = "60"
   accent_color     = "#3b82f6"
 
-  allow_user_signups  = "disabled"
-  require_user_email  = "true"
-  disable_animations  = "false"
-  emails_verified     = "false"
+  allow_user_signups = "disabled"
+  require_user_email = "true"
+  disable_animations = "false"
+  emails_verified    = "false"
 }
 
 # Example: configure SMTP for outgoing email

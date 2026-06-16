@@ -39,6 +39,7 @@ type groupResourceModel struct {
 	ID           types.String `tfsdk:"id"`
 	Name         types.String `tfsdk:"name"`
 	FriendlyName types.String `tfsdk:"friendly_name"`
+	CustomClaims types.Map    `tfsdk:"custom_claims"`
 }
 
 // Metadata returns the resource type name.
@@ -73,6 +74,12 @@ func (r *groupResource) Schema(_ context.Context, _ resource.SchemaRequest, resp
 				Validators: []validator.String{
 					stringvalidator.LengthBetween(1, 50),
 				},
+			},
+			"custom_claims": schema.MapAttribute{
+				Description:         "Custom claims to include in the OIDC tokens of users in this group, as a map of claim name to value. Reserved claim names (e.g. 'email', 'groups', 'sub') are rejected by Pocket-ID.",
+				MarkdownDescription: "Custom claims to include in the OIDC tokens of users in this group, as a map of claim name to value. Setting this attribute replaces all custom claims for the group. Reserved claim names (e.g. `email`, `groups`, `sub`) are rejected by Pocket-ID.",
+				Optional:            true,
+				ElementType:         types.StringType,
 			},
 		},
 	}
@@ -133,6 +140,36 @@ func (r *groupResource) Create(ctx context.Context, req resource.CreateRequest, 
 	// Set state values
 	plan.ID = types.StringValue(groupResp.ID)
 
+	// Handle custom claims
+	if !plan.CustomClaims.IsNull() && !plan.CustomClaims.IsUnknown() {
+		claims, claimDiags := customClaimsToAPI(ctx, plan.CustomClaims)
+		resp.Diagnostics.Append(claimDiags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		if len(claims) > 0 {
+			tflog.Debug(ctx, "Updating user group custom claims", map[string]any{
+				"id": groupResp.ID,
+			})
+			updatedClaims, err := r.client.UpdateGroupCustomClaims(groupResp.ID, claims)
+			if err != nil {
+				// Try to clean up the created group
+				_ = r.client.DeleteUserGroup(groupResp.ID)
+				resp.Diagnostics.AddError(
+					"Error updating user group custom claims",
+					"Could not update user group custom claims, the group was deleted. Error: "+err.Error(),
+				)
+				return
+			}
+			claimsMap, claimDiags := customClaimsToState(ctx, updatedClaims)
+			resp.Diagnostics.Append(claimDiags...)
+			if resp.Diagnostics.HasError() {
+				return
+			}
+			plan.CustomClaims = claimsMap
+		}
+	}
+
 	// Set the state
 	diags = resp.State.Set(ctx, &plan)
 	resp.Diagnostics.Append(diags...)
@@ -166,6 +203,14 @@ func (r *groupResource) Read(ctx context.Context, req resource.ReadRequest, resp
 	state.Name = types.StringValue(groupResp.Name)
 	state.FriendlyName = types.StringValue(groupResp.FriendlyName)
 
+	// Update custom claims
+	claimsMap, claimDiags := customClaimsToState(ctx, groupResp.CustomClaims)
+	resp.Diagnostics.Append(claimDiags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	state.CustomClaims = claimsMap
+
 	// Set the state
 	diags = resp.State.Set(ctx, &state)
 	resp.Diagnostics.Append(diags...)
@@ -176,6 +221,11 @@ func (r *groupResource) Update(ctx context.Context, req resource.UpdateRequest, 
 	// Retrieve values from plan
 	var plan groupResourceModel
 	diags := req.Plan.Get(ctx, &plan)
+	resp.Diagnostics.Append(diags...)
+
+	// Retrieve current state
+	var state groupResourceModel
+	diags = req.State.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
 
 	if resp.Diagnostics.HasError() {
@@ -201,6 +251,35 @@ func (r *groupResource) Update(ctx context.Context, req resource.UpdateRequest, 
 			"Could not update user group, unexpected error: "+err.Error(),
 		)
 		return
+	}
+
+	// Handle custom claims. The API performs a full replace, so any change to the
+	// map (including clearing it) is applied by sending the full desired list.
+	if !plan.CustomClaims.Equal(state.CustomClaims) {
+		claims, claimDiags := customClaimsToAPI(ctx, plan.CustomClaims)
+		resp.Diagnostics.Append(claimDiags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+
+		tflog.Debug(ctx, "Updating user group custom claims", map[string]any{
+			"id": plan.ID.ValueString(),
+		})
+		updatedClaims, err := r.client.UpdateGroupCustomClaims(plan.ID.ValueString(), claims)
+		if err != nil {
+			resp.Diagnostics.AddError(
+				"Error updating user group custom claims",
+				"Could not update user group custom claims: "+err.Error(),
+			)
+			return
+		}
+
+		claimsMap, claimDiags := customClaimsToState(ctx, updatedClaims)
+		resp.Diagnostics.Append(claimDiags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		plan.CustomClaims = claimsMap
 	}
 
 	// Set the state
