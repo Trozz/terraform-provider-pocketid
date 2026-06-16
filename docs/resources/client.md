@@ -148,7 +148,7 @@ output "spa_client_id" {
 ### Optional
 
 - `allowed_user_groups` (List of String) List of user group IDs that are allowed to use this client. If empty, all users can use this client.
-- `client_id` (String) The client ID to use for the OIDC client. If not set, one will be generated.
+- `client_id` (String) The client ID to use for the OIDC client. If not set, one will be generated. Must be between 2 and 128 characters.
 - `is_public` (Boolean) Whether this is a public client (no client secret). Defaults to false.
 - `launch_url` (String) Optional launch URL associated with the client.
 - `logout_callback_urls` (List of String) List of allowed logout callback URLs for the OIDC client.
