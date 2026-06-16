@@ -24,13 +24,14 @@ resource "pocketid_user" "example" {
 
 # Create a user with full details
 resource "pocketid_user" "full_example" {
-  username   = "jane.smith"
-  email      = "jane.smith@example.com"
-  first_name = "Jane"
-  last_name  = "Smith"
-  locale     = "en-US"
-  is_admin   = false
-  disabled   = false
+  username       = "jane.smith"
+  email          = "jane.smith@example.com"
+  first_name     = "Jane"
+  last_name      = "Smith"
+  locale         = "en-US"
+  is_admin       = false
+  disabled       = false
+  email_verified = true
 }
 
 # Create an admin user
@@ -114,6 +115,7 @@ resource "pocketid_user" "with_claims" {
 - `custom_claims` (Map of String) Custom claims to include in the user's OIDC tokens, as a map of claim name to value. Setting this attribute replaces all custom claims for the user. Reserved claim names (e.g. `email`, `groups`, `sub`) are rejected by Pocket-ID.
 - `disabled` (Boolean) Whether the user account is disabled. Defaults to false.
 - `display_name` (String) The display name of the user. Computed from first and last name if not set.
+- `email_verified` (Boolean) Whether the user's email address is verified. Defaults to false.
 - `first_name` (String) The first name of the user.
 - `groups` (Set of String) List of group IDs the user belongs to.
 - `is_admin` (Boolean) Whether the user has administrator privileges. Defaults to false.

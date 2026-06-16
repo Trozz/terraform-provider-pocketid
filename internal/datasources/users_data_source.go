@@ -35,15 +35,17 @@ type usersDataSourceModel struct {
 
 // userModel represents a single user in the list
 type userModel struct {
-	ID        types.String `tfsdk:"id"`
-	Username  types.String `tfsdk:"username"`
-	Email     types.String `tfsdk:"email"`
-	FirstName types.String `tfsdk:"first_name"`
-	LastName  types.String `tfsdk:"last_name"`
-	IsAdmin   types.Bool   `tfsdk:"is_admin"`
-	Locale    types.String `tfsdk:"locale"`
-	Disabled  types.Bool   `tfsdk:"disabled"`
-	Groups    types.Set    `tfsdk:"groups"`
+	ID            types.String `tfsdk:"id"`
+	Username      types.String `tfsdk:"username"`
+	Email         types.String `tfsdk:"email"`
+	FirstName     types.String `tfsdk:"first_name"`
+	LastName      types.String `tfsdk:"last_name"`
+	DisplayName   types.String `tfsdk:"display_name"`
+	EmailVerified types.Bool   `tfsdk:"email_verified"`
+	IsAdmin       types.Bool   `tfsdk:"is_admin"`
+	Locale        types.String `tfsdk:"locale"`
+	Disabled      types.Bool   `tfsdk:"disabled"`
+	Groups        types.Set    `tfsdk:"groups"`
 }
 
 // Metadata returns the data source type name.
@@ -80,6 +82,14 @@ func (d *usersDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, 
 						},
 						"last_name": schema.StringAttribute{
 							Description: "The last name of the user.",
+							Computed:    true,
+						},
+						"display_name": schema.StringAttribute{
+							Description: "The display name of the user.",
+							Computed:    true,
+						},
+						"email_verified": schema.BoolAttribute{
+							Description: "Whether the user's email address is verified.",
 							Computed:    true,
 						},
 						"is_admin": schema.BoolAttribute{
@@ -146,13 +156,15 @@ func (d *usersDataSource) Read(ctx context.Context, req datasource.ReadRequest, 
 	// Convert each user
 	for _, userResp := range usersResp.Data {
 		userState := userModel{
-			ID:        types.StringValue(userResp.ID),
-			Username:  types.StringValue(userResp.Username),
-			Email:     types.StringValue(userResp.Email),
-			FirstName: types.StringValue(userResp.FirstName),
-			LastName:  types.StringValue(userResp.LastName),
-			IsAdmin:   types.BoolValue(userResp.IsAdmin),
-			Disabled:  types.BoolValue(userResp.Disabled),
+			ID:            types.StringValue(userResp.ID),
+			Username:      types.StringValue(userResp.Username),
+			Email:         types.StringValue(userResp.Email),
+			FirstName:     types.StringValue(userResp.FirstName),
+			LastName:      types.StringValue(userResp.LastName),
+			DisplayName:   types.StringValue(userResp.DisplayName),
+			EmailVerified: types.BoolValue(userResp.EmailVerified),
+			IsAdmin:       types.BoolValue(userResp.IsAdmin),
+			Disabled:      types.BoolValue(userResp.Disabled),
 		}
 
 		// Handle locale

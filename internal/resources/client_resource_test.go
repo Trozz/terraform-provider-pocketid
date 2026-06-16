@@ -61,6 +61,10 @@ func TestClientResource_Schema(t *testing.T) {
 	assert.True(t, ok, "launch_url attribute should exist")
 	assert.True(t, launchURLAttr.IsOptional(), "launch_url should be optional")
 	assert.True(t, launchURLAttr.IsComputed(), "launch_url should be computed")
+
+	fedAttr, ok := schemaResponse.Schema.Attributes["federated_identities"]
+	assert.True(t, ok, "federated_identities attribute should exist")
+	assert.True(t, fedAttr.IsOptional(), "federated_identities should be optional")
 }
 
 func TestGroupResource_Schema(t *testing.T) {
@@ -124,4 +128,9 @@ func TestUserResource_Schema(t *testing.T) {
 	assert.True(t, ok, "disabled attribute should exist")
 	assert.True(t, disabledAttr.IsOptional(), "disabled should be optional")
 	assert.True(t, disabledAttr.IsComputed(), "disabled should be computed")
+
+	emailVerifiedAttr, ok := schemaResponse.Schema.Attributes["email_verified"]
+	assert.True(t, ok, "email_verified attribute should exist")
+	assert.True(t, emailVerifiedAttr.IsOptional(), "email_verified should be optional")
+	assert.True(t, emailVerifiedAttr.IsComputed(), "email_verified should be computed")
 }

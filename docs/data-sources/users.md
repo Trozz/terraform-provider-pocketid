@@ -78,7 +78,9 @@ output "john_doe_email" {
 Read-Only:
 
 - `disabled` (Boolean) Whether the user account is disabled.
+- `display_name` (String) The display name of the user.
 - `email` (String) The email address of the user.
+- `email_verified` (Boolean) Whether the user's email address is verified.
 - `first_name` (String) The first name of the user.
 - `groups` (Set of String) List of group IDs the user belongs to.
 - `id` (String) The ID of the user.

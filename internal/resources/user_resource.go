@@ -38,17 +38,18 @@ type userResource struct {
 
 // userResourceModel maps the resource schema data.
 type userResourceModel struct {
-	ID           types.String `tfsdk:"id"`
-	Username     types.String `tfsdk:"username"`
-	Email        types.String `tfsdk:"email"`
-	FirstName    types.String `tfsdk:"first_name"`
-	LastName     types.String `tfsdk:"last_name"`
-	DisplayName  types.String `tfsdk:"display_name"`
-	IsAdmin      types.Bool   `tfsdk:"is_admin"`
-	Locale       types.String `tfsdk:"locale"`
-	Disabled     types.Bool   `tfsdk:"disabled"`
-	Groups       types.Set    `tfsdk:"groups"`
-	CustomClaims types.Map    `tfsdk:"custom_claims"`
+	ID            types.String `tfsdk:"id"`
+	Username      types.String `tfsdk:"username"`
+	Email         types.String `tfsdk:"email"`
+	FirstName     types.String `tfsdk:"first_name"`
+	LastName      types.String `tfsdk:"last_name"`
+	DisplayName   types.String `tfsdk:"display_name"`
+	EmailVerified types.Bool   `tfsdk:"email_verified"`
+	IsAdmin       types.Bool   `tfsdk:"is_admin"`
+	Locale        types.String `tfsdk:"locale"`
+	Disabled      types.Bool   `tfsdk:"disabled"`
+	Groups        types.Set    `tfsdk:"groups"`
+	CustomClaims  types.Map    `tfsdk:"custom_claims"`
 }
 
 // Metadata returns the resource type name.
@@ -97,6 +98,12 @@ func (r *userResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 				Description: "The display name of the user. Computed from first and last name if not set.",
 				Computed:    true,
 				Optional:    true,
+			},
+			"email_verified": schema.BoolAttribute{
+				Description: "Whether the user's email address is verified. Defaults to false.",
+				Optional:    true,
+				Computed:    true,
+				Default:     booldefault.StaticBool(false),
 			},
 			"is_admin": schema.BoolAttribute{
 				Description: "Whether the user has administrator privileges. Defaults to false.",
@@ -173,13 +180,14 @@ func (r *userResource) Create(ctx context.Context, req resource.CreateRequest, r
 
 	// Create the user
 	createReq := &client.UserCreateRequest{
-		Username:    plan.Username.ValueString(),
-		Email:       plan.Email.ValueString(),
-		FirstName:   plan.FirstName.ValueString(),
-		LastName:    plan.LastName.ValueString(),
-		DisplayName: displayName,
-		IsAdmin:     plan.IsAdmin.ValueBool(),
-		Disabled:    plan.Disabled.ValueBool(),
+		Username:      plan.Username.ValueString(),
+		Email:         plan.Email.ValueString(),
+		FirstName:     plan.FirstName.ValueString(),
+		LastName:      plan.LastName.ValueString(),
+		DisplayName:   displayName,
+		EmailVerified: plan.EmailVerified.ValueBool(),
+		IsAdmin:       plan.IsAdmin.ValueBool(),
+		Disabled:      plan.Disabled.ValueBool(),
 	}
 
 	// Handle locale if provided
@@ -214,6 +222,7 @@ func (r *userResource) Create(ctx context.Context, req resource.CreateRequest, r
 	plan.FirstName = types.StringValue(userResp.FirstName)
 	plan.LastName = types.StringValue(userResp.LastName)
 	plan.DisplayName = types.StringValue(userResp.DisplayName)
+	plan.EmailVerified = types.BoolValue(userResp.EmailVerified)
 	plan.IsAdmin = types.BoolValue(userResp.IsAdmin)
 
 	plan.Disabled = types.BoolValue(userResp.Disabled)
@@ -315,6 +324,7 @@ func (r *userResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 	state.FirstName = types.StringValue(userResp.FirstName)
 	state.LastName = types.StringValue(userResp.LastName)
 	state.DisplayName = types.StringValue(userResp.DisplayName)
+	state.EmailVerified = types.BoolValue(userResp.EmailVerified)
 	state.IsAdmin = types.BoolValue(userResp.IsAdmin)
 	state.Disabled = types.BoolValue(userResp.Disabled)
 
@@ -383,13 +393,14 @@ func (r *userResource) Update(ctx context.Context, req resource.UpdateRequest, r
 
 	// Update the user
 	updateReq := &client.UserCreateRequest{
-		Username:    plan.Username.ValueString(),
-		Email:       plan.Email.ValueString(),
-		FirstName:   plan.FirstName.ValueString(),
-		LastName:    plan.LastName.ValueString(),
-		DisplayName: displayName,
-		IsAdmin:     plan.IsAdmin.ValueBool(),
-		Disabled:    plan.Disabled.ValueBool(),
+		Username:      plan.Username.ValueString(),
+		Email:         plan.Email.ValueString(),
+		FirstName:     plan.FirstName.ValueString(),
+		LastName:      plan.LastName.ValueString(),
+		DisplayName:   displayName,
+		EmailVerified: plan.EmailVerified.ValueBool(),
+		IsAdmin:       plan.IsAdmin.ValueBool(),
+		Disabled:      plan.Disabled.ValueBool(),
 	}
 
 	// Handle locale if provided
@@ -419,6 +430,7 @@ func (r *userResource) Update(ctx context.Context, req resource.UpdateRequest, r
 	plan.FirstName = types.StringValue(userResp.FirstName)
 	plan.LastName = types.StringValue(userResp.LastName)
 	plan.DisplayName = types.StringValue(userResp.DisplayName)
+	plan.EmailVerified = types.BoolValue(userResp.EmailVerified)
 	plan.IsAdmin = types.BoolValue(userResp.IsAdmin)
 	plan.Disabled = types.BoolValue(userResp.Disabled)
 
