@@ -24,9 +24,10 @@ import (
 
 // Ensure the implementation satisfies the expected interfaces.
 var (
-	_ resource.Resource                = &clientResource{}
-	_ resource.ResourceWithConfigure   = &clientResource{}
-	_ resource.ResourceWithImportState = &clientResource{}
+	_ resource.Resource                   = &clientResource{}
+	_ resource.ResourceWithConfigure      = &clientResource{}
+	_ resource.ResourceWithImportState    = &clientResource{}
+	_ resource.ResourceWithValidateConfig = &clientResource{}
 )
 
 // NewClientResource is a helper function to simplify the provider implementation.
@@ -215,6 +216,27 @@ func (r *clientResource) Configure(_ context.Context, req resource.ConfigureRequ
 	}
 
 	r.client = client
+}
+
+// ValidateConfig rejects configurations the API would silently coerce, giving a
+// clear plan-time error instead of an inconsistent-result error after apply.
+func (r *clientResource) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
+	var config clientResourceModel
+	resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Pocket-ID coerces requires_pushed_authorization_requests to false for
+	// public clients, so true + is_public is never satisfiable.
+	if config.IsPublic.ValueBool() && config.RequiresPushedAuthorizationRequests.ValueBool() {
+		resp.Diagnostics.AddAttributeError(
+			path.Root("requires_pushed_authorization_requests"),
+			"Invalid PAR configuration",
+			"requires_pushed_authorization_requests can only be true for confidential clients. "+
+				"Set is_public = false to use Pushed Authorization Requests.",
+		)
+	}
 }
 
 // Create creates the resource and sets the initial Terraform state.
