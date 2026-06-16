@@ -163,7 +163,9 @@ jobs:
           POCKETID_API_TOKEN: test-terraform-provider-token-123456789
           TF_ACC: 1
         run: |
-          go test -v -timeout 30m -cover -coverprofile=acceptance-coverage.out ./internal/... -tags=acc
+          # -p 1 serializes packages so acceptance tests don't race against the
+          # single shared pocket-id instance (avoids cross-test state contamination).
+          go test -v -timeout 30m -p 1 -cover -coverprofile=acceptance-coverage.out ./internal/... -tags=acc
 
       - name: Upload acceptance test coverage
         uses: codecov/codecov-action@18283e04ce6e62d37312384ff67231eb8fd56d24 # v5
