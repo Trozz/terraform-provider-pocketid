@@ -40,6 +40,7 @@ type userDataSourceModel struct {
 	IsAdmin       types.Bool   `tfsdk:"is_admin"`
 	Locale        types.String `tfsdk:"locale"`
 	Disabled      types.Bool   `tfsdk:"disabled"`
+	LdapID        types.String `tfsdk:"ldap_id"`
 	Groups        types.Set    `tfsdk:"groups"`
 }
 
@@ -96,6 +97,10 @@ func (d *userDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, r
 			},
 			"disabled": schema.BoolAttribute{
 				Description: "Whether the user account is disabled.",
+				Computed:    true,
+			},
+			"ldap_id": schema.StringAttribute{
+				Description: "The LDAP identifier of the user, if it is synced from LDAP. Null for users not managed by LDAP.",
 				Computed:    true,
 			},
 			"groups": schema.SetAttribute{
@@ -221,6 +226,13 @@ func (d *userDataSource) Read(ctx context.Context, req datasource.ReadRequest, r
 		state.Locale = types.StringValue(*userResp.Locale)
 	} else {
 		state.Locale = types.StringNull()
+	}
+
+	// Handle ldap_id
+	if userResp.LdapID != nil && *userResp.LdapID != "" {
+		state.LdapID = types.StringValue(*userResp.LdapID)
+	} else {
+		state.LdapID = types.StringNull()
 	}
 
 	// Map groups

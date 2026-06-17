@@ -86,5 +86,6 @@ Read-Only:
 - `id` (String) The ID of the user.
 - `is_admin` (Boolean) Whether the user has administrator privileges.
 - `last_name` (String) The last name of the user.
+- `ldap_id` (String) The LDAP identifier of the user, if it is synced from LDAP. Null for users not managed by LDAP.
 - `locale` (String) The locale preference for the user.
 - `username` (String) The username of the user.

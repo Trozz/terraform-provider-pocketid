@@ -72,4 +72,5 @@ output "admin_user_id" {
 - `groups` (Set of String) List of group IDs the user belongs to.
 - `is_admin` (Boolean) Whether the user has administrator privileges.
 - `last_name` (String) The last name of the user.
+- `ldap_id` (String) The LDAP identifier of the user, if it is synced from LDAP. Null for users not managed by LDAP.
 - `locale` (String) The locale preference for the user.

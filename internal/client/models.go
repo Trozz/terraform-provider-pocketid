@@ -93,8 +93,6 @@ type User struct {
 	UserGroups    []UserGroup   `json:"userGroups,omitempty"`
 	CustomClaims  []CustomClaim `json:"customClaims,omitempty"`
 	LdapID        *string       `json:"ldapId,omitempty"`
-	CreatedAt     string        `json:"createdAt,omitempty"`
-	UpdatedAt     string        `json:"updatedAt,omitempty"`
 }
 
 // UserCreateRequest represents a request to create or update a user
@@ -125,7 +123,6 @@ type UserGroup struct {
 	CustomClaims []CustomClaim `json:"customClaims,omitempty"`
 	LdapID       *string       `json:"ldapId,omitempty"`
 	CreatedAt    string        `json:"createdAt,omitempty"`
-	UpdatedAt    string        `json:"updatedAt,omitempty"`
 }
 
 // UserGroupCreateRequest represents a request to create or update a user group

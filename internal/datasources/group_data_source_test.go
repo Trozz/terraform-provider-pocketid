@@ -54,6 +54,9 @@ func TestAccGroupDataSource_LookupByID(t *testing.T) {
 					resource.TestCheckResourceAttr("data.pocketid_group.test", "name", rName),
 					resource.TestCheckResourceAttr("data.pocketid_group.test", "friendly_name", "Test Group"),
 					resource.TestCheckResourceAttrSet("data.pocketid_group.test", "id"),
+					resource.TestCheckResourceAttrSet("data.pocketid_group.test", "created_at"),
+					// Group is not LDAP-managed, so ldap_id is null.
+					resource.TestCheckNoResourceAttr("data.pocketid_group.test", "ldap_id"),
 				),
 			},
 		},
