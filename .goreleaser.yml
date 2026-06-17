@@ -6,6 +6,16 @@ version: 2
 
 # This is an example .goreleaser.yml file with some sensible defaults.
 # Make sure to check the documentation at https://goreleaser.com
+
+# Git configuration
+git:
+  # Ignore dev pre-release tags when resolving the previous/current tag.
+  # The cleanup-on-tag-push workflow deletes these tags during a release, so
+  # using one as the changelog base produces a 404 against the GitHub compare
+  # API. Ignoring them makes the previous tag resolve to the last stable release.
+  ignore_tags:
+    - "*-dev*"
+
 before:
   hooks:
     # You may remove this if you don't use go modules.
