@@ -52,4 +52,6 @@ output "developers_group_info" {
 
 ### Read-Only
 
+- `created_at` (String) The creation time of the group in RFC3339 format.
 - `friendly_name` (String) The friendly display name of the group.
+- `ldap_id` (String) The LDAP identifier of the group, if it is synced from LDAP. Null for groups not managed by LDAP.

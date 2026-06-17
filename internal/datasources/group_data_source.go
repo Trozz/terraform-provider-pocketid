@@ -33,6 +33,8 @@ type groupDataSourceModel struct {
 	ID           types.String `tfsdk:"id"`
 	Name         types.String `tfsdk:"name"`
 	FriendlyName types.String `tfsdk:"friendly_name"`
+	LdapID       types.String `tfsdk:"ldap_id"`
+	CreatedAt    types.String `tfsdk:"created_at"`
 }
 
 // Metadata returns the data source type name.
@@ -58,6 +60,14 @@ func (d *groupDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, 
 			},
 			"friendly_name": schema.StringAttribute{
 				Description: "The friendly display name of the group.",
+				Computed:    true,
+			},
+			"ldap_id": schema.StringAttribute{
+				Description: "The LDAP identifier of the group, if it is synced from LDAP. Null for groups not managed by LDAP.",
+				Computed:    true,
+			},
+			"created_at": schema.StringAttribute{
+				Description: "The creation time of the group in RFC3339 format.",
 				Computed:    true,
 			},
 		},
@@ -147,6 +157,16 @@ func (d *groupDataSource) Read(ctx context.Context, req datasource.ReadRequest, 
 	data.ID = types.StringValue(foundGroup.ID)
 	data.Name = types.StringValue(foundGroup.Name)
 	data.FriendlyName = types.StringValue(foundGroup.FriendlyName)
+	if foundGroup.LdapID != nil && *foundGroup.LdapID != "" {
+		data.LdapID = types.StringValue(*foundGroup.LdapID)
+	} else {
+		data.LdapID = types.StringNull()
+	}
+	if foundGroup.CreatedAt != "" {
+		data.CreatedAt = types.StringValue(foundGroup.CreatedAt)
+	} else {
+		data.CreatedAt = types.StringNull()
+	}
 
 	// Save data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
