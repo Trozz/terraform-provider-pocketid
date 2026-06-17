@@ -214,5 +214,6 @@ func (p *pocketIDProvider) Resources(_ context.Context) []func() resource.Resour
 		resources.NewOneTimeAccessTokenResource,
 		resources.NewApplicationConfigResource,
 		resources.NewScimServiceProviderResource,
+		resources.NewLdapSyncResource,
 	}
 }

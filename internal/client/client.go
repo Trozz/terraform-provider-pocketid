@@ -720,3 +720,10 @@ func (c *Client) DeleteScimServiceProvider(id string) error {
 	_, err := c.doRequest("DELETE", fmt.Sprintf("/api/scim/service-provider/%s", id), nil)
 	return err
 }
+
+// SyncLdap triggers an LDAP synchronization. It returns an error if LDAP is not
+// enabled or the sync fails.
+func (c *Client) SyncLdap() error {
+	_, err := c.doRequest("POST", "/api/application-configuration/sync-ldap", nil)
+	return err
+}
