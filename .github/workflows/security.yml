@@ -20,7 +20,7 @@ jobs:
 
       # Secret scanning
       - name: TruffleHog Secret Scan
-        uses: trufflesecurity/trufflehog@00155c9dc586f34d189adc83d3ac2698c2ec551f # v3.95.8
+        uses: trufflesecurity/trufflehog@27b0417c16317ca9a472a9a8092acce143b49c55 # v3.95.9
         with:
           path: ./
           base: ${{ github.event.repository.default_branch }}
@@ -39,7 +39,7 @@ jobs:
           exit-code: "0"  # Don't fail the build
 
       - name: Upload Trivy scan results
-        uses: github/codeql-action/upload-sarif@54f647b7e1bb85c95cddabcd46b0c578ec92bc1a # v3
+        uses: github/codeql-action/upload-sarif@7188fc363630916deb702c7fdcf4e481b751f97a # v3
         if: always()
         with:
           sarif_file: "trivy-results.sarif"
@@ -47,18 +47,18 @@ jobs:
 
       # Go security scanning
       - name: Set up Go
-        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v5
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v5
         with:
           go-version: "1.25"
           cache: true
 
       - name: Run gosec security scanner
-        uses: securego/gosec@11023e51e1f46c4ea63315bdb7670f073442168f # master
+        uses: securego/gosec@1769a22fd149bfd9e5e546e06a7f9d596eab2f65 # master
         with:
           args: "-fmt sarif -out gosec-results.sarif ./..."
 
       - name: Upload gosec results
-        uses: github/codeql-action/upload-sarif@54f647b7e1bb85c95cddabcd46b0c578ec92bc1a # v3
+        uses: github/codeql-action/upload-sarif@7188fc363630916deb702c7fdcf4e481b751f97a # v3
         if: always()
         with:
           sarif_file: "gosec-results.sarif"
