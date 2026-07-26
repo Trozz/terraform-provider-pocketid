@@ -97,7 +97,7 @@ func TestClient_GenerateClientSecret_UnmarshalError(t *testing.T) {
 	c, err := client.NewClient(server.URL, "test-token", false, 30)
 	require.NoError(t, err)
 
-	_, err = c.GenerateClientSecret("test-id")
+	_, err = c.GenerateClientSecret("test-id", "")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "error unmarshaling response")
 }

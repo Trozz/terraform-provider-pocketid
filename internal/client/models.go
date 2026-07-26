@@ -68,6 +68,12 @@ type OIDCClientCreateRequest struct {
 	Credentials                         OIDCClientCredentials `json:"credentials"`
 }
 
+// ClientSecretRequest represents an optional request body for setting a custom
+// client secret. If Secret is empty, the API generates a random secret instead.
+type ClientSecretRequest struct {
+	Secret string `json:"secret,omitempty"`
+}
+
 // ClientSecretResponse represents the response when generating a client secret
 type ClientSecretResponse struct {
 	Secret string `json:"secret"`
@@ -97,6 +103,7 @@ type User struct {
 
 // UserCreateRequest represents a request to create or update a user
 type UserCreateRequest struct {
+	ID            string  `json:"id,omitempty"`
 	Username      string  `json:"username"`
 	Email         string  `json:"email"`
 	FirstName     string  `json:"firstName,omitempty"`

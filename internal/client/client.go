@@ -373,9 +373,11 @@ func (c *Client) UpdateClientAllowedUserGroups(clientID string, groupIDs []strin
 	return err
 }
 
-// GenerateClientSecret generates a new client secret for an OIDC client
-func (c *Client) GenerateClientSecret(clientID string) (string, error) {
-	body, err := c.doRequest("POST", fmt.Sprintf("/api/oidc/clients/%s/secret", clientID), nil)
+// GenerateClientSecret sets the secret for an OIDC client.
+// The secret is optional and a random secret is generated if it is left empty.
+func (c *Client) GenerateClientSecret(clientID string, secret string) (string, error) {
+	req := ClientSecretRequest{Secret: secret}
+	body, err := c.doRequest("POST", fmt.Sprintf("/api/oidc/clients/%s/secret", clientID), req)
 	if err != nil {
 		return "", err
 	}

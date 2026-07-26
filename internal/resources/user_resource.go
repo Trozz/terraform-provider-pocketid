@@ -66,10 +66,18 @@ func (r *userResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 ~> **Important** Users must complete passkey registration through the Pocket-ID web interface. This resource only creates the user account; authentication setup must be done separately.`,
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				Description: "The ID of the user.",
+				Description: "The ID of the user. If not set, Pocket ID generates a UUID automatically. If set, it must be a valid UUID. Changing this value forces recreation of the resource.",
+				Optional:    true,
 				Computed:    true,
+				Validators: []validator.String{
+					stringvalidator.RegexMatches(
+						regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`),
+						"must be a valid UUID",
+					),
+				},
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
+					stringplanmodifier.RequiresReplace(),
 				},
 			},
 			"username": schema.StringAttribute{
@@ -194,6 +202,11 @@ func (r *userResource) Create(ctx context.Context, req resource.CreateRequest, r
 	if !plan.Locale.IsNull() {
 		locale := plan.Locale.ValueString()
 		createReq.Locale = &locale
+	}
+
+	// Handle custom ID if provided
+	if !plan.ID.IsNull() && !plan.ID.IsUnknown() {
+		createReq.ID = plan.ID.ValueString()
 	}
 
 	tflog.Debug(ctx, "Creating user", map[string]any{

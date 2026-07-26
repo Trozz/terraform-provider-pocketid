@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"regexp"
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
@@ -108,6 +109,24 @@ func (r *clientResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 					stringvalidator.LengthBetween(2, 128), // Matches the API binding (min=2, max=128)
 				},
 			},
+			"client_secret": schema.StringAttribute{
+				Description: "The client secret for non-public clients. Only available during resource creation for non-public clients." +
+					"When specified, it must have at least a length of 16 and consist only of printable ASCII characters." +
+					"It is recommended to leave this empty and let Pocket ID automatically generate a secret.",
+				Optional:  true,
+				Computed:  true,
+				Sensitive: true,
+				Validators: []validator.String{
+					stringvalidator.LengthAtLeast(16), // Matches the API binding (min=16)
+					stringvalidator.RegexMatches(
+						regexp.MustCompile(`^[\x20-\x7E]+$`),
+						"Client secret must contain only printable ASCII characters",
+					),
+				},
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
 			"callback_urls": schema.ListAttribute{
 				Description: "List of allowed callback URLs for the OIDC client.",
 				Required:    true,
@@ -187,14 +206,6 @@ func (r *clientResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 			"has_logo": schema.BoolAttribute{
 				Description: "Whether the client has a logo configured.",
 				Computed:    true,
-			},
-			"client_secret": schema.StringAttribute{
-				Description: "The client secret. Only available during resource creation for non-public clients.",
-				Computed:    true,
-				Sensitive:   true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
 			},
 		},
 	}
@@ -314,8 +325,12 @@ func (r *clientResource) Create(ctx context.Context, req resource.CreateRequest,
 
 	// Generate client secret for non-public clients
 	if !plan.IsPublic.ValueBool() {
+		var customSecret string
+		if !plan.ClientSecret.IsNull() && !plan.ClientSecret.IsUnknown() {
+			customSecret = plan.ClientSecret.ValueString()
+		}
 		tflog.Debug(ctx, "Generating client secret for non-public client")
-		secret, err := r.client.GenerateClientSecret(clientResp.ID)
+		secret, err := r.client.GenerateClientSecret(clientResp.ID, customSecret)
 		if err != nil {
 			// Try to clean up the created client
 			_ = r.client.DeleteClient(clientResp.ID)
@@ -574,8 +589,26 @@ func (r *clientResource) Update(ctx context.Context, req resource.UpdateRequest,
 		}
 	}
 
-	// Preserve the client secret from state as it cannot be retrieved
-	plan.ClientSecret = state.ClientSecret
+	// The client secret cannot be retrieved after creation, so preserve the
+	// value from state by default. If the user configures a new value, rotate
+	// the secret via the API.
+	if !plan.ClientSecret.IsNull() && !plan.ClientSecret.IsUnknown() &&
+		plan.ClientSecret.ValueString() != state.ClientSecret.ValueString() {
+		tflog.Debug(ctx, "Rotating client secret", map[string]any{
+			"id": plan.ID.ValueString(),
+		})
+		secret, err := r.client.GenerateClientSecret(plan.ID.ValueString(), plan.ClientSecret.ValueString())
+		if err != nil {
+			resp.Diagnostics.AddError(
+				"Error updating client secret",
+				"Could not update client secret: "+err.Error(),
+			)
+			return
+		}
+		plan.ClientSecret = types.StringValue(secret)
+	} else {
+		plan.ClientSecret = state.ClientSecret
+	}
 
 	// Set the state
 	diags = resp.State.Set(ctx, &plan)

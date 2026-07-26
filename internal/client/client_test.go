@@ -264,6 +264,14 @@ func TestClient_GenerateClientSecret(t *testing.T) {
 		assert.Equal(t, "POST", r.Method)
 		assert.Equal(t, "/api/oidc/clients/test-client-id/secret", r.URL.Path)
 
+		bodyBytes, err := io.ReadAll(r.Body)
+		require.NoError(t, err)
+		if len(bodyBytes) > 0 {
+			var req client.ClientSecretRequest
+			require.NoError(t, json.Unmarshal(bodyBytes, &req))
+			assert.Empty(t, req.Secret)
+		}
+
 		w.Header().Set("Content-Type", "application/json")
 		if err := json.NewEncoder(w).Encode(map[string]string{"secret": expectedSecret}); err != nil {
 			t.Fatalf("Failed to encode response: %v", err)
@@ -274,7 +282,7 @@ func TestClient_GenerateClientSecret(t *testing.T) {
 	c, err := client.NewClient(server.URL, "test-token", false, 30)
 	require.NoError(t, err)
 
-	secret, err := c.GenerateClientSecret("test-client-id")
+	secret, err := c.GenerateClientSecret("test-client-id", "")
 	assert.NoError(t, err)
 	assert.Equal(t, expectedSecret, secret)
 }
