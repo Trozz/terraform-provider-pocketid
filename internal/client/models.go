@@ -20,6 +20,11 @@ type PaginatedResponse[T any] struct {
 	Pagination PaginationInfo `json:"pagination"`
 }
 
+// VersionResponse represents the response from GET /api/version/current.
+type VersionResponse struct {
+	CurrentVersion string `json:"currentVersion"`
+}
+
 // OIDCClient represents an OIDC client in Pocket-ID
 type OIDCClient struct {
 	ID                       string   `json:"id,omitempty"`

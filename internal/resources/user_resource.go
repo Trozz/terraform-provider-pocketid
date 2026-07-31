@@ -206,6 +206,14 @@ func (r *userResource) Create(ctx context.Context, req resource.CreateRequest, r
 
 	// Handle custom ID if provided
 	if !plan.ID.IsNull() && !plan.ID.IsUnknown() {
+		if err := r.client.RequireMinVersion("setting a custom user id", client.MinVersionCustomUserID); err != nil {
+			resp.Diagnostics.AddAttributeError(
+				path.Root("id"),
+				"Pocket ID version too old",
+				err.Error(),
+			)
+			return
+		}
 		createReq.ID = plan.ID.ValueString()
 	}
 

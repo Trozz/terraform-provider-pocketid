@@ -11,9 +11,17 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
+	goversion "github.com/hashicorp/go-version"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
+)
+
+// Minimum Pocket ID versions required for certain features.
+const (
+	MinVersionCustomUserID       = "2.12.0"
+	MinVersionCustomClientSecret = "2.12.0"
 )
 
 // Client represents a Pocket-ID API client
@@ -21,6 +29,9 @@ type Client struct {
 	baseURL    string
 	apiToken   string
 	httpClient *http.Client
+
+	versionMu     sync.Mutex
+	cachedVersion *goversion.Version
 }
 
 // RateLimitError represents a 429 rate limit error with optional Retry-After information
@@ -63,6 +74,57 @@ func NewClient(baseURL, apiToken string, skipTLSVerify bool, timeout int64) (*Cl
 			Transport: transport,
 		},
 	}, nil
+}
+
+func (c *Client) currentVersion() (*goversion.Version, error) {
+	c.versionMu.Lock()
+	defer c.versionMu.Unlock()
+
+	if c.cachedVersion != nil {
+		return c.cachedVersion, nil
+	}
+
+	body, err := c.doRequest("GET", "/api/version/current", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var result VersionResponse
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("error unmarshaling response: %w", err)
+	}
+
+	v, err := goversion.NewVersion(result.CurrentVersion)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing Pocket ID version %q: %w", result.CurrentVersion, err)
+	}
+
+	c.cachedVersion = v
+	return v, nil
+}
+
+func (c *Client) RequireMinVersion(feature, minVersion string) error {
+	current, err := c.currentVersion()
+	if err != nil {
+		return fmt.Errorf(
+			"could not determine the connected Pocket ID version to verify compatibility with %s (requires Pocket ID >= %s): %w",
+			feature, minVersion, err,
+		)
+	}
+
+	min, err := goversion.NewVersion(minVersion)
+	if err != nil {
+		return fmt.Errorf("invalid minimum version %q: %w", minVersion, err)
+	}
+
+	if current.LessThan(min) {
+		return fmt.Errorf(
+			"%s requires Pocket ID >= %s, but the connected instance is running %s",
+			feature, minVersion, current.Original(),
+		)
+	}
+
+	return nil
 }
 
 // doRequest performs an HTTP request to the Pocket-ID API

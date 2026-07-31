@@ -270,6 +270,18 @@ func (r *clientResource) Create(ctx context.Context, req resource.CreateRequest,
 		return
 	}
 
+	// Check version compatibility before making any API calls.
+	if !plan.IsPublic.ValueBool() && !plan.ClientSecret.IsNull() && !plan.ClientSecret.IsUnknown() {
+		if err := r.client.RequireMinVersion("setting a custom client_secret", client.MinVersionCustomClientSecret); err != nil {
+			resp.Diagnostics.AddAttributeError(
+				path.Root("client_secret"),
+				"Pocket ID version too old",
+				err.Error(),
+			)
+			return
+		}
+	}
+
 	// Convert from Terraform types to Go types
 	var callbackURLs []string
 	diags = plan.CallbackURLs.ElementsAs(ctx, &callbackURLs, false)
@@ -594,6 +606,14 @@ func (r *clientResource) Update(ctx context.Context, req resource.UpdateRequest,
 	// the secret via the API.
 	if !plan.ClientSecret.IsNull() && !plan.ClientSecret.IsUnknown() &&
 		plan.ClientSecret.ValueString() != state.ClientSecret.ValueString() {
+		if err := r.client.RequireMinVersion("setting a custom client_secret", client.MinVersionCustomClientSecret); err != nil {
+			resp.Diagnostics.AddAttributeError(
+				path.Root("client_secret"),
+				"Pocket ID version too old",
+				err.Error(),
+			)
+			return
+		}
 		tflog.Debug(ctx, "Rotating client secret", map[string]any{
 			"id": plan.ID.ValueString(),
 		})
