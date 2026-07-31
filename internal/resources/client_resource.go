@@ -237,6 +237,16 @@ func (r *clientResource) ValidateConfig(ctx context.Context, req resource.Valida
 				"Set is_public = false to use Pushed Authorization Requests.",
 		)
 	}
+
+	// Public clients have no secret, so a configured client_secret would be
+	// silently dropped by Create, producing an inconsistent-result error.
+	if config.IsPublic.ValueBool() && !config.ClientSecret.IsNull() && !config.ClientSecret.IsUnknown() {
+		resp.Diagnostics.AddAttributeError(
+			path.Root("client_secret"),
+			"Invalid client secret configuration",
+			"client_secret can only be set for confidential clients. Set is_public = false to use a custom client secret.",
+		)
+	}
 }
 
 // Create creates the resource and sets the initial Terraform state.
