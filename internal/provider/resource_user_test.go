@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 )
 
@@ -515,4 +516,73 @@ resource "pocketid_user" "test" {
   email_verified = %[3]t
 }
 `, username, email, verified)
+}
+
+func TestAccResourceUser_customID(t *testing.T) {
+	resourceName := "pocketid_user.test"
+	customID := "11111111-2222-3333-4444-555555555555"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Create with an explicit UUID and verify it is honored.
+			{
+				Config: testAccResourceUserConfig_customID(customID, "custom-id-user", "customid@example.com"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "id", customID),
+					resource.TestCheckResourceAttr(resourceName, "username", "custom-id-user"),
+				),
+			},
+			// Re-applying the same config should not produce a diff.
+			{
+				Config:   testAccResourceUserConfig_customID(customID, "custom-id-user", "customid@example.com"),
+				PlanOnly: true,
+			},
+		},
+	})
+}
+
+func TestAccResourceUser_idChangeRecreatesResource(t *testing.T) {
+	resourceName := "pocketid_user.test"
+	idA := "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+	idB := "bbbbbbbb-cccc-dddd-eeee-ffffffffffff"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccResourceUserConfig_customID(idA, "recreate-user", "recreate@example.com"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "id", idA),
+				),
+			},
+			// Changing id must force replacement (destroy + create), not an
+			// in-place update.
+			{
+				Config: testAccResourceUserConfig_customID(idB, "recreate-user", "recreate@example.com"),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction(resourceName, plancheck.ResourceActionReplace),
+					},
+				},
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "id", idB),
+				),
+			},
+		},
+	})
+}
+
+func testAccResourceUserConfig_customID(id, username, email string) string {
+	return fmt.Sprintf(`
+resource "pocketid_user" "test" {
+  id         = %[1]q
+  username   = %[2]q
+  email      = %[3]q
+  first_name = "Test"
+  last_name  = "User"
+}
+`, id, username, email)
 }
