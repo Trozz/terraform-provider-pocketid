@@ -49,7 +49,7 @@ type clientResourceModel struct {
 	LogoutCallbackURLs                  types.List   `tfsdk:"logout_callback_urls"`
 	IsPublic                            types.Bool   `tfsdk:"is_public"`
 	PkceEnabled                         types.Bool   `tfsdk:"pkce_enabled"`
-	AllowedUserGroups                   types.List   `tfsdk:"allowed_user_groups"`
+	AllowedUserGroups                   types.Set    `tfsdk:"allowed_user_groups"`
 	HasLogo                             types.Bool   `tfsdk:"has_logo"`
 	RequiresReauthentication            types.Bool   `tfsdk:"requires_reauthentication"`
 	RequiresPushedAuthorizationRequests types.Bool   `tfsdk:"requires_pushed_authorization_requests"`
@@ -179,8 +179,8 @@ func (r *clientResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 				Computed:    true,
 				Default:     booldefault.StaticBool(true),
 			},
-			"allowed_user_groups": schema.ListAttribute{
-				Description: "List of user group IDs that are allowed to use this client. If empty, all users can use this client.",
+			"allowed_user_groups": schema.SetAttribute{
+				Description: "Set of user group IDs that are allowed to use this client. If empty, all users can use this client.",
 				Optional:    true,
 				ElementType: types.StringType,
 			},
@@ -406,17 +406,18 @@ func (r *clientResource) Read(ctx context.Context, req resource.ReadRequest, res
 		state.LogoutCallbackURLs = types.ListNull(types.StringType)
 	}
 
-	// Update allowed user groups
+	// Update allowed user groups. The API returns these in an arbitrary order, so
+	// they are modelled as a set and compared without regard to ordering.
 	if len(clientResp.AllowedUserGroups) > 0 {
 		var groupIDs []string
 		for _, group := range clientResp.AllowedUserGroups {
 			groupIDs = append(groupIDs, group.ID)
 		}
-		allowedGroups, diags := types.ListValueFrom(ctx, types.StringType, groupIDs)
+		allowedGroups, diags := types.SetValueFrom(ctx, types.StringType, groupIDs)
 		resp.Diagnostics.Append(diags...)
 		state.AllowedUserGroups = allowedGroups
-	} else {
-		state.AllowedUserGroups = types.ListNull(types.StringType)
+	} else if state.AllowedUserGroups.IsNull() || len(state.AllowedUserGroups.Elements()) > 0 {
+		state.AllowedUserGroups = types.SetNull(types.StringType)
 	}
 
 	// Note: client_secret is not updated from Read as it's only available during creation
@@ -779,10 +780,10 @@ func mapAPIClientToModel(ctx context.Context, api *client.OIDCClient) clientReso
 		for _, g := range api.AllowedUserGroups {
 			groupIDs = append(groupIDs, g.ID)
 		}
-		allowed, _ := types.ListValueFrom(ctx, types.StringType, groupIDs)
+		allowed, _ := types.SetValueFrom(ctx, types.StringType, groupIDs)
 		model.AllowedUserGroups = allowed
 	} else {
-		model.AllowedUserGroups = types.ListNull(types.StringType)
+		model.AllowedUserGroups = types.SetNull(types.StringType)
 	}
 
 	if api.LaunchURL != "" {
