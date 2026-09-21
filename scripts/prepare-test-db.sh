@@ -60,11 +60,6 @@ else
             aarch64|arm64) ARCH="arm64" ;;
         esac
 
-        # Map OS names for pocket-id releases
-        case "$OS" in
-            darwin) OS="macos" ;;
-        esac
-
         # Default to the latest stable pocket-id release so CI tests what most
         # users run. Override with POCKET_ID_VERSION (e.g. for a reproducible
         # local run); fall back to a known-good version if the release API is
@@ -77,16 +72,23 @@ else
                 https://api.github.com/repos/pocket-id/pocket-id/releases/latest 2>/dev/null \
                 | grep '"tag_name":' | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
             if [ -z "$POCKET_ID_VERSION" ]; then
-                echo "Could not resolve latest pocket-id release; falling back to v2.9.0"
-                POCKET_ID_VERSION="v2.9.0"
+                echo "Could not resolve latest pocket-id release; falling back to v2.16.0"
+                POCKET_ID_VERSION="v2.16.0"
             fi
         fi
         echo "Using pocket-id version: $POCKET_ID_VERSION"
 
-        DOWNLOAD_URL="https://github.com/pocket-id/pocket-id/releases/download/${POCKET_ID_VERSION}/pocket-id-${OS}-${ARCH}"
+        # Release assets are named pocket-id_<os>_<arch> since v2.10.0.
+        DOWNLOAD_URL="https://github.com/pocket-id/pocket-id/releases/download/${POCKET_ID_VERSION}/pocket-id_${OS}_${ARCH}"
         echo "Downloading from: $DOWNLOAD_URL"
 
-        curl -L -o "$POCKET_ID_BINARY" "$DOWNLOAD_URL"
+        # -f so an asset rename fails here instead of writing the error page to
+        # the binary, which only surfaces later as a confusing startup error.
+        if ! curl -fL --retry 3 -o "$POCKET_ID_BINARY" "$DOWNLOAD_URL"; then
+            echo "ERROR: Failed to download pocket-id from $DOWNLOAD_URL" >&2
+            echo "The release asset naming may have changed upstream." >&2
+            exit 1
+        fi
         chmod +x "$POCKET_ID_BINARY"
     fi
 
