@@ -201,8 +201,16 @@ jobs:
       - name: Stop test environment
         if: always()
         run: |
-          # Kill pocket-id process
+          # Kill pocket-id and wait for it to exit. pkill signals and returns
+          # immediately, but pocket-id keeps writing its SQLite files while
+          # shutting down, which made the cleanup below fail with
+          # "cannot remove 'test-data/data': Directory not empty".
           pkill -f pocket-id || true
+          for _ in $(seq 1 30); do
+            pgrep -f pocket-id >/dev/null 2>&1 || break
+            sleep 1
+          done
+          pkill -9 -f pocket-id 2>/dev/null || true
           # Clean up test data
           rm -rf test-data
 
@@ -270,6 +278,11 @@ jobs:
           docker rm pocket-id-test || true
           # Kill pocket-id process (no-op in container mode, kept for parity)
           pkill -f pocket-id || true
+          for _ in $(seq 1 30); do
+            pgrep -f pocket-id >/dev/null 2>&1 || break
+            sleep 1
+          done
+          pkill -9 -f pocket-id 2>/dev/null || true
           # Clean up test data
           rm -rf test-data
 
@@ -387,8 +400,16 @@ jobs:
       - name: Stop test environment
         if: always()
         run: |
-          # Kill pocket-id process
+          # Kill pocket-id and wait for it to exit. pkill signals and returns
+          # immediately, but pocket-id keeps writing its SQLite files while
+          # shutting down, which made the cleanup below fail with
+          # "cannot remove 'test-data/data': Directory not empty".
           pkill -f pocket-id || true
+          for _ in $(seq 1 30); do
+            pgrep -f pocket-id >/dev/null 2>&1 || break
+            sleep 1
+          done
+          pkill -9 -f pocket-id 2>/dev/null || true
           # Clean up test data
           rm -rf test-data
 
@@ -477,8 +498,16 @@ jobs:
       - name: Stop test environment
         if: always()
         run: |
-          # Kill pocket-id process
+          # Kill pocket-id and wait for it to exit. pkill signals and returns
+          # immediately, but pocket-id keeps writing its SQLite files while
+          # shutting down, which made the cleanup below fail with
+          # "cannot remove 'test-data/data': Directory not empty".
           pkill -f pocket-id || true
+          for _ in $(seq 1 30); do
+            pgrep -f pocket-id >/dev/null 2>&1 || break
+            sleep 1
+          done
+          pkill -9 -f pocket-id 2>/dev/null || true
           # Clean up test data
           rm -rf test-data
 
