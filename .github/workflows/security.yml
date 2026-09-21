@@ -23,8 +23,11 @@ jobs:
         uses: trufflesecurity/trufflehog@00155c9dc586f34d189adc83d3ac2698c2ec551f # v3.95.8
         with:
           path: ./
-          base: ${{ github.event.repository.default_branch }}
-          head: HEAD
+          # This workflow only runs on pull_request, so compare the PR's own
+          # commits. The default branch name is not a valid local ref after
+          # checkout, which made every scan fail to resolve its base.
+          base: ${{ github.event.pull_request.base.sha }}
+          head: ${{ github.event.pull_request.head.sha }}
           extra_args: --only-verified
 
       # Vulnerability scanning
@@ -67,5 +70,8 @@ jobs:
       # Dependency scanning
       - name: Run Go vulnerability check
         run: |
-          go install golang.org/x/vuln/cmd/govulncheck@latest
+          # Pinned because govulncheck v1.8.0 requires Go 1.26, while this job
+          # runs the Go version the module targets. Move to @latest once the
+          # module targets Go 1.26 or newer.
+          go install golang.org/x/vuln/cmd/govulncheck@v1.7.0
           govulncheck ./... || true
