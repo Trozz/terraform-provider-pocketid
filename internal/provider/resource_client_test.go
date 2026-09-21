@@ -6,9 +6,11 @@ package provider_test
 import (
 	"fmt"
 	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 )
 
@@ -125,8 +127,79 @@ func TestAccResourceClient_withAllowedGroups(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr(resourceName, "name", "restricted-client"),
 					resource.TestCheckResourceAttr(resourceName, "allowed_user_groups.#", "1"),
-					resource.TestCheckResourceAttrPair(resourceName, "allowed_user_groups.0", groupResourceName, "id"),
+					resource.TestCheckTypeSetElemAttrPair(resourceName, "allowed_user_groups.*", groupResourceName, "id"),
 				),
+			},
+		},
+	})
+}
+
+func TestAccResourceClient_groupOrderingStable(t *testing.T) {
+	resourceName := "pocketid_client.test"
+
+	groupA, groupB, groupC := "pocketid_group.a.id", "pocketid_group.b.id", "pocketid_group.c.id"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccResourceClientConfig_groupOrdering(groupA, groupB, groupC),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "allowed_user_groups.#", "3"),
+					resource.TestCheckTypeSetElemAttrPair(resourceName, "allowed_user_groups.*", "pocketid_group.a", "id"),
+					resource.TestCheckTypeSetElemAttrPair(resourceName, "allowed_user_groups.*", "pocketid_group.b", "id"),
+					resource.TestCheckTypeSetElemAttrPair(resourceName, "allowed_user_groups.*", "pocketid_group.c", "id"),
+				),
+			},
+			{
+				// Same three groups, reversed. Ordering is not a change.
+				Config: testAccResourceClientConfig_groupOrdering(groupC, groupB, groupA),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectEmptyPlan(),
+					},
+				},
+			},
+			{
+				// Dropping a group is a real change: set semantics must not mask it.
+				Config: testAccResourceClientConfig_groupOrdering(groupA, groupB),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction(resourceName, plancheck.ResourceActionUpdate),
+					},
+				},
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "allowed_user_groups.#", "2"),
+					resource.TestCheckTypeSetElemAttrPair(resourceName, "allowed_user_groups.*", "pocketid_group.a", "id"),
+					resource.TestCheckTypeSetElemAttrPair(resourceName, "allowed_user_groups.*", "pocketid_group.b", "id"),
+				),
+			},
+		},
+	})
+}
+
+func TestAccResourceClient_emptyAllowedGroups(t *testing.T) {
+	resourceName := "pocketid_client.test"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccResourceClientConfig_emptyAllowedGroups(),
+				Check: resource.TestCheckResourceAttr(
+					resourceName, "allowed_user_groups.#", "0",
+				),
+			},
+			{
+				// An empty set must stay empty, not null.
+				Config: testAccResourceClientConfig_emptyAllowedGroups(),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectEmptyPlan(),
+					},
+				},
 			},
 		},
 	})
@@ -234,6 +307,43 @@ resource "pocketid_client" "test" {
   name          = "restricted-client"
   callback_urls = ["https://example.com/callback"]
   allowed_user_groups = [pocketid_group.test.id]
+}
+`
+}
+
+func testAccResourceClientConfig_groupOrdering(groupRefs ...string) string {
+	return fmt.Sprintf(`
+resource "pocketid_group" "a" {
+  name          = "ordering-group-a"
+  friendly_name = "Ordering Group A"
+}
+
+resource "pocketid_group" "b" {
+  name          = "ordering-group-b"
+  friendly_name = "Ordering Group B"
+}
+
+resource "pocketid_group" "c" {
+  name          = "ordering-group-c"
+  friendly_name = "Ordering Group C"
+}
+
+resource "pocketid_client" "test" {
+  name          = "ordering-client"
+  callback_urls = ["https://example.com/callback"]
+
+  allowed_user_groups = [%[1]s]
+}
+`, strings.Join(groupRefs, ", "))
+}
+
+func testAccResourceClientConfig_emptyAllowedGroups() string {
+	return `
+resource "pocketid_client" "test" {
+  name          = "empty-groups-client"
+  callback_urls = ["https://example.com/callback"]
+
+  allowed_user_groups = []
 }
 `
 }
