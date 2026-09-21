@@ -22,6 +22,10 @@ import (
 const (
 	MinVersionCustomUserID       = "2.12.0"
 	MinVersionCustomClientSecret = "2.12.0"
+
+	// MinVersionClientSecretsEndpoint is the first version that serves the
+	// plural /secrets endpoint, which replaced /secret.
+	MinVersionClientSecretsEndpoint = "2.14.0"
 )
 
 // Client represents a Pocket-ID API client
@@ -125,6 +129,20 @@ func (c *Client) RequireMinVersion(feature, minVersion string) error {
 	}
 
 	return nil
+}
+
+// usesClientSecretsEndpoint reports whether the connected instance serves the
+// plural /secrets endpoint that replaced /secret in 2.14.0. When the version
+// cannot be determined, because /api/version/current only exists since 2.3.0 or
+// because the instance reports a non-semver version, fall back to the legacy
+// endpoint.
+func (c *Client) usesClientSecretsEndpoint() bool {
+	current, err := c.currentVersion()
+	if err != nil {
+		return false
+	}
+
+	return !current.LessThan(goversion.Must(goversion.NewVersion(MinVersionClientSecretsEndpoint)))
 }
 
 // doRequest performs an HTTP request to the Pocket-ID API
@@ -438,8 +456,13 @@ func (c *Client) UpdateClientAllowedUserGroups(clientID string, groupIDs []strin
 // GenerateClientSecret sets the secret for an OIDC client.
 // The secret is optional and a random secret is generated if it is left empty.
 func (c *Client) GenerateClientSecret(clientID string, secret string) (string, error) {
+	endpoint := fmt.Sprintf("/api/oidc/clients/%s/secret", clientID)
+	if c.usesClientSecretsEndpoint() {
+		endpoint += "s"
+	}
+
 	req := ClientSecretRequest{Secret: secret}
-	body, err := c.doRequest("POST", fmt.Sprintf("/api/oidc/clients/%s/secret", clientID), req)
+	body, err := c.doRequest("POST", endpoint, req)
 	if err != nil {
 		return "", err
 	}

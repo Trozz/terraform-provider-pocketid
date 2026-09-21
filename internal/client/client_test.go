@@ -260,31 +260,73 @@ func TestClient_ListClients(t *testing.T) {
 func TestClient_GenerateClientSecret(t *testing.T) {
 	expectedSecret := "new-client-secret-123"
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "POST", r.Method)
-		assert.Equal(t, "/api/oidc/clients/test-client-id/secret", r.URL.Path)
+	tests := []struct {
+		name             string
+		currentVersion   string
+		versionStatus    int
+		customSecret     string
+		expectedEndpoint string
+	}{
+		{"1.0", "1.0", http.StatusOK, "", "/secret"},
+		{"2.2.0", "2.2.0", http.StatusOK, "", "/secret"},
+		{"2.13", "2.13", http.StatusOK, "", "/secret"},
+		{"2.13.9", "2.13.9", http.StatusOK, "", "/secret"},
+		{"2.14.0", "2.14.0", http.StatusOK, "", "/secrets"},
+		{"2.14.1", "2.14.1", http.StatusOK, "", "/secrets"},
+		{"2.14.0 with custom secret", "2.14.0", http.StatusOK, "custom-secret-value", "/secrets"},
+		// Pocket ID reports "unknown" when it is not built with version information.
+		{"unparsable version", "unknown", http.StatusOK, "", "/secret"},
+		// The /api/version/current endpoint was only added in 2.3.0.
+		{"version endpoint missing", "", http.StatusNotFound, "", "/secret"},
+	}
 
-		bodyBytes, err := io.ReadAll(r.Body)
-		require.NoError(t, err)
-		if len(bodyBytes) > 0 {
-			var req client.ClientSecretRequest
-			require.NoError(t, json.Unmarshal(bodyBytes, &req))
-			assert.Empty(t, req.Secret)
-		}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			expectedPath := "/api/oidc/clients/test-client-id" + tt.expectedEndpoint
 
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(map[string]string{"secret": expectedSecret}); err != nil {
-			t.Fatalf("Failed to encode response: %v", err)
-		}
-	}))
-	defer server.Close()
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				switch r.URL.Path {
+				case "/api/version/current":
+					assert.Equal(t, "GET", r.Method)
+					if tt.versionStatus != http.StatusOK {
+						w.WriteHeader(tt.versionStatus)
+						return
+					}
 
-	c, err := client.NewClient(server.URL, "test-token", false, 30)
-	require.NoError(t, err)
+					w.Header().Set("Content-Type", "application/json")
+					if err := json.NewEncoder(w).Encode(map[string]string{"currentVersion": tt.currentVersion}); err != nil {
+						t.Errorf("Failed to encode response: %v", err)
+					}
+				case expectedPath:
+					assert.Equal(t, "POST", r.Method)
 
-	secret, err := c.GenerateClientSecret("test-client-id", "")
-	assert.NoError(t, err)
-	assert.Equal(t, expectedSecret, secret)
+					bodyBytes, err := io.ReadAll(r.Body)
+					require.NoError(t, err)
+					if len(bodyBytes) > 0 {
+						var req client.ClientSecretRequest
+						require.NoError(t, json.Unmarshal(bodyBytes, &req))
+						assert.Equal(t, tt.customSecret, req.Secret)
+					}
+
+					w.Header().Set("Content-Type", "application/json")
+					if err := json.NewEncoder(w).Encode(map[string]string{"secret": expectedSecret}); err != nil {
+						t.Errorf("Failed to encode response: %v", err)
+					}
+				default:
+					t.Errorf("Unexpected request path: %s", r.URL.Path)
+					w.WriteHeader(http.StatusNotFound)
+				}
+			}))
+			defer server.Close()
+
+			c, err := client.NewClient(server.URL, "test-token", false, 30)
+			require.NoError(t, err)
+
+			secret, err := c.GenerateClientSecret("test-client-id", tt.customSecret)
+			assert.NoError(t, err)
+			assert.Equal(t, expectedSecret, secret)
+		})
+	}
 }
 
 func TestClient_ErrorHandling(t *testing.T) {
