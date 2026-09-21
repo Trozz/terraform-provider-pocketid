@@ -525,6 +525,109 @@ func TestAccResourceClient_requiresPushedAuthorizationRequests(t *testing.T) {
 	})
 }
 
+func TestAccResourceClient_customSecret(t *testing.T) {
+	resourceName := "pocketid_client.test"
+	customSecret := "custom-secret-0123456789abcdef"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Create with an explicit client_secret and verify it is honored
+			// rather than overwritten by a generated value.
+			{
+				Config: testAccResourceClientConfig_withSecret("secret-client", customSecret),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "client_secret", customSecret),
+				),
+			},
+			// Re-applying the same config should not produce a diff.
+			{
+				Config:   testAccResourceClientConfig_withSecret("secret-client", customSecret),
+				PlanOnly: true,
+			},
+		},
+	})
+}
+
+func TestAccResourceClient_secretRotation(t *testing.T) {
+	resourceName := "pocketid_client.test"
+	initialSecret := "initial-secret-0123456789abcdef"
+	rotatedSecret := "rotated-secret-abcdef0123456789"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccResourceClientConfig_withSecret("rotate-client", initialSecret),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "client_secret", initialSecret),
+				),
+			},
+			// Changing client_secret must rotate it in place via an Update
+			// call, not force replacement of the client.
+			{
+				Config: testAccResourceClientConfig_withSecret("rotate-client", rotatedSecret),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction(resourceName, plancheck.ResourceActionUpdate),
+					},
+				},
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "client_secret", rotatedSecret),
+				),
+			},
+		},
+	})
+}
+
+func TestAccResourceClient_secretPreservedWhenRemovedFromConfig(t *testing.T) {
+	resourceName := "pocketid_client.test"
+	customSecret := "preserved-secret-0123456789abcd"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Create with an explicit secret.
+			{
+				Config: testAccResourceClientConfig_withSecret("keep-secret-client", customSecret),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "client_secret", customSecret),
+				),
+			},
+			// Remove client_secret from the config entirely. Since it can't
+			// be retrieved from the API after creation, the provider must
+			// preserve the previously configured value rather than rotating
+			// it or producing an inconsistent-result error.
+			{
+				Config: testAccResourceClientConfig_basic("keep-secret-client", "https://example.com/callback"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "client_secret", customSecret),
+				),
+			},
+			// Re-applying without client_secret should not keep producing a
+			// diff (i.e. no perpetual drift/rotation attempts).
+			{
+				Config:   testAccResourceClientConfig_basic("keep-secret-client", "https://example.com/callback"),
+				PlanOnly: true,
+			},
+		},
+	})
+}
+
+func testAccResourceClientConfig_withSecret(name, secret string) string {
+	return testAccProviderConfig() + fmt.Sprintf(`
+resource "pocketid_client" "test" {
+  name          = %[1]q
+  callback_urls = ["https://example.com/callback"]
+  is_public     = false
+  client_secret = %[2]q
+}
+`, name, secret)
+}
+
 func testAccResourceClientConfig_par(name string, par bool) string {
 	// PAR applies to confidential clients; Pocket-ID coerces it to false for
 	// public clients, so this must use a non-public client.

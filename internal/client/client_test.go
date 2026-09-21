@@ -264,6 +264,14 @@ func TestClient_GenerateClientSecret(t *testing.T) {
 		assert.Equal(t, "POST", r.Method)
 		assert.Equal(t, "/api/oidc/clients/test-client-id/secret", r.URL.Path)
 
+		bodyBytes, err := io.ReadAll(r.Body)
+		require.NoError(t, err)
+		if len(bodyBytes) > 0 {
+			var req client.ClientSecretRequest
+			require.NoError(t, json.Unmarshal(bodyBytes, &req))
+			assert.Empty(t, req.Secret)
+		}
+
 		w.Header().Set("Content-Type", "application/json")
 		if err := json.NewEncoder(w).Encode(map[string]string{"secret": expectedSecret}); err != nil {
 			t.Fatalf("Failed to encode response: %v", err)
@@ -274,7 +282,7 @@ func TestClient_GenerateClientSecret(t *testing.T) {
 	c, err := client.NewClient(server.URL, "test-token", false, 30)
 	require.NoError(t, err)
 
-	secret, err := c.GenerateClientSecret("test-client-id")
+	secret, err := c.GenerateClientSecret("test-client-id", "")
 	assert.NoError(t, err)
 	assert.Equal(t, expectedSecret, secret)
 }
@@ -898,4 +906,98 @@ func TestClient_DeleteScimServiceProvider(t *testing.T) {
 
 	err = c.DeleteScimServiceProvider("scim-1")
 	assert.NoError(t, err)
+}
+
+func TestClient_RequireMinVersion(t *testing.T) {
+	tests := []struct {
+		name           string
+		currentVersion string
+		minVersion     string
+		wantErr        bool
+		errContains    string
+	}{
+		{
+			name:           "current version equals minimum",
+			currentVersion: "2.12.0",
+			minVersion:     "2.12.0",
+			wantErr:        false,
+		},
+		{
+			name:           "current version exceeds minimum",
+			currentVersion: "2.13.0",
+			minVersion:     "2.12.0",
+			wantErr:        false,
+		},
+		{
+			name:           "current version below minimum",
+			currentVersion: "2.11.0",
+			minVersion:     "2.12.0",
+			wantErr:        true,
+			errContains:    "requires Pocket ID >= 2.12.0",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, "GET", r.Method)
+				assert.Equal(t, "/api/version/current", r.URL.Path)
+				w.Header().Set("Content-Type", "application/json")
+				if err := json.NewEncoder(w).Encode(map[string]string{"currentVersion": tt.currentVersion}); err != nil {
+					t.Fatalf("Failed to encode response: %v", err)
+				}
+			}))
+			defer server.Close()
+
+			c, err := client.NewClient(server.URL, "test-token", false, 30)
+			require.NoError(t, err)
+
+			err = c.RequireMinVersion("test feature", tt.minVersion)
+			if tt.wantErr {
+				assert.Error(t, err)
+				if tt.errContains != "" {
+					assert.Contains(t, err.Error(), tt.errContains)
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestClient_RequireMinVersion_CachesResult(t *testing.T) {
+	requestCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestCount++
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(map[string]string{"currentVersion": "2.12.0"}); err != nil {
+			t.Fatalf("Failed to encode response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	c, err := client.NewClient(server.URL, "test-token", false, 30)
+	require.NoError(t, err)
+
+	require.NoError(t, c.RequireMinVersion("feature A", "2.12.0"))
+	require.NoError(t, c.RequireMinVersion("feature B", "2.10.0"))
+
+	assert.Equal(t, 1, requestCount, "the version endpoint should only be queried once and then cached")
+}
+
+func TestClient_RequireMinVersion_VersionEndpointError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		if err := json.NewEncoder(w).Encode(map[string]string{"error": "You are not signed in"}); err != nil {
+			t.Fatalf("Failed to encode response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	c, err := client.NewClient(server.URL, "test-token", false, 30)
+	require.NoError(t, err)
+
+	err = c.RequireMinVersion("test feature", "2.12.0")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "could not determine")
 }
