@@ -159,55 +159,62 @@ func mergedString(planned types.String, current string) string {
 
 // modelToApplicationConfig builds the client payload from the plan, merging in
 // the current server values for any attribute that is not explicitly set.
+//
+// The payload starts as a copy of the current server configuration because the
+// update endpoint replaces the configuration in full: any field left at its
+// zero value is reset server-side. Copying first keeps settings the provider
+// does not expose, such as the WebAuthn options and the CIMD URL allowlist,
+// from being wiped on every apply.
 func modelToApplicationConfig(plan *applicationConfigModel, current *client.ApplicationConfig) *client.ApplicationConfig {
-	return &client.ApplicationConfig{
-		AppName:                   mergedString(plan.AppName, current.AppName),
-		SessionDuration:           mergedString(plan.SessionDuration, current.SessionDuration),
-		HomePageURL:               mergedString(plan.HomePageURL, current.HomePageURL),
-		EmailsVerified:            mergedString(plan.EmailsVerified, current.EmailsVerified),
-		DisableAnimations:         mergedString(plan.DisableAnimations, current.DisableAnimations),
-		AllowOwnAccountEdit:       mergedString(plan.AllowOwnAccountEdit, current.AllowOwnAccountEdit),
-		AllowUserSignups:          mergedString(plan.AllowUserSignups, current.AllowUserSignups),
-		SignupDefaultUserGroupIDs: mergedString(plan.SignupDefaultUserGroupIDs, current.SignupDefaultUserGroupIDs),
-		SignupDefaultCustomClaims: mergedString(plan.SignupDefaultCustomClaims, current.SignupDefaultCustomClaims),
-		AccentColor:               mergedString(plan.AccentColor, current.AccentColor),
-		RequireUserEmail:          mergedString(plan.RequireUserEmail, current.RequireUserEmail),
+	cfg := *current
+	cfg.AppName = mergedString(plan.AppName, current.AppName)
+	cfg.SessionDuration = mergedString(plan.SessionDuration, current.SessionDuration)
+	cfg.HomePageURL = mergedString(plan.HomePageURL, current.HomePageURL)
+	cfg.EmailsVerified = mergedString(plan.EmailsVerified, current.EmailsVerified)
+	cfg.DisableAnimations = mergedString(plan.DisableAnimations, current.DisableAnimations)
+	cfg.AllowOwnAccountEdit = mergedString(plan.AllowOwnAccountEdit, current.AllowOwnAccountEdit)
+	cfg.AllowUserSignups = mergedString(plan.AllowUserSignups, current.AllowUserSignups)
+	cfg.SignupDefaultUserGroupIDs = mergedString(plan.SignupDefaultUserGroupIDs, current.SignupDefaultUserGroupIDs)
+	cfg.SignupDefaultCustomClaims = mergedString(plan.SignupDefaultCustomClaims, current.SignupDefaultCustomClaims)
+	cfg.AccentColor = mergedString(plan.AccentColor, current.AccentColor)
+	cfg.RequireUserEmail = mergedString(plan.RequireUserEmail, current.RequireUserEmail)
 
-		SmtpHost:           mergedString(plan.SmtpHost, current.SmtpHost),
-		SmtpPort:           mergedString(plan.SmtpPort, current.SmtpPort),
-		SmtpFrom:           mergedString(plan.SmtpFrom, current.SmtpFrom),
-		SmtpUser:           mergedString(plan.SmtpUser, current.SmtpUser),
-		SmtpPassword:       mergedString(plan.SmtpPassword, current.SmtpPassword),
-		SmtpTls:            mergedString(plan.SmtpTls, current.SmtpTls),
-		SmtpSkipCertVerify: mergedString(plan.SmtpSkipCertVerify, current.SmtpSkipCertVerify),
+	cfg.SmtpHost = mergedString(plan.SmtpHost, current.SmtpHost)
+	cfg.SmtpPort = mergedString(plan.SmtpPort, current.SmtpPort)
+	cfg.SmtpFrom = mergedString(plan.SmtpFrom, current.SmtpFrom)
+	cfg.SmtpUser = mergedString(plan.SmtpUser, current.SmtpUser)
+	cfg.SmtpPassword = mergedString(plan.SmtpPassword, current.SmtpPassword)
+	cfg.SmtpTls = mergedString(plan.SmtpTls, current.SmtpTls)
+	cfg.SmtpSkipCertVerify = mergedString(plan.SmtpSkipCertVerify, current.SmtpSkipCertVerify)
 
-		EmailOneTimeAccessAsAdminEnabled:           mergedString(plan.EmailOneTimeAccessAsAdminEnabled, current.EmailOneTimeAccessAsAdminEnabled),
-		EmailOneTimeAccessAsUnauthenticatedEnabled: mergedString(plan.EmailOneTimeAccessAsUnauthenticatedEnabled, current.EmailOneTimeAccessAsUnauthenticatedEnabled),
-		EmailLoginNotificationEnabled:              mergedString(plan.EmailLoginNotificationEnabled, current.EmailLoginNotificationEnabled),
-		EmailApiKeyExpirationEnabled:               mergedString(plan.EmailApiKeyExpirationEnabled, current.EmailApiKeyExpirationEnabled),
-		EmailVerificationEnabled:                   mergedString(plan.EmailVerificationEnabled, current.EmailVerificationEnabled),
+	cfg.EmailOneTimeAccessAsAdminEnabled = mergedString(plan.EmailOneTimeAccessAsAdminEnabled, current.EmailOneTimeAccessAsAdminEnabled)
+	cfg.EmailOneTimeAccessAsUnauthenticatedEnabled = mergedString(plan.EmailOneTimeAccessAsUnauthenticatedEnabled, current.EmailOneTimeAccessAsUnauthenticatedEnabled)
+	cfg.EmailLoginNotificationEnabled = mergedString(plan.EmailLoginNotificationEnabled, current.EmailLoginNotificationEnabled)
+	cfg.EmailApiKeyExpirationEnabled = mergedString(plan.EmailApiKeyExpirationEnabled, current.EmailApiKeyExpirationEnabled)
+	cfg.EmailVerificationEnabled = mergedString(plan.EmailVerificationEnabled, current.EmailVerificationEnabled)
 
-		LdapEnabled:                        mergedString(plan.LdapEnabled, current.LdapEnabled),
-		LdapUrl:                            mergedString(plan.LdapUrl, current.LdapUrl),
-		LdapBindDn:                         mergedString(plan.LdapBindDn, current.LdapBindDn),
-		LdapBindPassword:                   mergedString(plan.LdapBindPassword, current.LdapBindPassword),
-		LdapBase:                           mergedString(plan.LdapBase, current.LdapBase),
-		LdapUserSearchFilter:               mergedString(plan.LdapUserSearchFilter, current.LdapUserSearchFilter),
-		LdapUserGroupSearchFilter:          mergedString(plan.LdapUserGroupSearchFilter, current.LdapUserGroupSearchFilter),
-		LdapSkipCertVerify:                 mergedString(plan.LdapSkipCertVerify, current.LdapSkipCertVerify),
-		LdapAttributeUserUniqueIdentifier:  mergedString(plan.LdapAttributeUserUniqueIdentifier, current.LdapAttributeUserUniqueIdentifier),
-		LdapAttributeUserUsername:          mergedString(plan.LdapAttributeUserUsername, current.LdapAttributeUserUsername),
-		LdapAttributeUserEmail:             mergedString(plan.LdapAttributeUserEmail, current.LdapAttributeUserEmail),
-		LdapAttributeUserFirstName:         mergedString(plan.LdapAttributeUserFirstName, current.LdapAttributeUserFirstName),
-		LdapAttributeUserLastName:          mergedString(plan.LdapAttributeUserLastName, current.LdapAttributeUserLastName),
-		LdapAttributeUserDisplayName:       mergedString(plan.LdapAttributeUserDisplayName, current.LdapAttributeUserDisplayName),
-		LdapAttributeUserProfilePicture:    mergedString(plan.LdapAttributeUserProfilePicture, current.LdapAttributeUserProfilePicture),
-		LdapAttributeGroupMember:           mergedString(plan.LdapAttributeGroupMember, current.LdapAttributeGroupMember),
-		LdapAttributeGroupUniqueIdentifier: mergedString(plan.LdapAttributeGroupUniqueIdentifier, current.LdapAttributeGroupUniqueIdentifier),
-		LdapAttributeGroupName:             mergedString(plan.LdapAttributeGroupName, current.LdapAttributeGroupName),
-		LdapAdminGroupName:                 mergedString(plan.LdapAdminGroupName, current.LdapAdminGroupName),
-		LdapSoftDeleteUsers:                mergedString(plan.LdapSoftDeleteUsers, current.LdapSoftDeleteUsers),
-	}
+	cfg.LdapEnabled = mergedString(plan.LdapEnabled, current.LdapEnabled)
+	cfg.LdapUrl = mergedString(plan.LdapUrl, current.LdapUrl)
+	cfg.LdapBindDn = mergedString(plan.LdapBindDn, current.LdapBindDn)
+	cfg.LdapBindPassword = mergedString(plan.LdapBindPassword, current.LdapBindPassword)
+	cfg.LdapBase = mergedString(plan.LdapBase, current.LdapBase)
+	cfg.LdapUserSearchFilter = mergedString(plan.LdapUserSearchFilter, current.LdapUserSearchFilter)
+	cfg.LdapUserGroupSearchFilter = mergedString(plan.LdapUserGroupSearchFilter, current.LdapUserGroupSearchFilter)
+	cfg.LdapSkipCertVerify = mergedString(plan.LdapSkipCertVerify, current.LdapSkipCertVerify)
+	cfg.LdapAttributeUserUniqueIdentifier = mergedString(plan.LdapAttributeUserUniqueIdentifier, current.LdapAttributeUserUniqueIdentifier)
+	cfg.LdapAttributeUserUsername = mergedString(plan.LdapAttributeUserUsername, current.LdapAttributeUserUsername)
+	cfg.LdapAttributeUserEmail = mergedString(plan.LdapAttributeUserEmail, current.LdapAttributeUserEmail)
+	cfg.LdapAttributeUserFirstName = mergedString(plan.LdapAttributeUserFirstName, current.LdapAttributeUserFirstName)
+	cfg.LdapAttributeUserLastName = mergedString(plan.LdapAttributeUserLastName, current.LdapAttributeUserLastName)
+	cfg.LdapAttributeUserDisplayName = mergedString(plan.LdapAttributeUserDisplayName, current.LdapAttributeUserDisplayName)
+	cfg.LdapAttributeUserProfilePicture = mergedString(plan.LdapAttributeUserProfilePicture, current.LdapAttributeUserProfilePicture)
+	cfg.LdapAttributeGroupMember = mergedString(plan.LdapAttributeGroupMember, current.LdapAttributeGroupMember)
+	cfg.LdapAttributeGroupUniqueIdentifier = mergedString(plan.LdapAttributeGroupUniqueIdentifier, current.LdapAttributeGroupUniqueIdentifier)
+	cfg.LdapAttributeGroupName = mergedString(plan.LdapAttributeGroupName, current.LdapAttributeGroupName)
+	cfg.LdapAdminGroupName = mergedString(plan.LdapAdminGroupName, current.LdapAdminGroupName)
+	cfg.LdapSoftDeleteUsers = mergedString(plan.LdapSoftDeleteUsers, current.LdapSoftDeleteUsers)
+
+	return &cfg
 }
 
 func optionalComputedString(description string, sensitive bool) schema.StringAttribute {

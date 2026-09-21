@@ -203,6 +203,14 @@ type ApplicationConfig struct {
 	LdapAttributeGroupName             string `json:"ldapAttributeGroupName"`
 	LdapAdminGroupName                 string `json:"ldapAdminGroupName"`
 	LdapSoftDeleteUsers                string `json:"ldapSoftDeleteUsers"`
+
+	// Passkeys / WebAuthn. Not exposed as resource attributes, but the update
+	// endpoint requires them, so they must round-trip.
+	WebauthnUserVerification        string `json:"webauthnUserVerification"`
+	WebauthnAllowSyncedPasskeys     string `json:"webauthnAllowSyncedPasskeys"`
+	WebauthnAuthenticatorAttachment string `json:"webauthnAuthenticatorAttachment"`
+
+	CIMDURLAllowlist string `json:"cimdUrlAllowlist"`
 }
 
 // AppConfigVariable represents a single key/value entry as returned by the
