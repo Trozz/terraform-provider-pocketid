@@ -66,7 +66,7 @@ output "existing_client_pkce_enabled" {
 
 ### Read-Only
 
-- `allowed_user_groups` (List of String) List of user group IDs that are allowed to use this client.
+- `allowed_user_groups` (Set of String) Set of user group IDs that are allowed to use this client.
 - `callback_urls` (List of String) List of allowed callback URLs for the OIDC client.
 - `has_logo` (Boolean) Whether the client has a logo configured.
 - `is_public` (Boolean) Whether this is a public client (no client secret).

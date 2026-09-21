@@ -111,6 +111,32 @@ func TestMapAPIClientToModel(t *testing.T) {
 	}
 }
 
+func TestMapAPIClientToModelAllowedGroupsOrderInsensitive(t *testing.T) {
+	ctx := context.Background()
+
+	newAPIClient := func(groups ...client.UserGroup) *client.OIDCClient {
+		return &client.OIDCClient{
+			ID:                "client-1",
+			Name:              "API Client",
+			CallbackURLs:      []string{"https://example.com/callback"},
+			AllowedUserGroups: groups,
+		}
+	}
+
+	groupA := client.UserGroup{ID: "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d"}
+	groupB := client.UserGroup{ID: "d4c3b2a1-f6e5-4b7a-9c8d-f0e1d2c3b4a5"}
+
+	forward := mapAPIClientToModel(ctx, newAPIClient(groupA, groupB))
+	reversed := mapAPIClientToModel(ctx, newAPIClient(groupB, groupA))
+
+	assert.True(t,
+		forward.AllowedUserGroups.Equal(reversed.AllowedUserGroups),
+		"allowed_user_groups must compare equal regardless of API ordering, got %s vs %s",
+		forward.AllowedUserGroups, reversed.AllowedUserGroups,
+	)
+	assert.Len(t, forward.AllowedUserGroups.Elements(), 2)
+}
+
 func TestMapAPIClientToModelNoFederatedIdentities(t *testing.T) {
 	ctx := context.Background()
 

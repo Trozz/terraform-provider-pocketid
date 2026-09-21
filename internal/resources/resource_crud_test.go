@@ -140,8 +140,8 @@ func TestClientResource_SchemaValidation(t *testing.T) {
 	assert.True(t, hasLogoAttr.Computed, "has_logo should be computed")
 
 	// Allowed user groups
-	allowedGroupsAttr, ok := attrs["allowed_user_groups"].(schema.ListAttribute)
-	assert.True(t, ok, "allowed_user_groups should be ListAttribute")
+	allowedGroupsAttr, ok := attrs["allowed_user_groups"].(schema.SetAttribute)
+	assert.True(t, ok, "allowed_user_groups should be SetAttribute")
 	assert.True(t, allowedGroupsAttr.Optional, "allowed_user_groups should be optional")
 }
 

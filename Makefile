@@ -136,7 +136,7 @@ check: fmt-check vet lint test ## Run all checks (format, vet, lint, test)
 docs: ## Generate documentation
 	@echo "$(GREEN)Generating documentation...$(NC)"
 	@if command -v tfplugindocs >/dev/null 2>&1; then \
-		tfplugindocs generate --provider-name=pocketid; \
+		tfplugindocs generate --provider-name=terraform-provider-pocketid; \
 		echo "$(GREEN)Documentation generated!$(NC)"; \
 	else \
 		echo "$(YELLOW)tfplugindocs not installed. Install it with:$(NC)"; \

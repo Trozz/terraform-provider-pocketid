@@ -36,7 +36,7 @@ type clientDataSourceModel struct {
 	LogoutCallbackURLs       types.List   `tfsdk:"logout_callback_urls"`
 	IsPublic                 types.Bool   `tfsdk:"is_public"`
 	PkceEnabled              types.Bool   `tfsdk:"pkce_enabled"`
-	AllowedUserGroups        types.List   `tfsdk:"allowed_user_groups"`
+	AllowedUserGroups        types.Set    `tfsdk:"allowed_user_groups"`
 	HasLogo                  types.Bool   `tfsdk:"has_logo"`
 	RequiresReauthentication types.Bool   `tfsdk:"requires_reauthentication"`
 	LaunchURL                types.String `tfsdk:"launch_url"`
@@ -88,8 +88,8 @@ func (d *clientDataSource) Schema(_ context.Context, _ datasource.SchemaRequest,
 				Description: "Whether PKCE is enabled for this client.",
 				Computed:    true,
 			},
-			"allowed_user_groups": schema.ListAttribute{
-				Description: "List of user group IDs that are allowed to use this client.",
+			"allowed_user_groups": schema.SetAttribute{
+				Description: "Set of user group IDs that are allowed to use this client.",
 				Computed:    true,
 				ElementType: types.StringType,
 			},
@@ -179,11 +179,11 @@ func (d *clientDataSource) Read(ctx context.Context, req datasource.ReadRequest,
 		for _, group := range clientResp.AllowedUserGroups {
 			groupIDs = append(groupIDs, group.ID)
 		}
-		allowedGroups, diags := types.ListValueFrom(ctx, types.StringType, groupIDs)
+		allowedGroups, diags := types.SetValueFrom(ctx, types.StringType, groupIDs)
 		resp.Diagnostics.Append(diags...)
 		state.AllowedUserGroups = allowedGroups
 	} else {
-		state.AllowedUserGroups = types.ListNull(types.StringType)
+		state.AllowedUserGroups = types.SetNull(types.StringType)
 	}
 
 	// Set state
