@@ -116,12 +116,19 @@ else
     fi
 fi
 
+# pocket-id keeps writing to the database after startup (migrations, cron jobs),
+# so a plain sqlite3 call can fail immediately with "database is locked". Wait
+# for the lock instead of giving up.
+sqlite_db() {
+    sqlite3 -cmd ".timeout 15000" "$DB_PATH" "$@"
+}
+
 # Wait for database to exist and migrations to complete
 echo "Waiting for Pocket-ID database and migrations..."
 MAX_RETRIES=30
 RETRY_COUNT=0
 while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-    if [ -f "$DB_PATH" ] && sqlite3 "$DB_PATH" "SELECT name FROM sqlite_master WHERE type='table' AND name='api_keys';" 2>/dev/null | grep -q "api_keys"; then
+    if [ -f "$DB_PATH" ] && sqlite_db "SELECT name FROM sqlite_master WHERE type='table' AND name='api_keys';" 2>/dev/null | grep -q "api_keys"; then
         echo "Database exists and migrations complete!"
         break
     fi
@@ -147,18 +154,18 @@ if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
         fi
     else
         echo "Tables in database:"
-        sqlite3 "$DB_PATH" "SELECT name FROM sqlite_master WHERE type='table';" || true
+        sqlite_db "SELECT name FROM sqlite_master WHERE type='table';" || true
     fi
     exit 1
 fi
 
 # Initialize test data
 # First check if an admin user exists
-ADMIN_EXISTS=$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM users WHERE is_admin = 1;")
+ADMIN_EXISTS=$(sqlite_db "SELECT COUNT(*) FROM users WHERE is_admin = 1;")
 
 if [ "$ADMIN_EXISTS" -eq 0 ]; then
     echo "No admin user found. Creating test admin user..."
-    sqlite3 "$DB_PATH" <<EOF
+    sqlite_db <<EOF
 INSERT INTO users (
     id,
     email,
@@ -185,7 +192,7 @@ fi
 
 # Now create the API key
 echo "Creating API key..."
-sqlite3 "$DB_PATH" <<EOF
+sqlite_db <<EOF
 INSERT OR REPLACE INTO api_keys (
     id,
     key,
