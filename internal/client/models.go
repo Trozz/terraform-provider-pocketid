@@ -43,6 +43,17 @@ type OIDCClient struct {
 	Credentials                         OIDCClientCredentials `json:"credentials"`
 	AllowedUserGroups                   []UserGroup           `json:"allowedUserGroups,omitempty"`
 	AllowedUserGroupsCount              int64                 `json:"allowedUserGroupsCount,omitempty"`
+
+	// Settings the provider does not expose as attributes. They are read so
+	// that an update can send them back unchanged; the update endpoint
+	// replaces the client in full and resets anything omitted.
+	Description                 string  `json:"description"`
+	SkipConsent                 bool    `json:"skipConsent"`
+	AccessTokenDurationMinutes  int64   `json:"accessTokenDurationMinutes,omitempty"`
+	RefreshTokenDurationMinutes int64   `json:"refreshTokenDurationMinutes,omitempty"`
+	HasDarkLogo                 bool    `json:"hasDarkLogo,omitempty"`
+	LogoURL                     *string `json:"logoUrl,omitempty"`
+	DarkLogoURL                 *string `json:"darkLogoUrl,omitempty"`
 }
 
 // OIDCClientCredentials represents federated identity credentials for an OIDC client
@@ -71,6 +82,17 @@ type OIDCClientCreateRequest struct {
 	PkceEnabled                         bool                  `json:"pkceEnabled"`
 	IsGroupRestricted                   bool                  `json:"isGroupRestricted"`
 	Credentials                         OIDCClientCredentials `json:"credentials"`
+
+	// Carried through from the current server state on update. See the
+	// matching fields on OIDCClient.
+	Description                 string  `json:"description"`
+	SkipConsent                 bool    `json:"skipConsent"`
+	AccessTokenDurationMinutes  int64   `json:"accessTokenDurationMinutes,omitempty"`
+	RefreshTokenDurationMinutes int64   `json:"refreshTokenDurationMinutes,omitempty"`
+	HasLogo                     bool    `json:"hasLogo,omitempty"`
+	HasDarkLogo                 bool    `json:"hasDarkLogo,omitempty"`
+	LogoURL                     *string `json:"logoUrl,omitempty"`
+	DarkLogoURL                 *string `json:"darkLogoUrl,omitempty"`
 }
 
 // ClientSecretRequest represents an optional request body for setting a custom
