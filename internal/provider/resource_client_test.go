@@ -706,3 +706,59 @@ func TestAccResourceClient_preservesUnmanagedFields(t *testing.T) {
 		},
 	})
 }
+
+// TestAccResourceClient_secretRotationRevokesPrevious checks that rotating
+// client_secret revokes the secret it replaced. From Pocket ID 2.14.0 the
+// create-secret endpoint is additive, so without an explicit revoke the old
+// secret stays usable indefinitely.
+func TestAccResourceClient_secretRotationRevokesPrevious(t *testing.T) {
+	resourceName := "pocketid_client.test"
+	initialSecret := "revoke-initial-0123456789abcdef"
+	rotatedSecret := "revoke-rotated-abcdef0123456789"
+
+	var clientID, firstSecretID string
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccResourceClientConfig_withSecret("revoke-client", initialSecret),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet(resourceName, "client_secret_id"),
+					resource.TestCheckResourceAttrWith(resourceName, "id", func(v string) error {
+						clientID = v
+						return nil
+					}),
+					resource.TestCheckResourceAttrWith(resourceName, "client_secret_id", func(v string) error {
+						firstSecretID = v
+						return nil
+					}),
+					func(*terraform.State) error {
+						return checkClientSecretCount(clientID, 1)
+					},
+				),
+			},
+			{
+				Config: testAccResourceClientConfig_withSecret("revoke-client", rotatedSecret),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "client_secret", rotatedSecret),
+					// The tracked id must have moved on from the first secret.
+					resource.TestCheckResourceAttrWith(resourceName, "client_secret_id", func(v string) error {
+						if v == firstSecretID {
+							return fmt.Errorf("client_secret_id did not change after rotation")
+						}
+						return nil
+					}),
+					// And the superseded secret must be gone, not merely inactive.
+					func(*terraform.State) error {
+						if err := checkClientSecretCount(clientID, 1); err != nil {
+							return err
+						}
+						return checkClientSecretAbsent(clientID, firstSecretID)
+					},
+				),
+			},
+		},
+	})
+}

@@ -42,6 +42,44 @@ type clientResource struct {
 }
 
 // clientResourceModel maps the resource schema data.
+// clientSecretIDPlanModifier keeps client_secret_id at its prior value unless
+// client_secret is actually changing. A rotation creates a new secret, so its
+// id is only known after apply; using the prior value there would make the
+// applied result differ from the plan. Keeping the prior value in every other
+// case avoids a spurious "known after apply" diff on unrelated updates.
+type clientSecretIDPlanModifier struct{}
+
+func (m clientSecretIDPlanModifier) Description(context.Context) string {
+	return "Keeps the prior client_secret_id unless client_secret is changing."
+}
+
+func (m clientSecretIDPlanModifier) MarkdownDescription(ctx context.Context) string {
+	return m.Description(ctx)
+}
+
+func (m clientSecretIDPlanModifier) PlanModifyString(ctx context.Context, req planmodifier.StringRequest, resp *planmodifier.StringResponse) {
+	// Nothing to carry over when creating or destroying.
+	if req.State.Raw.IsNull() || req.Plan.Raw.IsNull() {
+		return
+	}
+
+	var stateSecret, planSecret types.String
+	resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("client_secret"), &stateSecret)...)
+	resp.Diagnostics.Append(req.Plan.GetAttribute(ctx, path.Root("client_secret"), &planSecret)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Mirrors the rotation condition in Update: a rotation only happens when
+	// the planned secret is known, set, and different from the stored one.
+	rotating := !planSecret.IsNull() && !planSecret.IsUnknown() && !planSecret.Equal(stateSecret)
+	if rotating {
+		return
+	}
+
+	resp.PlanValue = req.StateValue
+}
+
 type clientResourceModel struct {
 	ID                                  types.String `tfsdk:"id"`
 	Name                                types.String `tfsdk:"name"`
@@ -57,6 +95,7 @@ type clientResourceModel struct {
 	LaunchURL                           types.String `tfsdk:"launch_url"`
 	FederatedIdentities                 types.List   `tfsdk:"federated_identities"`
 	ClientSecret                        types.String `tfsdk:"client_secret"`
+	ClientSecretID                      types.String `tfsdk:"client_secret_id"`
 }
 
 // clientFederatedIdentityModel maps a single federated identity nested object.
@@ -125,6 +164,16 @@ func (r *clientResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 				},
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"client_secret_id": schema.StringAttribute{
+				Description: "Identifier of the client secret currently tracked by Terraform, used to revoke the " +
+					"previous secret when client_secret is rotated. Empty on Pocket ID versions before 2.14.0, " +
+					"which keep only one secret per client. Resources created before this attribute existed do " +
+					"not revoke their previous secret on the first rotation; revoke it in the Pocket ID UI.",
+				Computed: true,
+				PlanModifiers: []planmodifier.String{
+					clientSecretIDPlanModifier{},
 				},
 			},
 			"callback_urls": schema.ListAttribute{
@@ -352,9 +401,11 @@ func (r *clientResource) Create(ctx context.Context, req resource.CreateRequest,
 			)
 			return
 		}
-		plan.ClientSecret = types.StringValue(secret)
+		plan.ClientSecret = types.StringValue(secret.Secret)
+		plan.ClientSecretID = types.StringValue(secret.ID)
 	} else {
 		plan.ClientSecret = types.StringNull()
+		plan.ClientSecretID = types.StringNull()
 	}
 
 	// Handle allowed user groups
@@ -654,9 +705,30 @@ func (r *clientResource) Update(ctx context.Context, req resource.UpdateRequest,
 			)
 			return
 		}
-		plan.ClientSecret = types.StringValue(secret)
+		plan.ClientSecret = types.StringValue(secret.Secret)
+		plan.ClientSecretID = types.StringValue(secret.ID)
+
+		// The new secret is live at this point. Revoke the one it replaced, so
+		// a rotation does not leave the previous credential usable. Failing to
+		// revoke is reported as a warning rather than an error: the rotation
+		// itself succeeded, and erroring here would lose the new secret's ID
+		// and make the next rotation unable to clean up either.
+		previousID := state.ClientSecretID
+		if r.client.SupportsClientSecretRevocation() && !previousID.IsNull() && previousID.ValueString() != "" {
+			if err := r.client.DeleteClientSecret(plan.ID.ValueString(), previousID.ValueString()); err != nil {
+				resp.Diagnostics.AddWarning(
+					"Previous client secret was not revoked",
+					fmt.Sprintf(
+						"The client secret was rotated, but the previous secret (id %s) could not be revoked "+
+							"and is still usable. Revoke it in the Pocket ID UI. Error: %s",
+						previousID.ValueString(), err.Error(),
+					),
+				)
+			}
+		}
 	} else {
 		plan.ClientSecret = state.ClientSecret
+		plan.ClientSecretID = state.ClientSecretID
 	}
 
 	// Set the state

@@ -455,7 +455,11 @@ func (c *Client) UpdateClientAllowedUserGroups(clientID string, groupIDs []strin
 
 // GenerateClientSecret sets the secret for an OIDC client.
 // The secret is optional and a random secret is generated if it is left empty.
-func (c *Client) GenerateClientSecret(clientID string, secret string) (string, error) {
+//
+// The returned ID identifies the created secret so it can be revoked later. It
+// is empty on Pocket ID before 2.14.0, where the singular endpoint replaced the
+// client's only secret and there is nothing to revoke.
+func (c *Client) GenerateClientSecret(clientID string, secret string) (ClientSecretResponse, error) {
 	endpoint := fmt.Sprintf("/api/oidc/clients/%s/secret", clientID)
 	if c.usesClientSecretsEndpoint() {
 		endpoint += "s"
@@ -464,17 +468,48 @@ func (c *Client) GenerateClientSecret(clientID string, secret string) (string, e
 	req := ClientSecretRequest{Secret: secret}
 	body, err := c.doRequest("POST", endpoint, req)
 	if err != nil {
-		return "", err
+		return ClientSecretResponse{}, err
 	}
 
-	var result struct {
-		Secret string `json:"secret"`
-	}
+	var result ClientSecretResponse
 	if err := json.Unmarshal(body, &result); err != nil {
-		return "", fmt.Errorf("error unmarshaling response: %w", err)
+		return ClientSecretResponse{}, fmt.Errorf("error unmarshaling response: %w", err)
 	}
 
-	return result.Secret, nil
+	return result, nil
+}
+
+// DeleteClientSecret revokes a single secret of an OIDC client. A secret that
+// is already gone is not an error: it may have been revoked in the Pocket ID
+// UI. Only available from Pocket ID 2.14.0.
+func (c *Client) DeleteClientSecret(clientID, secretID string) error {
+	_, err := c.doRequest("DELETE", fmt.Sprintf("/api/oidc/clients/%s/secrets/%s", clientID, secretID), nil)
+	if err != nil && strings.Contains(err.Error(), "HTTP 404") {
+		return nil
+	}
+	return err
+}
+
+// ListClientSecrets returns the secrets of an OIDC client without their values.
+// Only available from Pocket ID 2.14.0.
+func (c *Client) ListClientSecrets(clientID string) ([]ClientSecret, error) {
+	body, err := c.doRequest("GET", fmt.Sprintf("/api/oidc/clients/%s/secrets", clientID), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var result []ClientSecret
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("error unmarshaling response: %w", err)
+	}
+
+	return result, nil
+}
+
+// SupportsClientSecretRevocation reports whether the connected instance exposes
+// the per-secret endpoints needed to revoke a superseded secret.
+func (c *Client) SupportsClientSecretRevocation() bool {
+	return c.usesClientSecretsEndpoint()
 }
 
 // User methods
