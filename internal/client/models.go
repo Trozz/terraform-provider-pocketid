@@ -101,9 +101,21 @@ type ClientSecretRequest struct {
 	Secret string `json:"secret,omitempty"`
 }
 
-// ClientSecretResponse represents the response when generating a client secret
+// ClientSecretResponse represents the response when generating a client secret.
+// ID is only returned by the plural /secrets endpoint, added in Pocket ID
+// 2.14.0, and is empty on older instances.
 type ClientSecretResponse struct {
+	ID     string `json:"id"`
 	Secret string `json:"secret"`
+}
+
+// ClientSecret describes an OIDC client secret without its value, as returned
+// by GET /api/oidc/clients/{id}/secrets.
+type ClientSecret struct {
+	ID        string `json:"id"`
+	Prefix    string `json:"prefix"`
+	CreatedAt string `json:"createdAt"`
+	IsActive  bool   `json:"isActive"`
 }
 
 // UpdateAllowedUserGroupsRequest represents a request to update allowed user groups for a client

@@ -85,3 +85,45 @@ func checkUnmanagedClientFieldsPreserved(id string) error {
 	}
 	return nil
 }
+
+// checkClientSecretCount asserts how many secrets the client currently has.
+func checkClientSecretCount(clientID string, want int) error {
+	c, err := testClient()
+	if err != nil {
+		return err
+	}
+
+	secrets, err := c.ListClientSecrets(clientID)
+	if err != nil {
+		return err
+	}
+
+	if len(secrets) != want {
+		ids := make([]string, 0, len(secrets))
+		for _, s := range secrets {
+			ids = append(ids, s.ID)
+		}
+		return fmt.Errorf("expected %d client secret(s), got %d: %v", want, len(secrets), ids)
+	}
+	return nil
+}
+
+// checkClientSecretAbsent asserts a specific secret has been revoked.
+func checkClientSecretAbsent(clientID, secretID string) error {
+	c, err := testClient()
+	if err != nil {
+		return err
+	}
+
+	secrets, err := c.ListClientSecrets(clientID)
+	if err != nil {
+		return err
+	}
+
+	for _, s := range secrets {
+		if s.ID == secretID {
+			return fmt.Errorf("superseded secret %s is still present (active=%v)", secretID, s.IsActive)
+		}
+	}
+	return nil
+}

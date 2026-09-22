@@ -324,7 +324,7 @@ func TestClient_GenerateClientSecret(t *testing.T) {
 
 			secret, err := c.GenerateClientSecret("test-client-id", tt.customSecret)
 			assert.NoError(t, err)
-			assert.Equal(t, expectedSecret, secret)
+			assert.Equal(t, expectedSecret, secret.Secret)
 		})
 	}
 }
@@ -1042,4 +1042,98 @@ func TestClient_RequireMinVersion_VersionEndpointError(t *testing.T) {
 	err = c.RequireMinVersion("test feature", "2.12.0")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "could not determine")
+}
+
+func TestClient_GenerateClientSecret_ReturnsID(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/version/current":
+			w.Header().Set("Content-Type", "application/json")
+			if err := json.NewEncoder(w).Encode(map[string]string{"currentVersion": "2.16.0"}); err != nil {
+				t.Errorf("Failed to encode response: %v", err)
+			}
+		case "/api/oidc/clients/test-client-id/secrets":
+			assert.Equal(t, "POST", r.Method)
+			w.Header().Set("Content-Type", "application/json")
+			if err := json.NewEncoder(w).Encode(map[string]string{
+				"id":     "secret-abc",
+				"secret": "value-123",
+			}); err != nil {
+				t.Errorf("Failed to encode response: %v", err)
+			}
+		default:
+			t.Errorf("Unexpected request path: %s", r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	c, err := client.NewClient(server.URL, "test-token", false, 30)
+	require.NoError(t, err)
+
+	got, err := c.GenerateClientSecret("test-client-id", "")
+	require.NoError(t, err)
+	assert.Equal(t, "secret-abc", got.ID)
+	assert.Equal(t, "value-123", got.Secret)
+}
+
+func TestClient_DeleteClientSecret(t *testing.T) {
+	tests := []struct {
+		name        string
+		status      int
+		wantErr     bool
+		errContains string
+	}{
+		{"deleted", http.StatusNoContent, false, ""},
+		// Already revoked elsewhere, for example in the Pocket ID UI.
+		{"already gone", http.StatusNotFound, false, ""},
+		{"server error", http.StatusInternalServerError, true, "HTTP 500"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, "DELETE", r.Method)
+				assert.Equal(t, "/api/oidc/clients/c1/secrets/s1", r.URL.Path)
+				w.WriteHeader(tt.status)
+			}))
+			defer server.Close()
+
+			c, err := client.NewClient(server.URL, "test-token", false, 30)
+			require.NoError(t, err)
+
+			err = c.DeleteClientSecret("c1", "s1")
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errContains)
+				return
+			}
+			assert.NoError(t, err)
+		})
+	}
+}
+
+func TestClient_ListClientSecrets(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "GET", r.Method)
+		assert.Equal(t, "/api/oidc/clients/c1/secrets", r.URL.Path)
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode([]map[string]any{
+			{"id": "s1", "prefix": "abcd", "isActive": true},
+			{"id": "s2", "prefix": "efgh", "isActive": false},
+		}); err != nil {
+			t.Errorf("Failed to encode response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	c, err := client.NewClient(server.URL, "test-token", false, 30)
+	require.NoError(t, err)
+
+	secrets, err := c.ListClientSecrets("c1")
+	require.NoError(t, err)
+	require.Len(t, secrets, 2)
+	assert.Equal(t, "s1", secrets[0].ID)
+	assert.True(t, secrets[0].IsActive)
+	assert.False(t, secrets[1].IsActive)
 }
