@@ -465,6 +465,20 @@ func (r *clientResource) Read(ctx context.Context, req resource.ReadRequest, res
 }
 
 // Update updates the resource and sets the updated Terraform state on success.
+// preserveUnmanagedClientFields copies the settings the provider does not
+// expose as attributes from the current server state into an update request,
+// so that updating a managed attribute does not reset them.
+func preserveUnmanagedClientFields(req *client.OIDCClientCreateRequest, current *client.OIDCClient) {
+	req.Description = current.Description
+	req.SkipConsent = current.SkipConsent
+	req.AccessTokenDurationMinutes = current.AccessTokenDurationMinutes
+	req.RefreshTokenDurationMinutes = current.RefreshTokenDurationMinutes
+	req.HasLogo = current.HasLogo
+	req.HasDarkLogo = current.HasDarkLogo
+	req.LogoURL = current.LogoURL
+	req.DarkLogoURL = current.DarkLogoURL
+}
+
 func (r *clientResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	// Retrieve values from plan
 	var plan clientResourceModel
@@ -526,6 +540,20 @@ func (r *clientResource) Update(ctx context.Context, req resource.UpdateRequest,
 		cid := plan.ClientID.ValueString()
 		updateReq.ClientID = &cid
 	}
+
+	// The update endpoint replaces the client in full, so settings the
+	// provider does not expose have to be read back and sent unchanged.
+	// Without this they are reset: a description is cleared, skip_consent
+	// reverts to false and the token durations fall back to their defaults.
+	current, err := r.client.GetClient(plan.ID.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error reading OIDC client",
+			"Could not read the current OIDC client before updating it: "+err.Error(),
+		)
+		return
+	}
+	preserveUnmanagedClientFields(updateReq, current)
 
 	tflog.Debug(ctx, "Updating OIDC client", map[string]any{
 		"id":   plan.ID.ValueString(),

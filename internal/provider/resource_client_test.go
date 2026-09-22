@@ -663,3 +663,46 @@ resource "pocketid_client" "test" {
 		},
 	})
 }
+
+// TestAccResourceClient_preservesUnmanagedFields checks that updating a managed
+// attribute does not reset settings the provider does not expose. The update
+// endpoint replaces the client in full, so anything the provider omits from the
+// payload is reset server-side.
+func TestAccResourceClient_preservesUnmanagedFields(t *testing.T) {
+	resourceName := "pocketid_client.test"
+
+	var clientID string
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccResourceClientConfig_basic("preserve-test", "https://example.com/callback"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrWith(resourceName, "id", func(v string) error {
+						clientID = v
+						return nil
+					}),
+				),
+			},
+			{
+				// Set the unmanaged fields out of band, the way an operator
+				// would in the Pocket ID UI.
+				PreConfig: func() {
+					if err := setUnmanagedClientFields(clientID); err != nil {
+						t.Fatalf("seeding unmanaged fields: %v", err)
+					}
+				},
+				// Change a managed attribute so the resource performs an Update.
+				Config: testAccResourceClientConfig_basic("preserve-test-renamed", "https://example.com/callback"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "name", "preserve-test-renamed"),
+					func(*terraform.State) error {
+						return checkUnmanagedClientFieldsPreserved(clientID)
+					},
+				),
+			},
+		},
+	})
+}
