@@ -1,13 +1,21 @@
 name: Cleanup Pre-releases
 
 on:
-  # When a stable release tag is pushed, clear out the dev pre-releases it
-  # supersedes. We trigger on the tag push (a user action) rather than the
-  # `release: published` event, because releases created by GoReleaser use the
-  # default GITHUB_TOKEN, whose events do not trigger other workflows.
-  push:
-    tags:
-      - "v[0-9]+.[0-9]+.[0-9]+"
+  # Run after a release finishes, never alongside it. Triggering on the tag
+  # push made this race the Release workflow: cleanup deleted the dev tags
+  # while GoReleaser was still resolving one of them as its changelog base,
+  # which failed the v2.4.2 release with a 404 from the compare API.
+  #
+  # `workflow_run` matches on the workflow's `name:`, so this must stay in
+  # step with `name: Release` in release.yml. If it drifts, cleanup silently
+  # stops running on release and only the daily schedule trims pre-releases.
+  #
+  # This also replaces `release: published`, which does not fire at all here:
+  # GoReleaser creates the release with the default GITHUB_TOKEN, and events
+  # from that token do not trigger further workflows.
+  workflow_run:
+    workflows: ["Release"]
+    types: [completed]
   schedule:
     # Run daily at 2 AM UTC (backstop: keep the latest few)
     - cron: "0 2 * * *"
@@ -31,6 +39,13 @@ jobs:
   cleanup:
     name: Cleanup Old Pre-releases
     runs-on: ubuntu-latest
+    # Only clear the dev pre-releases once a release has actually succeeded.
+    # After a failed release they are the only builds covering the commits
+    # since the last stable tag, so they are kept; the daily schedule trims
+    # them back to the usual few.
+    if: >-
+      github.event_name != 'workflow_run' ||
+      github.event.workflow_run.conclusion == 'success'
     steps:
       - name: Cleanup pre-releases
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v7
@@ -39,14 +54,17 @@ jobs:
             const { owner, repo } = context.repo;
             const dryRun = context.payload.inputs?.dry_run === 'true';
 
-            // Determine how many pre-releases to keep. When a stable release tag
-            // is pushed, remove all dev pre-releases it supersedes (the tag filter
-            // already restricts this trigger to stable vX.Y.Z tags). The daily
-            // schedule keeps the latest few as a backstop.
+            // Determine how many pre-releases to keep. After a successful
+            // release, remove all dev pre-releases it supersedes (release.yml
+            // only runs for stable vX.Y.Z tags). The daily schedule keeps the
+            // latest few as a backstop.
             let keepCount = parseInt(context.payload.inputs?.keep_count || '5');
-            if (context.eventName === 'push') {
+            if (context.eventName === 'workflow_run') {
               keepCount = 0;
-              console.log(`Stable tag ${context.ref.replace('refs/tags/', '')} pushed; removing all dev pre-releases.`);
+              // On workflow_run, context.ref is the default branch rather than
+              // the released tag, so read the tag from the triggering run.
+              const releasedTag = context.payload.workflow_run?.head_branch ?? '(unknown)';
+              console.log(`Release ${releasedTag} succeeded; removing all dev pre-releases it supersedes.`);
             }
 
             console.log(`Configuration: Keep ${keepCount} pre-releases, Dry run: ${dryRun}`);
