@@ -189,6 +189,7 @@ output "spa_client_id" {
 
 - `allowed_user_groups` (Set of String) Set of user group IDs that are allowed to use this client. If empty, all users can use this client.
 - `client_id` (String) The client ID to use for the OIDC client. If not set, one will be generated. Must be between 2 and 128 characters.
+- `client_secret` (String, Sensitive) The client secret for non-public clients. Only available during resource creation for non-public clients.When specified, it must have at least a length of 16 and consist only of printable ASCII characters.It is recommended to leave this empty and let Pocket ID automatically generate a secret.
 - `dark_logo_url` (String) URL of the client's dark-mode logo, downloaded by Pocket ID. When not set, a logo added outside Terraform is left untouched; removing a URL that Terraform set deletes the logo.
 - `federated_identities` (Attributes List) List of federated identities (workload identity federation) allowed to authenticate as this client. (see [below for nested schema](#nestedatt--federated_identities))
 - `is_public` (Boolean) Whether this is a public client (no client secret). Defaults to false.
@@ -201,7 +202,7 @@ output "spa_client_id" {
 
 ### Read-Only
 
-- `client_secret` (String, Sensitive) The client secret. Only available during resource creation for non-public clients.
+- `client_secret_id` (String) Identifier of the client secret currently tracked by Terraform, used to revoke the previous secret when client_secret is rotated. Empty on Pocket ID versions before 2.14.0, which keep only one secret per client. Resources created before this attribute existed do not revoke their previous secret on the first rotation; revoke it in the Pocket ID UI.
 - `has_dark_logo` (Boolean) Whether the client has a dark-mode logo configured.
 - `has_logo` (Boolean) Whether the client has a logo configured.
 - `id` (String) The ID of the OIDC client.
