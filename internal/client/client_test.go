@@ -1113,6 +1113,45 @@ func TestClient_DeleteClientSecret(t *testing.T) {
 	}
 }
 
+func TestClient_DeleteClientLogo(t *testing.T) {
+	tests := []struct {
+		name        string
+		light       bool
+		status      int
+		wantErr     bool
+		errContains string
+	}{
+		{"light deleted", true, http.StatusNoContent, false, ""},
+		{"dark deleted", false, http.StatusNoContent, false, ""},
+		// Already removed elsewhere, for example in the Pocket ID UI.
+		{"already gone", true, http.StatusNotFound, false, ""},
+		{"server error", true, http.StatusInternalServerError, true, "HTTP 500"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, "DELETE", r.Method)
+				assert.Equal(t, "/api/oidc/clients/c1/logo", r.URL.Path)
+				assert.Equal(t, fmt.Sprintf("%t", tt.light), r.URL.Query().Get("light"))
+				w.WriteHeader(tt.status)
+			}))
+			defer server.Close()
+
+			c, err := client.NewClient(server.URL, "test-token", false, 30)
+			require.NoError(t, err)
+
+			err = c.DeleteClientLogo("c1", tt.light)
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errContains)
+				return
+			}
+			assert.NoError(t, err)
+		})
+	}
+}
+
 func TestClient_ListClientSecrets(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "GET", r.Method)

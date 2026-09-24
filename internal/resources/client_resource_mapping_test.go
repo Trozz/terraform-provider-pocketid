@@ -72,6 +72,7 @@ func TestMapAPIClientToModel(t *testing.T) {
 		IsPublic:                 false,
 		PkceEnabled:              true,
 		HasLogo:                  false,
+		HasDarkLogo:              true,
 		RequiresReauthentication: true,
 		LaunchURL:                "https://example.com/launch",
 		AllowedUserGroups:        []client.UserGroup{{ID: "g1"}},
@@ -88,6 +89,8 @@ func TestMapAPIClientToModel(t *testing.T) {
 	assert.Equal(t, "API Client", model.Name.ValueString())
 	assert.Equal(t, true, model.RequiresReauthentication.ValueBool())
 	assert.Equal(t, "https://example.com/launch", model.LaunchURL.ValueString())
+	assert.False(t, model.HasLogo.ValueBool())
+	assert.True(t, model.HasDarkLogo.ValueBool())
 
 	// Callback URLs
 	var cb []string
@@ -149,4 +152,29 @@ func TestMapAPIClientToModelNoFederatedIdentities(t *testing.T) {
 	model := mapAPIClientToModel(ctx, api)
 
 	assert.True(t, model.FederatedIdentities.IsNull())
+}
+
+func TestLogoFlag(t *testing.T) {
+	url := types.StringValue("https://example.com/logo.svg")
+	none := types.StringNull()
+
+	tests := []struct {
+		name     string
+		url      types.String
+		priorURL types.String
+		server   bool
+		want     bool
+	}{
+		// The update response can predate the download, so a set URL wins.
+		{"set by terraform", url, none, false, true},
+		{"removed by terraform", none, url, true, false},
+		{"unmanaged logo present", none, none, true, true},
+		{"unmanaged no logo", none, none, false, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, types.BoolValue(tt.want), logoFlag(tt.url, tt.priorURL, tt.server))
+		})
+	}
 }

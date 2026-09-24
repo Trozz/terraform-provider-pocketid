@@ -4,6 +4,7 @@
 package provider_test
 
 import (
+	"bytes"
 	"fmt"
 	"regexp"
 	"strings"
@@ -758,6 +759,235 @@ func TestAccResourceClient_secretRotationRevokesPrevious(t *testing.T) {
 						return checkClientSecretAbsent(clientID, firstSecretID)
 					},
 				),
+			},
+		},
+	})
+}
+
+// testAccResourceClientConfig_logoURLs renders a client with the given logo
+// URLs; an empty URL leaves that attribute out of the configuration.
+func testAccResourceClientConfig_logoURLs(name, logoURL, darkLogoURL string) string {
+	var logos string
+	if logoURL != "" {
+		logos += fmt.Sprintf("  logo_url      = %q\n", logoURL)
+	}
+	if darkLogoURL != "" {
+		logos += fmt.Sprintf("  dark_logo_url = %q\n", darkLogoURL)
+	}
+	return testAccProviderConfig() + fmt.Sprintf(`
+resource "pocketid_client" "test" {
+  name          = %[1]q
+  callback_urls = ["https://example.com/callback"]
+%[2]s}
+`, name, logos)
+}
+
+// TestAccResourceClient_logoURL walks managed logos through their lifecycle:
+// set on create, import, change, and removal.
+func TestAccResourceClient_logoURL(t *testing.T) {
+	resourceName := "pocketid_client.test"
+	var clientID string
+	var firstLogo []byte
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccResourceClientConfig_logoURLs("logo-test", testLogoURL, testDarkLogoURL),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrWith(resourceName, "id", func(v string) error {
+						clientID = v
+						return nil
+					}),
+					resource.TestCheckResourceAttr(resourceName, "logo_url", testLogoURL),
+					resource.TestCheckResourceAttr(resourceName, "dark_logo_url", testDarkLogoURL),
+					resource.TestCheckResourceAttr(resourceName, "has_logo", "true"),
+					resource.TestCheckResourceAttr(resourceName, "has_dark_logo", "true"),
+					func(*terraform.State) error {
+						if err := checkClientLogoFlags(clientID, true, true); err != nil {
+							return err
+						}
+						var err error
+						firstLogo, err = getClientLogo(clientID, true)
+						return err
+					},
+				),
+			},
+			{
+				// Pocket ID does not return logo URLs, so an import has none.
+				ResourceName:            resourceName,
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"client_secret", "logo_url", "dark_logo_url"},
+			},
+			{
+				Config: testAccResourceClientConfig_logoURLs("logo-test", testDarkLogoURL, testLogoURL),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction(resourceName, plancheck.ResourceActionUpdate),
+					},
+				},
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "logo_url", testDarkLogoURL),
+					resource.TestCheckResourceAttr(resourceName, "dark_logo_url", testLogoURL),
+					func(*terraform.State) error {
+						if err := checkClientLogoFlags(clientID, true, true); err != nil {
+							return err
+						}
+						logo, err := getClientLogo(clientID, true)
+						if err != nil {
+							return err
+						}
+						if bytes.Equal(logo, firstLogo) {
+							return fmt.Errorf("logo was not replaced after logo_url changed")
+						}
+						return nil
+					},
+				),
+			},
+			{
+				Config: testAccResourceClientConfig_logoURLs("logo-test", testDarkLogoURL, testLogoURL),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
+				},
+			},
+			{
+				Config: testAccResourceClientConfig_logoURLs("logo-test", testDarkLogoURL, ""),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckNoResourceAttr(resourceName, "dark_logo_url"),
+					resource.TestCheckResourceAttr(resourceName, "has_logo", "true"),
+					resource.TestCheckResourceAttr(resourceName, "has_dark_logo", "false"),
+					func(*terraform.State) error {
+						return checkClientLogoFlags(clientID, true, false)
+					},
+				),
+			},
+			{
+				Config: testAccResourceClientConfig_logoURLs("logo-test", "", ""),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckNoResourceAttr(resourceName, "logo_url"),
+					resource.TestCheckResourceAttr(resourceName, "has_logo", "false"),
+					func(*terraform.State) error {
+						return checkClientLogoFlags(clientID, false, false)
+					},
+				),
+			},
+		},
+	})
+}
+
+// TestAccResourceClient_unmanagedLogoPreserved checks that a logo set outside
+// Terraform survives an update of a client with no logo_url, and causes no
+// diff.
+func TestAccResourceClient_unmanagedLogoPreserved(t *testing.T) {
+	resourceName := "pocketid_client.test"
+	var clientID string
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccResourceClientConfig_logoURLs("manual-logo", "", ""),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrWith(resourceName, "id", func(v string) error {
+						clientID = v
+						return nil
+					}),
+					resource.TestCheckResourceAttr(resourceName, "has_logo", "false"),
+				),
+			},
+			{
+				PreConfig: func() {
+					if err := setClientLogoURL(clientID, testLogoURL); err != nil {
+						t.Fatalf("setting logo: %v", err)
+					}
+				},
+				Config: testAccResourceClientConfig_logoURLs("manual-logo-renamed", "", ""),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "name", "manual-logo-renamed"),
+					resource.TestCheckResourceAttr(resourceName, "has_logo", "true"),
+					func(*terraform.State) error {
+						return checkClientLogoFlags(clientID, true, false)
+					},
+				),
+			},
+			{
+				Config: testAccResourceClientConfig_logoURLs("manual-logo-renamed", "", ""),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
+				},
+			},
+		},
+	})
+}
+
+// TestAccResourceClient_logoDeletedOutOfBand checks that a managed logo
+// deleted in the UI is set again on the next apply.
+func TestAccResourceClient_logoDeletedOutOfBand(t *testing.T) {
+	resourceName := "pocketid_client.test"
+	var clientID string
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccResourceClientConfig_logoURLs("drift-logo", testLogoURL, ""),
+				Check: resource.TestCheckResourceAttrWith(resourceName, "id", func(v string) error {
+					clientID = v
+					return nil
+				}),
+			},
+			{
+				PreConfig: func() {
+					c, err := testClient()
+					if err != nil {
+						t.Fatal(err)
+					}
+					if err := c.DeleteClientLogo(clientID, true); err != nil {
+						t.Fatalf("deleting logo: %v", err)
+					}
+				},
+				Config: testAccResourceClientConfig_logoURLs("drift-logo", testLogoURL, ""),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction(resourceName, plancheck.ResourceActionUpdate),
+					},
+				},
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "has_logo", "true"),
+					func(*terraform.State) error {
+						return checkClientLogoFlags(clientID, true, false)
+					},
+				),
+			},
+		},
+	})
+}
+
+// TestAccResourceClient_logoURLRejected checks that a logo URL Pocket ID
+// refuses fails the apply without leaving the new client behind.
+func TestAccResourceClient_logoURLRejected(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config:      testAccResourceClientConfig_logoURLs("rejected-logo", "http://127.0.0.1/logo.png", ""),
+				ExpectError: regexp.MustCompile(`Error setting client logo`),
+			},
+			{
+				PreConfig: func() {
+					if err := checkNoClientNamed("rejected-logo"); err != nil {
+						t.Fatal(err)
+					}
+				},
+				Config:   testAccResourceClientConfig_basic("rejected-logo-check", "https://example.com/callback"),
+				PlanOnly: true,
+				// A new resource always has a pending create.
+				ExpectNonEmptyPlan: true,
 			},
 		},
 	})

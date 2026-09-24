@@ -490,6 +490,16 @@ func (c *Client) DeleteClientSecret(clientID, secretID string) error {
 	return err
 }
 
+// DeleteClientLogo removes the light (or, with light false, the dark) logo of
+// an OIDC client. A logo that is already gone is not an error.
+func (c *Client) DeleteClientLogo(clientID string, light bool) error {
+	_, err := c.doRequest("DELETE", fmt.Sprintf("/api/oidc/clients/%s/logo?light=%t", clientID, light), nil)
+	if err != nil && strings.Contains(err.Error(), "HTTP 404") {
+		return nil
+	}
+	return err
+}
+
 // ListClientSecrets returns the secrets of an OIDC client without their values.
 // Only available from Pocket ID 2.14.0.
 func (c *Client) ListClientSecrets(clientID string) ([]ClientSecret, error) {
