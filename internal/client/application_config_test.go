@@ -21,6 +21,7 @@ func appConfigVariables() []client.AppConfigVariable {
 		{Key: "smtpPassword", Type: "string", Value: "s3cret"},
 		{Key: "ldapEnabled", Type: "boolean", Value: "true"},
 		{Key: "ldapBindPassword", Type: "string", Value: "ldapsecret"},
+		{Key: "autoCreateOidcClientSecret", Type: "boolean", Value: "false"},
 	}
 }
 
@@ -47,6 +48,7 @@ func TestGetApplicationConfig(t *testing.T) {
 	assert.Equal(t, "s3cret", cfg.SmtpPassword)
 	assert.Equal(t, "true", cfg.LdapEnabled)
 	assert.Equal(t, "ldapsecret", cfg.LdapBindPassword)
+	assert.Equal(t, "false", cfg.AutoCreateOIDCClientSecret)
 	// Keys not present in the response stay at their zero value.
 	assert.Equal(t, "", cfg.AccentColor)
 }

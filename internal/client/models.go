@@ -54,6 +54,10 @@ type OIDCClient struct {
 	HasDarkLogo                 bool    `json:"hasDarkLogo,omitempty"`
 	LogoURL                     *string `json:"logoUrl,omitempty"`
 	DarkLogoURL                 *string `json:"darkLogoUrl,omitempty"`
+
+	// Secret Pocket-ID generates on create when autoCreateOidcClientSecret is
+	// enabled (after v2.16.0). Only present in the create response.
+	CreatedSecret *ClientSecretResponse `json:"createdSecret,omitempty"`
 }
 
 // OIDCClientCredentials represents federated identity credentials for an OIDC client
@@ -244,7 +248,8 @@ type ApplicationConfig struct {
 	WebauthnAllowSyncedPasskeys     string `json:"webauthnAllowSyncedPasskeys"`
 	WebauthnAuthenticatorAttachment string `json:"webauthnAuthenticatorAttachment"`
 
-	CIMDURLAllowlist string `json:"cimdUrlAllowlist"`
+	CIMDURLAllowlist           string `json:"cimdUrlAllowlist"`
+	AutoCreateOIDCClientSecret string `json:"autoCreateOidcClientSecret"`
 }
 
 // AppConfigVariable represents a single key/value entry as returned by the
