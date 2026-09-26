@@ -122,6 +122,23 @@ func TestClient_CreateClient(t *testing.T) {
 	assert.Equal(t, expectedClient, result)
 }
 
+func TestClient_CreateClient_CreatedSecret(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprint(w, `{"id":"test-client-id","name":"Test Client","createdSecret":{"id":"secret-id","prefix":"abcd","secret":"generated"}}`)
+	}))
+	defer server.Close()
+
+	c, err := client.NewClient(server.URL, "test-token", false, 30)
+	require.NoError(t, err)
+
+	result, err := c.CreateClient(&client.OIDCClientCreateRequest{Name: "Test Client"})
+	require.NoError(t, err)
+	require.NotNil(t, result.CreatedSecret)
+	assert.Equal(t, "secret-id", result.CreatedSecret.ID)
+	assert.Equal(t, "generated", result.CreatedSecret.Secret)
+}
+
 func TestClient_GetClient(t *testing.T) {
 	expectedClient := &client.OIDCClient{
 		ID:                       "test-client-id",

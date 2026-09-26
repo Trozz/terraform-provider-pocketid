@@ -418,6 +418,18 @@ func (r *clientResource) Create(ctx context.Context, req resource.CreateRequest,
 			)
 			return
 		}
+		// Revoke the secret Pocket-ID created alongside the client, otherwise it
+		// stays valid without Terraform tracking it.
+		if clientResp.CreatedSecret != nil {
+			if err := r.client.DeleteClientSecret(clientResp.ID, clientResp.CreatedSecret.ID); err != nil {
+				_ = r.client.DeleteClient(clientResp.ID)
+				resp.Diagnostics.AddError(
+					"Error revoking auto-created client secret",
+					"Could not revoke the client secret created by Pocket-ID, the client was deleted. Error: "+err.Error(),
+				)
+				return
+			}
+		}
 		plan.ClientSecret = types.StringValue(secret.Secret)
 		plan.ClientSecretID = types.StringValue(secret.ID)
 	} else {
