@@ -5,6 +5,8 @@ package provider_test
 
 import (
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 
 	"github.com/Trozz/terraform-provider-pocketid/internal/client"
@@ -126,4 +128,95 @@ func checkClientSecretAbsent(clientID, secretID string) error {
 		}
 	}
 	return nil
+}
+
+// Public images Pocket ID can download in acceptance tests. It refuses URLs
+// that resolve to private addresses, so a local test server cannot be used.
+const (
+	testLogoURL     = "https://raw.githubusercontent.com/pocket-id/pocket-id/v2.16.0/backend/resources/default-images/logoLight.svg"
+	testDarkLogoURL = "https://raw.githubusercontent.com/pocket-id/pocket-id/v2.16.0/backend/resources/default-images/logoDark.svg"
+)
+
+// setClientLogoURL sets a client's logo directly through the API, the way an
+// operator would in the Pocket ID UI.
+func setClientLogoURL(id, logoURL string) error {
+	c, err := testClient()
+	if err != nil {
+		return err
+	}
+
+	current, err := c.GetClient(id)
+	if err != nil {
+		return err
+	}
+
+	req := &client.OIDCClientCreateRequest{
+		Name:               current.Name,
+		CallbackURLs:       current.CallbackURLs,
+		LogoutCallbackURLs: current.LogoutCallbackURLs,
+		IsPublic:           current.IsPublic,
+		PkceEnabled:        current.PkceEnabled,
+		IsGroupRestricted:  current.IsGroupRestricted,
+		Credentials:        current.Credentials,
+		LogoURL:            &logoURL,
+	}
+
+	_, err = c.UpdateClient(id, req)
+	return err
+}
+
+// checkClientLogoFlags asserts which logos Pocket ID reports for a client.
+func checkClientLogoFlags(id string, wantLogo, wantDarkLogo bool) error {
+	c, err := testClient()
+	if err != nil {
+		return err
+	}
+
+	got, err := c.GetClient(id)
+	if err != nil {
+		return err
+	}
+
+	if got.HasLogo != wantLogo {
+		return fmt.Errorf("hasLogo: got %v, want %v", got.HasLogo, wantLogo)
+	}
+	if got.HasDarkLogo != wantDarkLogo {
+		return fmt.Errorf("hasDarkLogo: got %v, want %v", got.HasDarkLogo, wantDarkLogo)
+	}
+	return nil
+}
+
+// checkNoClientNamed asserts no OIDC client with the given name exists.
+func checkNoClientNamed(name string) error {
+	c, err := testClient()
+	if err != nil {
+		return err
+	}
+
+	clients, err := c.ListClients()
+	if err != nil {
+		return err
+	}
+
+	for _, cl := range clients.Data {
+		if cl.Name == name {
+			return fmt.Errorf("client %q (%s) was left behind", name, cl.ID)
+		}
+	}
+	return nil
+}
+
+// getClientLogo returns the logo image Pocket ID serves for a client.
+func getClientLogo(id string, light bool) ([]byte, error) {
+	url := fmt.Sprintf("%s/api/oidc/clients/%s/logo?light=%t", os.Getenv("POCKETID_BASE_URL"), id, light)
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("GET %s: %s", url, resp.Status)
+	}
+	return io.ReadAll(resp.Body)
 }

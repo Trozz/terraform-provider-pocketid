@@ -90,6 +90,9 @@ type clientResourceModel struct {
 	PkceEnabled                         types.Bool   `tfsdk:"pkce_enabled"`
 	AllowedUserGroups                   types.Set    `tfsdk:"allowed_user_groups"`
 	HasLogo                             types.Bool   `tfsdk:"has_logo"`
+	HasDarkLogo                         types.Bool   `tfsdk:"has_dark_logo"`
+	LogoURL                             types.String `tfsdk:"logo_url"`
+	DarkLogoURL                         types.String `tfsdk:"dark_logo_url"`
 	RequiresReauthentication            types.Bool   `tfsdk:"requires_reauthentication"`
 	RequiresPushedAuthorizationRequests types.Bool   `tfsdk:"requires_pushed_authorization_requests"`
 	LaunchURL                           types.String `tfsdk:"launch_url"`
@@ -255,6 +258,20 @@ func (r *clientResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 			"has_logo": schema.BoolAttribute{
 				Description: "Whether the client has a logo configured.",
 				Computed:    true,
+			},
+			"has_dark_logo": schema.BoolAttribute{
+				Description: "Whether the client has a dark-mode logo configured.",
+				Computed:    true,
+			},
+			"logo_url": schema.StringAttribute{
+				Description: "URL of the client's logo, downloaded by Pocket ID. When not set, a logo added outside " +
+					"Terraform is left untouched; removing a URL that Terraform set deletes the logo.",
+				Optional: true,
+			},
+			"dark_logo_url": schema.StringAttribute{
+				Description: "URL of the client's dark-mode logo, downloaded by Pocket ID. When not set, a logo added " +
+					"outside Terraform is left untouched; removing a URL that Terraform set deletes the logo.",
+				Optional: true,
 			},
 		},
 	}
@@ -442,6 +459,27 @@ func (r *clientResource) Create(ctx context.Context, req resource.CreateRequest,
 		}
 	}
 
+	// Set the logos. Pocket ID creates the client before downloading a logo
+	// and returns no ID when the download fails, so the URLs are sent in an
+	// update where a failure can still be cleaned up.
+	if !plan.LogoURL.IsNull() || !plan.DarkLogoURL.IsNull() {
+		logoReq := buildCreateRequestFromPlan(ctx, &plan)
+		logoReq.LogoURL = plan.LogoURL.ValueStringPointer()
+		logoReq.DarkLogoURL = plan.DarkLogoURL.ValueStringPointer()
+		if _, err := r.client.UpdateClient(clientResp.ID, logoReq); err != nil {
+			// Try to clean up the created client
+			_ = r.client.DeleteClient(clientResp.ID)
+			resp.Diagnostics.AddError(
+				"Error setting client logo",
+				"Could not set the client logo, the client was deleted. Error: "+err.Error(),
+			)
+			return
+		}
+	}
+	noURL := types.StringNull()
+	plan.HasLogo = logoFlag(plan.LogoURL, noURL, clientResp.HasLogo)
+	plan.HasDarkLogo = logoFlag(plan.DarkLogoURL, noURL, clientResp.HasDarkLogo)
+
 	// Set the state
 	diags = resp.State.Set(ctx, &plan)
 	resp.Diagnostics.Append(diags...)
@@ -476,6 +514,7 @@ func (r *clientResource) Read(ctx context.Context, req resource.ReadRequest, res
 	state.IsPublic = types.BoolValue(clientResp.IsPublic)
 	state.PkceEnabled = types.BoolValue(clientResp.PkceEnabled)
 	state.HasLogo = types.BoolValue(clientResp.HasLogo)
+	state.HasDarkLogo = types.BoolValue(clientResp.HasDarkLogo)
 	state.RequiresReauthentication = types.BoolValue(clientResp.RequiresReauthentication)
 	// Only refresh PAR from the API when the server returns the field; otherwise
 	// preserve the existing state value (Pocket-ID <= v2.8.0 omits it). On import
@@ -520,6 +559,16 @@ func (r *clientResource) Read(ctx context.Context, req resource.ReadRequest, res
 		state.AllowedUserGroups = types.SetNull(types.StringType)
 	}
 
+	// Pocket ID does not return logo URLs. A logo managed by Terraform that
+	// is gone from the server (deleted in the UI) drops its URL from state, so
+	// the next plan sets it again.
+	if !clientResp.HasLogo {
+		state.LogoURL = types.StringNull()
+	}
+	if !clientResp.HasDarkLogo {
+		state.DarkLogoURL = types.StringNull()
+	}
+
 	// Note: client_secret is not updated from Read as it's only available during creation
 
 	// Set the state
@@ -540,6 +589,20 @@ func preserveUnmanagedClientFields(req *client.OIDCClientCreateRequest, current 
 	req.HasDarkLogo = current.HasDarkLogo
 	req.LogoURL = current.LogoURL
 	req.DarkLogoURL = current.DarkLogoURL
+}
+
+// logoFlag returns has_logo / has_dark_logo after an apply. The value in an
+// update response can predate a logo download, so a logo Terraform set or
+// removed is reported from the configuration; otherwise the server's value.
+func logoFlag(url, priorURL types.String, server bool) types.Bool {
+	switch {
+	case !url.IsNull():
+		return types.BoolValue(true)
+	case !priorURL.IsNull():
+		return types.BoolValue(false)
+	default:
+		return types.BoolValue(server)
+	}
 }
 
 func (r *clientResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
@@ -618,6 +681,15 @@ func (r *clientResource) Update(ctx context.Context, req resource.UpdateRequest,
 	}
 	preserveUnmanagedClientFields(updateReq, current)
 
+	// Send a logo URL only when it changed, so Pocket ID does not download the
+	// image again on every update.
+	if !plan.LogoURL.IsNull() && !plan.LogoURL.Equal(state.LogoURL) {
+		updateReq.LogoURL = plan.LogoURL.ValueStringPointer()
+	}
+	if !plan.DarkLogoURL.IsNull() && !plan.DarkLogoURL.Equal(state.DarkLogoURL) {
+		updateReq.DarkLogoURL = plan.DarkLogoURL.ValueStringPointer()
+	}
+
 	tflog.Debug(ctx, "Updating OIDC client", map[string]any{
 		"id":   plan.ID.ValueString(),
 		"name": updateReq.Name,
@@ -632,8 +704,23 @@ func (r *clientResource) Update(ctx context.Context, req resource.UpdateRequest,
 		return
 	}
 
+	// Delete logos whose URL was removed from the configuration
+	if plan.LogoURL.IsNull() && !state.LogoURL.IsNull() {
+		if err := r.client.DeleteClientLogo(plan.ID.ValueString(), true); err != nil {
+			resp.Diagnostics.AddError("Error deleting client logo", "Could not delete the client logo: "+err.Error())
+			return
+		}
+	}
+	if plan.DarkLogoURL.IsNull() && !state.DarkLogoURL.IsNull() {
+		if err := r.client.DeleteClientLogo(plan.ID.ValueString(), false); err != nil {
+			resp.Diagnostics.AddError("Error deleting client logo", "Could not delete the client dark logo: "+err.Error())
+			return
+		}
+	}
+
 	// Update state values
-	plan.HasLogo = types.BoolValue(clientResp.HasLogo)
+	plan.HasLogo = logoFlag(plan.LogoURL, state.LogoURL, clientResp.HasLogo)
+	plan.HasDarkLogo = logoFlag(plan.DarkLogoURL, state.DarkLogoURL, clientResp.HasDarkLogo)
 	plan.RequiresReauthentication = types.BoolValue(clientResp.RequiresReauthentication)
 	plan.FederatedIdentities = federatedIdentitiesToList(ctx, clientResp.Credentials.FederatedIdentities)
 	// Preserve the configured PAR value unless the server returns the field.
@@ -937,6 +1024,7 @@ func mapAPIClientToModel(ctx context.Context, api *client.OIDCClient) clientReso
 	model.IsPublic = types.BoolValue(api.IsPublic)
 	model.PkceEnabled = types.BoolValue(api.PkceEnabled)
 	model.HasLogo = types.BoolValue(api.HasLogo)
+	model.HasDarkLogo = types.BoolValue(api.HasDarkLogo)
 	model.RequiresReauthentication = types.BoolValue(api.RequiresReauthentication)
 	model.FederatedIdentities = federatedIdentitiesToList(ctx, api.Credentials.FederatedIdentities)
 

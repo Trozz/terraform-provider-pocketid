@@ -118,10 +118,7 @@ resource "pocketid_user" "with_claims" {
 - `email_verified` (Boolean) Whether the user's email address is verified. Defaults to false.
 - `first_name` (String) The first name of the user.
 - `groups` (Set of String) List of group IDs the user belongs to.
+- `id` (String) The ID of the user. If not set, Pocket ID generates a UUID automatically. If set, it must be a valid UUID. Changing this value forces recreation of the resource.
 - `is_admin` (Boolean) Whether the user has administrator privileges. Defaults to false.
 - `last_name` (String) The last name of the user.
 - `locale` (String) The locale preference for the user (e.g., 'en', 'fr').
-
-### Read-Only
-
-- `id` (String) The ID of the user.

@@ -131,6 +131,18 @@ resource "pocketid_client" "federated_app" {
   ]
 }
 
+# Set the client's logos from image URLs
+resource "pocketid_client" "grafana" {
+  name = "Grafana"
+
+  callback_urls = [
+    "https://grafana.example.com/login/generic_oauth"
+  ]
+
+  logo_url      = "https://cdn.jsdelivr.net/gh/selfhst/icons/svg/grafana.svg"
+  dark_logo_url = "https://cdn.jsdelivr.net/gh/selfhst/icons/svg/grafana-light.svg"
+}
+
 # Store the client secret securely
 resource "pocketid_client" "api_client" {
   name = "API Service Client"
@@ -153,5 +165,13 @@ output "spa_client_id" {
   value = pocketid_client.spa_app.id
 }
 ```
+
+## Logos
+
+`logo_url` and `dark_logo_url` are downloaded by Pocket ID, so the URL must be reachable from the Pocket ID server.
+
+- **Not set means not managed.** A logo added in the Pocket ID UI is left untouched while the URL is absent from the configuration.
+- **Removing** a URL that Terraform set deletes that logo.
+- A logo deleted in the UI is set again on the next apply. A changed image at the same URL is not detected; change the URL to refresh it.
 
 {{ .SchemaMarkdown | trimspace }}
