@@ -123,12 +123,15 @@ sqlite_db() {
     sqlite3 -cmd ".timeout 15000" "$DB_PATH" "$@"
 }
 
-# Wait for database to exist and migrations to complete
+# Wait for database to exist and migrations to complete. pocket-id only starts
+# serving /healthz after every migration has run; checking for a table instead
+# passes as soon as an early migration creates it, and seeding then races the
+# later ones (e.g. "table users has no column named display_name").
 echo "Waiting for Pocket-ID database and migrations..."
 MAX_RETRIES=30
 RETRY_COUNT=0
 while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-    if [ -f "$DB_PATH" ] && sqlite_db "SELECT name FROM sqlite_master WHERE type='table' AND name='api_keys';" 2>/dev/null | grep -q "api_keys"; then
+    if [ -f "$DB_PATH" ] && curl -fsS -o /dev/null http://localhost:1411/healthz 2>/dev/null; then
         echo "Database exists and migrations complete!"
         break
     fi
