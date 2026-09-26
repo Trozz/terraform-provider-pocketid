@@ -6,7 +6,7 @@ on:
       - opened
       - edited
       - synchronize
-    branches: [ main ]
+    branches: [ main, "release/**" ]
 
 permissions:
   contents: read
