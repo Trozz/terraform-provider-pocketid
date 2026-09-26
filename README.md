@@ -295,7 +295,8 @@ Contributions are welcome! Please see our [Contributing Guidelines](CONTRIBUTING
 2. Create your feature branch (`git checkout -b feature/amazing-feature`)
 3. Commit your changes (`git commit -m 'Add some amazing feature'`)
 4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request against `main`. Breaking changes target `release/v3` instead, which collects them for the next major version
+5. Open a Pull Request against `main`. Breaking changes target `release/v3`, which collects them for the next
+   major version
 
 ### Development Workflow
 
