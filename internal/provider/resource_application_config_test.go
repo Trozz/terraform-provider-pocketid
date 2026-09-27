@@ -287,3 +287,55 @@ func TestAccResourceApplicationConfig_imageRejected(t *testing.T) {
 		},
 	})
 }
+
+// TestAccResourceApplicationConfig_imageDeletedOutOfBand checks that a managed
+// image deleted in the UI is uploaded again on the next apply.
+func TestAccResourceApplicationConfig_imageDeletedOutOfBand(t *testing.T) {
+	resourceName := "pocketid_application_config.test"
+	source := filepath.Join(t.TempDir(), "logo.png")
+	writeTestPNG(t, source, color.RGBA{R: 255, G: 255, A: 255})
+	config := testAccResourceApplicationConfigConfig_images(map[string]string{"logo": source})
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+			},
+			{
+				PreConfig: func() {
+					c, err := testClient()
+					if err != nil {
+						t.Fatal(err)
+					}
+					if err := c.DeleteApplicationImage(client.ApplicationImageLogo); err != nil {
+						t.Fatalf("deleting logo: %v", err)
+					}
+				},
+				Config: config,
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction(resourceName, plancheck.ResourceActionUpdate),
+					},
+				},
+				Check: func(*terraform.State) error {
+					_, set, err := getApplicationImage(client.ApplicationImageLogo)
+					if err != nil {
+						return err
+					}
+					if !set {
+						return fmt.Errorf("logo deleted outside Terraform was not uploaded again")
+					}
+					return nil
+				},
+			},
+			{
+				Config: config,
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
+				},
+			},
+		},
+	})
+}

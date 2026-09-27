@@ -9,6 +9,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"reflect"
 	"strconv"
 	"strings"
@@ -850,6 +851,26 @@ func (c *Client) UpdateApplicationImage(image ApplicationImage, filename string,
 	}
 	_, err = c.doRawRequest(context.Background(), http.MethodPut, "/api/application-images/"+string(image), contentType, body)
 	return err
+}
+
+// ApplicationImageSet reports whether a custom version of an application image
+// is set. The skipCache value is unique, so no cache in front of Pocket ID can
+// answer for it.
+func (c *Client) ApplicationImageSet(image ApplicationImage) (bool, error) {
+	endpoint, err := url.Parse("/api/application-images/" + string(image))
+	if err != nil {
+		return false, err
+	}
+	query := endpoint.Query()
+	query.Set("default", "false")
+	query.Set("skipCache", strconv.FormatInt(time.Now().UnixNano(), 10))
+	endpoint.RawQuery = query.Encode()
+
+	_, err = c.doRequest(http.MethodGet, endpoint.String(), nil)
+	if err != nil && strings.Contains(err.Error(), "HTTP 404") {
+		return false, nil
+	}
+	return err == nil, err
 }
 
 // DeleteApplicationImage restores the default of an application image. An

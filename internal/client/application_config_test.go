@@ -168,3 +168,41 @@ func TestClient_DeleteApplicationImage(t *testing.T) {
 		})
 	}
 }
+
+func TestClient_ApplicationImageSet(t *testing.T) {
+	tests := []struct {
+		name    string
+		status  int
+		want    bool
+		wantErr bool
+	}{
+		{"custom image set", http.StatusOK, true, false},
+		{"no custom image", http.StatusNotFound, false, false},
+		{"server error", http.StatusInternalServerError, false, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, "GET", r.Method)
+				assert.Equal(t, "/api/application-images/logo", r.URL.Path)
+				assert.Equal(t, "false", r.URL.Query().Get("light"))
+				assert.Equal(t, "false", r.URL.Query().Get("default"))
+				assert.NotEmpty(t, r.URL.Query().Get("skipCache"))
+				w.WriteHeader(tt.status)
+			}))
+			defer server.Close()
+
+			c, err := client.NewClient(server.URL, "test-token", false, 30)
+			require.NoError(t, err)
+
+			got, err := c.ApplicationImageSet(client.ApplicationImageDarkLogo)
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}

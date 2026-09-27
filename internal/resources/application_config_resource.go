@@ -422,6 +422,11 @@ func (r *applicationConfigResource) Read(ctx context.Context, req resource.ReadR
 
 	applicationConfigToModel(cfg, &state)
 
+	r.refreshApplicationImages(&state, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -469,6 +474,34 @@ func (r *applicationConfigResource) applyApplicationImages(ctx context.Context, 
 	diags.Append(d...)
 	plan.DefaultProfilePicture, d = r.applyApplicationImage(ctx, client.ApplicationImageDefaultProfilePicture, "default_profile_picture", true, plan.DefaultProfilePicture, prior.DefaultProfilePicture)
 	diags.Append(d...)
+}
+
+// refreshApplicationImages drops managed images that are gone from the server
+// (deleted in the UI) from state, so the next plan uploads them again.
+func (r *applicationConfigResource) refreshApplicationImages(state *applicationConfigModel, diags *diag.Diagnostics) {
+	state.Logo = r.refreshApplicationImage(client.ApplicationImageLogo, state.Logo, diags)
+	state.DarkLogo = r.refreshApplicationImage(client.ApplicationImageDarkLogo, state.DarkLogo, diags)
+	state.EmailLogo = r.refreshApplicationImage(client.ApplicationImageEmailLogo, state.EmailLogo, diags)
+	state.BackgroundImage = r.refreshApplicationImage(client.ApplicationImageBackground, state.BackgroundImage, diags)
+	state.Favicon = r.refreshApplicationImage(client.ApplicationImageFavicon, state.Favicon, diags)
+	state.DefaultProfilePicture = r.refreshApplicationImage(client.ApplicationImageDefaultProfilePicture, state.DefaultProfilePicture, diags)
+}
+
+// refreshApplicationImage returns the managed image value to keep in state:
+// null when Pocket ID no longer has a custom version of it.
+func (r *applicationConfigResource) refreshApplicationImage(image client.ApplicationImage, managed types.Object, diags *diag.Diagnostics) types.Object {
+	if managed.IsNull() {
+		return managed
+	}
+	set, err := r.client.ApplicationImageSet(image)
+	if err != nil {
+		diags.AddError("Error reading application image", "Could not read application image: "+err.Error())
+		return managed
+	}
+	if !set {
+		return types.ObjectNull(sourceFileAttrTypes)
+	}
+	return managed
 }
 
 // applyApplicationImage uploads, resets or stops managing one image, and
