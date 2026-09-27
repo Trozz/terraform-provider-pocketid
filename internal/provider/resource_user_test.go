@@ -4,7 +4,11 @@
 package provider_test
 
 import (
+	"bytes"
 	"fmt"
+	"image/color"
+	"os"
+	"path/filepath"
 	"regexp"
 	"testing"
 
@@ -585,4 +589,217 @@ resource "pocketid_user" "test" {
   last_name  = "User"
 }
 `, id, username, email)
+}
+
+func testAccResourceUserConfig_profilePicture(username, source string) string {
+	var picture string
+	if source != "" {
+		picture = fmt.Sprintf("\n  profile_picture = {\n    source = %q\n  }\n", source)
+	}
+	return fmt.Sprintf(`
+resource "pocketid_user" "test" {
+  username   = %[1]q
+  email      = "%[1]s@example.com"
+  first_name = "Test"
+  last_name  = "User"
+%[2]s}
+`, username, picture)
+}
+
+// TestAccResourceUser_profilePicture walks a managed profile picture through
+// its lifecycle: upload, import, re-upload after the file changes, and reset.
+func TestAccResourceUser_profilePicture(t *testing.T) {
+	resourceName := "pocketid_user.test"
+	source := filepath.Join(t.TempDir(), "avatar.png")
+	writeTestPNG(t, source, color.RGBA{R: 255, A: 255})
+	var userID string
+	var defaultPicture, firstPicture []byte
+
+	servedPicture := func(want string, check func([]byte) error) resource.TestCheckFunc {
+		return func(*terraform.State) error {
+			got, err := getUserProfilePicture(userID)
+			if err != nil {
+				return err
+			}
+			if err := check(got); err != nil {
+				return fmt.Errorf("served picture: %s: %w", want, err)
+			}
+			return nil
+		}
+	}
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccResourceUserConfig_profilePicture("picture-user", ""),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrWith(resourceName, "id", func(v string) error {
+						userID = v
+						return nil
+					}),
+					servedPicture("default", func(got []byte) error {
+						defaultPicture = got
+						return nil
+					}),
+				),
+			},
+			{
+				Config: testAccResourceUserConfig_profilePicture("picture-user", source),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "profile_picture.source", source),
+					resource.TestCheckResourceAttrSet(resourceName, "profile_picture.sha256"),
+					servedPicture("custom", func(got []byte) error {
+						if bytes.Equal(got, defaultPicture) {
+							return fmt.Errorf("still the default")
+						}
+						firstPicture = got
+						return nil
+					}),
+				),
+			},
+			{
+				// Pocket ID does not report a custom picture, so an import
+				// leaves it unmanaged.
+				ResourceName:            resourceName,
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"profile_picture"},
+			},
+			{
+				PreConfig: func() {
+					writeTestPNG(t, source, color.RGBA{B: 255, A: 255})
+				},
+				Config: testAccResourceUserConfig_profilePicture("picture-user", source),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction(resourceName, plancheck.ResourceActionUpdate),
+					},
+				},
+				Check: servedPicture("replaced", func(got []byte) error {
+					if bytes.Equal(got, firstPicture) {
+						return fmt.Errorf("still the first picture")
+					}
+					return nil
+				}),
+			},
+			{
+				Config: testAccResourceUserConfig_profilePicture("picture-user", source),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
+				},
+			},
+			{
+				Config: testAccResourceUserConfig_profilePicture("picture-user", ""),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckNoResourceAttr(resourceName, "profile_picture.source"),
+					servedPicture("default again", func(got []byte) error {
+						if !bytes.Equal(got, defaultPicture) {
+							return fmt.Errorf("not reset to the default")
+						}
+						return nil
+					}),
+				),
+			},
+		},
+	})
+}
+
+// TestAccResourceUser_unmanagedProfilePicturePreserved checks that a picture
+// uploaded outside Terraform survives an update of a user with no
+// profile_picture, and causes no diff.
+func TestAccResourceUser_unmanagedProfilePicturePreserved(t *testing.T) {
+	resourceName := "pocketid_user.test"
+	source := filepath.Join(t.TempDir(), "manual.png")
+	writeTestPNG(t, source, color.RGBA{G: 255, A: 255})
+	var userID string
+	var defaultPicture []byte
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccResourceUserConfig_basic("manual-picture", "manual-picture@example.com"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrWith(resourceName, "id", func(v string) error {
+						userID = v
+						return nil
+					}),
+					func(*terraform.State) error {
+						var err error
+						defaultPicture, err = getUserProfilePicture(userID)
+						return err
+					},
+				),
+			},
+			{
+				PreConfig: func() {
+					if err := uploadUserProfilePicture(userID, source); err != nil {
+						t.Fatalf("uploading profile picture: %v", err)
+					}
+				},
+				Config: testAccResourceUserConfig_basic("manual-picture", "manual-picture-changed@example.com"),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction(resourceName, plancheck.ResourceActionUpdate),
+					},
+				},
+				Check: func(*terraform.State) error {
+					got, err := getUserProfilePicture(userID)
+					if err != nil {
+						return err
+					}
+					if bytes.Equal(got, defaultPicture) {
+						return fmt.Errorf("the picture uploaded outside Terraform was reset")
+					}
+					return nil
+				},
+			},
+			{
+				Config: testAccResourceUserConfig_basic("manual-picture", "manual-picture-changed@example.com"),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
+				},
+			},
+		},
+	})
+}
+
+// TestAccResourceUser_profilePictureRejected checks a missing file is caught
+// at plan time, and a file Pocket ID rejects fails the apply without leaving
+// the new user behind.
+func TestAccResourceUser_profilePictureRejected(t *testing.T) {
+	dir := t.TempDir()
+	notAnImage := filepath.Join(dir, "avatar.png")
+	if err := os.WriteFile(notAnImage, []byte("not an image"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config:      testAccResourceUserConfig_profilePicture("missing-picture", filepath.Join(dir, "missing.png")),
+				PlanOnly:    true,
+				ExpectError: regexp.MustCompile(`could not read file`),
+			},
+			{
+				Config:      testAccResourceUserConfig_profilePicture("rejected-picture", notAnImage),
+				ExpectError: regexp.MustCompile(`Pocket ID rejected "avatar.png"`),
+			},
+			{
+				PreConfig: func() {
+					if err := checkNoUserNamed("rejected-picture"); err != nil {
+						t.Fatal(err)
+					}
+				},
+				Config:      testAccResourceUserConfig_profilePicture("missing-picture", filepath.Join(dir, "missing.png")),
+				PlanOnly:    true,
+				ExpectError: regexp.MustCompile(`could not read file`),
+			},
+		},
+	})
 }
