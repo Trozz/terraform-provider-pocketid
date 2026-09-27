@@ -829,6 +829,39 @@ func (c *Client) UpdateApplicationConfig(cfg *ApplicationConfig) (*ApplicationCo
 	return appConfigVariablesToConfig(vars), nil
 }
 
+// ApplicationImage identifies an application image by its endpoint under
+// /api/application-images.
+type ApplicationImage string
+
+const (
+	ApplicationImageLogo                  ApplicationImage = "logo?light=true"
+	ApplicationImageDarkLogo              ApplicationImage = "logo?light=false"
+	ApplicationImageEmailLogo             ApplicationImage = "email"
+	ApplicationImageBackground            ApplicationImage = "background"
+	ApplicationImageFavicon               ApplicationImage = "favicon"
+	ApplicationImageDefaultProfilePicture ApplicationImage = "default-profile-picture"
+)
+
+// UpdateApplicationImage uploads an application image
+func (c *Client) UpdateApplicationImage(image ApplicationImage, filename string, data []byte) error {
+	contentType, body, err := multipartFile("file", filename, data)
+	if err != nil {
+		return err
+	}
+	_, err = c.doRawRequest(context.Background(), http.MethodPut, "/api/application-images/"+string(image), contentType, body)
+	return err
+}
+
+// DeleteApplicationImage restores the default of an application image. An
+// image that has no custom version is not an error.
+func (c *Client) DeleteApplicationImage(image ApplicationImage) error {
+	_, err := c.doRequest(http.MethodDelete, "/api/application-images/"+string(image), nil)
+	if err != nil && strings.Contains(err.Error(), "HTTP 404") {
+		return nil
+	}
+	return err
+}
+
 // CreateOneTimeAccessToken creates a new one-time access token for a user
 func (c *Client) CreateOneTimeAccessToken(userID string, req *OneTimeAccessTokenRequest) (*OneTimeAccessToken, error) {
 	ctx := context.Background()

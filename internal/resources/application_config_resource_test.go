@@ -68,6 +68,16 @@ func TestApplicationConfigResource_Schema(t *testing.T) {
 		require.True(t, ok, "attribute %s should exist", name)
 		assert.True(t, attr.Sensitive, "attribute %s should be sensitive", name)
 	}
+
+	// Images are optional files, not computed.
+	for _, name := range []string{"logo", "dark_logo", "email_logo", "background_image", "favicon", "default_profile_picture"} {
+		attr, ok := resp.Schema.Attributes[name].(schema.SingleNestedAttribute)
+		require.True(t, ok, "attribute %s should be a single nested attribute", name)
+		assert.True(t, attr.Optional, "attribute %s should be optional", name)
+		assert.False(t, attr.Computed, "attribute %s should not be computed", name)
+		assert.True(t, attr.Attributes["source"].IsRequired(), "%s.source should be required", name)
+		assert.True(t, attr.Attributes["sha256"].IsComputed(), "%s.sha256 should be computed", name)
+	}
 }
 
 func TestApplicationConfigResource_Configure(t *testing.T) {

@@ -29,3 +29,18 @@ resource "pocketid_application_config" "with_smtp" {
   email_login_notification_enabled = "true"
   email_verification_enabled       = "true"
 }
+
+# Example: brand the instance with image files next to the configuration
+resource "pocketid_application_config" "with_branding" {
+  app_name = "My Company SSO"
+
+  logo = {
+    source = "${path.module}/branding/logo.svg"
+  }
+  dark_logo = {
+    source = "${path.module}/branding/logo-dark.svg"
+  }
+  favicon = {
+    source = "${path.module}/branding/favicon.ico"
+  }
+}

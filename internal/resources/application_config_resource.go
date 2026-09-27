@@ -3,6 +3,7 @@ package resources
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -11,6 +12,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 
 	"github.com/Trozz/terraform-provider-pocketid/internal/client"
@@ -91,6 +93,14 @@ type applicationConfigModel struct {
 	LdapAttributeGroupName             types.String `tfsdk:"ldap_attribute_group_name"`
 	LdapAdminGroupName                 types.String `tfsdk:"ldap_admin_group_name"`
 	LdapSoftDeleteUsers                types.String `tfsdk:"ldap_soft_delete_users"`
+
+	// Images
+	Logo                  types.Object `tfsdk:"logo"`
+	DarkLogo              types.Object `tfsdk:"dark_logo"`
+	EmailLogo             types.Object `tfsdk:"email_logo"`
+	BackgroundImage       types.Object `tfsdk:"background_image"`
+	Favicon               types.Object `tfsdk:"favicon"`
+	DefaultProfilePicture types.Object `tfsdk:"default_profile_picture"`
 }
 
 // applicationConfigToModel maps a client.ApplicationConfig onto the framework
@@ -226,6 +236,24 @@ func optionalComputedString(description string, sensitive bool) schema.StringAtt
 	}
 }
 
+func applicationImageAttribute(description string) schema.SingleNestedAttribute {
+	return schema.SingleNestedAttribute{
+		Description: description,
+		Optional:    true,
+		Attributes: map[string]schema.Attribute{
+			"source": schema.StringAttribute{
+				Description: "Path to the image file.",
+				Required:    true,
+			},
+			"sha256": schema.StringAttribute{
+				Description:   "SHA-256 of the image file, computed at plan time.",
+				Computed:      true,
+				PlanModifiers: []planmodifier.String{sourceFileSHA256PlanModifier{}},
+			},
+		},
+	}
+}
+
 // Metadata returns the resource type name.
 func (r *applicationConfigResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = req.ProviderTypeName + "_application_config"
@@ -291,6 +319,13 @@ func (r *applicationConfigResource) Schema(_ context.Context, _ resource.SchemaR
 			"ldap_attribute_group_name":              optionalComputedString("LDAP attribute for the group name.", false),
 			"ldap_admin_group_name":                  optionalComputedString("LDAP group name granting admin privileges.", false),
 			"ldap_soft_delete_users":                 optionalComputedString("Whether to soft-delete users removed from LDAP (\"true\" or \"false\").", false),
+
+			"logo":                    applicationImageAttribute("The application logo."),
+			"dark_logo":               applicationImageAttribute("The application logo in dark mode."),
+			"email_logo":              applicationImageAttribute("The logo used in emails."),
+			"background_image":        applicationImageAttribute("The sign-in page background image."),
+			"favicon":                 applicationImageAttribute("The favicon."),
+			"default_profile_picture": applicationImageAttribute("The profile picture of users without their own."),
 		},
 	}
 }
@@ -354,6 +389,15 @@ func (r *applicationConfigResource) Create(ctx context.Context, req resource.Cre
 		return
 	}
 
+	// Upload the configured images
+	none := types.ObjectNull(sourceFileAttrTypes)
+	r.applyApplicationImages(ctx, &plan, applicationConfigModel{
+		Logo: none, DarkLogo: none, EmailLogo: none, BackgroundImage: none, Favicon: none, DefaultProfilePicture: none,
+	}, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -389,12 +433,90 @@ func (r *applicationConfigResource) Update(ctx context.Context, req resource.Upd
 		return
 	}
 
+	var state applicationConfigModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	r.applyConfig(ctx, &plan, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
+	// Upload, replace or reset images
+	r.applyApplicationImages(ctx, &plan, state, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+}
+
+// applyApplicationImages makes the server's images match the plan and writes
+// the values to store in state back into the plan model.
+func (r *applicationConfigResource) applyApplicationImages(ctx context.Context, plan *applicationConfigModel, prior applicationConfigModel, diags *diag.Diagnostics) {
+	var d diag.Diagnostics
+	plan.Logo, d = r.applyApplicationImage(ctx, client.ApplicationImageLogo, "logo", true, plan.Logo, prior.Logo)
+	diags.Append(d...)
+	plan.DarkLogo, d = r.applyApplicationImage(ctx, client.ApplicationImageDarkLogo, "dark_logo", true, plan.DarkLogo, prior.DarkLogo)
+	diags.Append(d...)
+	plan.EmailLogo, d = r.applyApplicationImage(ctx, client.ApplicationImageEmailLogo, "email_logo", false, plan.EmailLogo, prior.EmailLogo)
+	diags.Append(d...)
+	plan.BackgroundImage, d = r.applyApplicationImage(ctx, client.ApplicationImageBackground, "background_image", true, plan.BackgroundImage, prior.BackgroundImage)
+	diags.Append(d...)
+	plan.Favicon, d = r.applyApplicationImage(ctx, client.ApplicationImageFavicon, "favicon", false, plan.Favicon, prior.Favicon)
+	diags.Append(d...)
+	plan.DefaultProfilePicture, d = r.applyApplicationImage(ctx, client.ApplicationImageDefaultProfilePicture, "default_profile_picture", true, plan.DefaultProfilePicture, prior.DefaultProfilePicture)
+	diags.Append(d...)
+}
+
+// applyApplicationImage uploads, resets or stops managing one image, and
+// returns the value to store in state. Pocket ID can only reset an image that
+// is deletable; the others stay on the server when removed from the
+// configuration.
+func (r *applicationConfigResource) applyApplicationImage(ctx context.Context, image client.ApplicationImage, attribute string, deletable bool, planned, prior types.Object) (types.Object, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if planned.Equal(prior) {
+		return planned, diags
+	}
+
+	if planned.IsNull() {
+		if !deletable {
+			diags.AddAttributeWarning(path.Root(attribute), "Image not removed from Pocket ID",
+				fmt.Sprintf("Pocket ID cannot remove the %s. It is no longer managed by Terraform and stays until replaced.", attribute))
+			return planned, diags
+		}
+		if err := r.client.DeleteApplicationImage(image); err != nil {
+			diags.AddAttributeError(path.Root(attribute), "Error resetting application image", err.Error())
+		}
+		return planned, diags
+	}
+
+	var file sourceFileModel
+	diags.Append(planned.As(ctx, &file, basetypes.ObjectAsOptions{})...)
+	if diags.HasError() {
+		return planned, diags
+	}
+
+	sourcePath := path.Root(attribute).AtName("source")
+	data, sum, err := readSourceFile(file.Source.ValueString())
+	if err != nil {
+		diags.AddAttributeError(sourcePath, "Error setting application image", err.Error())
+		return planned, diags
+	}
+
+	filename := filepath.Base(file.Source.ValueString())
+	if err := r.client.UpdateApplicationImage(image, filename, data); err != nil {
+		diags.AddAttributeError(sourcePath, "Error setting application image",
+			fmt.Sprintf("Pocket ID rejected %q: %s", filename, err))
+		return planned, diags
+	}
+
+	file.SHA256 = types.StringValue(sum)
+	obj, d := types.ObjectValueFrom(ctx, sourceFileAttrTypes, file)
+	diags.Append(d...)
+	return obj, diags
 }
 
 // Delete removes the resource from state. The application configuration is a
