@@ -3,9 +3,11 @@ package resources
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"regexp"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -14,6 +16,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 
 	"github.com/Trozz/terraform-provider-pocketid/internal/client"
@@ -38,18 +41,19 @@ type userResource struct {
 
 // userResourceModel maps the resource schema data.
 type userResourceModel struct {
-	ID            types.String `tfsdk:"id"`
-	Username      types.String `tfsdk:"username"`
-	Email         types.String `tfsdk:"email"`
-	FirstName     types.String `tfsdk:"first_name"`
-	LastName      types.String `tfsdk:"last_name"`
-	DisplayName   types.String `tfsdk:"display_name"`
-	EmailVerified types.Bool   `tfsdk:"email_verified"`
-	IsAdmin       types.Bool   `tfsdk:"is_admin"`
-	Locale        types.String `tfsdk:"locale"`
-	Disabled      types.Bool   `tfsdk:"disabled"`
-	Groups        types.Set    `tfsdk:"groups"`
-	CustomClaims  types.Map    `tfsdk:"custom_claims"`
+	ID             types.String `tfsdk:"id"`
+	Username       types.String `tfsdk:"username"`
+	Email          types.String `tfsdk:"email"`
+	FirstName      types.String `tfsdk:"first_name"`
+	LastName       types.String `tfsdk:"last_name"`
+	DisplayName    types.String `tfsdk:"display_name"`
+	EmailVerified  types.Bool   `tfsdk:"email_verified"`
+	IsAdmin        types.Bool   `tfsdk:"is_admin"`
+	Locale         types.String `tfsdk:"locale"`
+	Disabled       types.Bool   `tfsdk:"disabled"`
+	Groups         types.Set    `tfsdk:"groups"`
+	CustomClaims   types.Map    `tfsdk:"custom_claims"`
+	ProfilePicture types.Object `tfsdk:"profile_picture"`
 }
 
 // Metadata returns the resource type name.
@@ -139,6 +143,21 @@ func (r *userResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 				MarkdownDescription: "Custom claims to include in the user's OIDC tokens, as a map of claim name to value. Setting this attribute replaces all custom claims for the user. Reserved claim names (e.g. `email`, `groups`, `sub`) are rejected by Pocket-ID.",
 				Optional:            true,
 				ElementType:         types.StringType,
+			},
+			"profile_picture": schema.SingleNestedAttribute{
+				Description: "The user's profile picture.",
+				Optional:    true,
+				Attributes: map[string]schema.Attribute{
+					"source": schema.StringAttribute{
+						Description: "Path to the image file.",
+						Required:    true,
+					},
+					"sha256": schema.StringAttribute{
+						Description:   "SHA-256 of the image file, computed at plan time.",
+						Computed:      true,
+						PlanModifiers: []planmodifier.String{sourceFileSHA256PlanModifier{}},
+					},
+				},
 			},
 		},
 	}
@@ -307,6 +326,21 @@ func (r *userResource) Create(ctx context.Context, req resource.CreateRequest, r
 				return
 			}
 			plan.CustomClaims = claimsMap
+		}
+	}
+
+	// Upload the profile picture
+	if !plan.ProfilePicture.IsNull() {
+		plan.ProfilePicture, diags = r.uploadProfilePicture(ctx, userResp.ID, plan.ProfilePicture)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			// Try to clean up the created user
+			_ = r.client.DeleteUser(userResp.ID)
+			resp.Diagnostics.AddError(
+				"Error creating user",
+				"The user was deleted because its profile picture could not be set.",
+			)
+			return
 		}
 	}
 
@@ -538,9 +572,60 @@ func (r *userResource) Update(ctx context.Context, req resource.UpdateRequest, r
 		plan.CustomClaims = claimsMap
 	}
 
+	// Handle the profile picture. The planned sha256 changes when the file
+	// does, so an edited file is a difference here too.
+	if !plan.ProfilePicture.Equal(state.ProfilePicture) {
+		if plan.ProfilePicture.IsNull() {
+			if err := r.client.DeleteUserProfilePicture(plan.ID.ValueString()); err != nil {
+				resp.Diagnostics.AddError(
+					"Error resetting user profile picture",
+					"Could not reset the user profile picture: "+err.Error(),
+				)
+				return
+			}
+		} else {
+			plan.ProfilePicture, diags = r.uploadProfilePicture(ctx, plan.ID.ValueString(), plan.ProfilePicture)
+			resp.Diagnostics.Append(diags...)
+			if resp.Diagnostics.HasError() {
+				return
+			}
+		}
+	}
+
 	// Set the state
 	diags = resp.State.Set(ctx, &plan)
 	resp.Diagnostics.Append(diags...)
+}
+
+// uploadProfilePicture uploads the file a planned profile_picture points at
+// and returns the value to store in state.
+func (r *userResource) uploadProfilePicture(ctx context.Context, userID string, planned types.Object) (types.Object, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	sourcePath := path.Root("profile_picture").AtName("source")
+
+	var picture sourceFileModel
+	diags.Append(planned.As(ctx, &picture, basetypes.ObjectAsOptions{})...)
+	if diags.HasError() {
+		return planned, diags
+	}
+
+	data, sum, err := readSourceFile(picture.Source.ValueString())
+	if err != nil {
+		diags.AddAttributeError(sourcePath, "Error setting user profile picture", err.Error())
+		return planned, diags
+	}
+
+	filename := filepath.Base(picture.Source.ValueString())
+	if err := r.client.UpdateUserProfilePicture(userID, filename, data); err != nil {
+		diags.AddAttributeError(sourcePath, "Error setting user profile picture",
+			fmt.Sprintf("Pocket ID rejected %q: %s", filename, err))
+		return planned, diags
+	}
+
+	picture.SHA256 = types.StringValue(sum)
+	obj, d := types.ObjectValueFrom(ctx, sourceFileAttrTypes, picture)
+	diags.Append(d...)
+	return obj, diags
 }
 
 // Delete deletes the resource and removes the Terraform state on success.

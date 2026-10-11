@@ -7,7 +7,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
+	"net/url"
 	"reflect"
 	"strconv"
 	"strings"
@@ -27,6 +29,8 @@ const (
 	// plural /secrets endpoint, which replaced /secret.
 	MinVersionClientSecretsEndpoint = "2.14.0"
 )
+
+const contentTypeJSON = "application/json"
 
 // Client represents a Pocket-ID API client
 type Client struct {
@@ -152,6 +156,20 @@ func (c *Client) doRequest(method, endpoint string, body interface{}) ([]byte, e
 
 // doRequestWithContext performs an HTTP request to the Pocket-ID API with context support
 func (c *Client) doRequestWithContext(ctx context.Context, method, endpoint string, body interface{}) ([]byte, error) {
+	var jsonBody []byte
+	if body != nil {
+		var err error
+		jsonBody, err = json.Marshal(body)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling request body: %w", err)
+		}
+	}
+	return c.doRawRequest(ctx, method, endpoint, contentTypeJSON, jsonBody)
+}
+
+// doRawRequest performs an HTTP request with a pre-encoded body, retrying
+// retryable failures.
+func (c *Client) doRawRequest(ctx context.Context, method, endpoint, contentType string, body []byte) ([]byte, error) {
 	const maxRetries = 3
 	var lastErr error
 
@@ -187,7 +205,7 @@ func (c *Client) doRequestWithContext(ctx context.Context, method, endpoint stri
 			}
 		}
 
-		respBody, err := c.doSingleRequest(ctx, method, endpoint, body)
+		respBody, err := c.doSingleRequest(ctx, method, endpoint, contentType, body)
 		if err == nil {
 			return respBody, nil
 		}
@@ -207,6 +225,24 @@ func (c *Client) doRequestWithContext(ctx context.Context, method, endpoint stri
 	}
 
 	return nil, fmt.Errorf("request failed after %d attempts: %w", maxRetries+1, lastErr)
+}
+
+// multipartFile encodes a single file as a multipart/form-data body and
+// returns its content type and bytes.
+func multipartFile(field, filename string, data []byte) (string, []byte, error) {
+	var buf bytes.Buffer
+	w := multipart.NewWriter(&buf)
+	part, err := w.CreateFormFile(field, filename)
+	if err != nil {
+		return "", nil, fmt.Errorf("error creating multipart body: %w", err)
+	}
+	if _, err := part.Write(data); err != nil {
+		return "", nil, fmt.Errorf("error writing multipart body: %w", err)
+	}
+	if err := w.Close(); err != nil {
+		return "", nil, fmt.Errorf("error closing multipart body: %w", err)
+	}
+	return w.FormDataContentType(), buf.Bytes(), nil
 }
 
 // isRetryableError determines if an error is retryable
@@ -247,16 +283,10 @@ func isRetryableError(err error) bool {
 }
 
 // doSingleRequest performs a single HTTP request without retries
-func (c *Client) doSingleRequest(ctx context.Context, method, endpoint string, body interface{}) ([]byte, error) {
+func (c *Client) doSingleRequest(ctx context.Context, method, endpoint, contentType string, body []byte) ([]byte, error) {
 	var reqBody io.Reader
-	var reqBodyLog []byte
 	if body != nil {
-		jsonBody, err := json.Marshal(body)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling request body: %w", err)
-		}
-		reqBody = bytes.NewBuffer(jsonBody)
-		reqBodyLog = jsonBody
+		reqBody = bytes.NewReader(body)
 	}
 
 	url := fmt.Sprintf("%s%s", c.baseURL, endpoint)
@@ -266,8 +296,8 @@ func (c *Client) doSingleRequest(ctx context.Context, method, endpoint string, b
 	}
 
 	// Set headers
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Content-Type", contentType)
+	req.Header.Set("Accept", contentTypeJSON)
 	req.Header.Set("X-API-KEY", c.apiToken) // Note: Using X-API-KEY header, not Authorization Bearer
 
 	// Log request details (excluding sensitive headers)
@@ -282,10 +312,16 @@ func (c *Client) doSingleRequest(ctx context.Context, method, endpoint string, b
 		},
 	})
 
-	if reqBodyLog != nil {
-		tflog.Debug(ctx, "Request Body", map[string]interface{}{
-			"body": string(reqBodyLog),
-		})
+	if body != nil {
+		if contentType == contentTypeJSON {
+			tflog.Debug(ctx, "Request Body", map[string]interface{}{
+				"body": string(body),
+			})
+		} else {
+			tflog.Debug(ctx, "Request Body", map[string]interface{}{
+				"size_bytes": len(body),
+			})
+		}
 	}
 
 	resp, err := c.httpClient.Do(req)
@@ -493,7 +529,7 @@ func (c *Client) DeleteClientSecret(clientID, secretID string) error {
 // DeleteClientLogo removes the light (or, with light false, the dark) logo of
 // an OIDC client. A logo that is already gone is not an error.
 func (c *Client) DeleteClientLogo(clientID string, light bool) error {
-	_, err := c.doRequest("DELETE", fmt.Sprintf("/api/oidc/clients/%s/logo?light=%t", clientID, light), nil)
+	_, err := c.doRequest(http.MethodDelete, fmt.Sprintf("/api/oidc/clients/%s/logo?light=%t", clientID, light), nil)
 	if err != nil && strings.Contains(err.Error(), "HTTP 404") {
 		return nil
 	}
@@ -572,6 +608,22 @@ func (c *Client) UpdateUser(userID string, user *UserCreateRequest) (*User, erro
 // DeleteUser deletes a user
 func (c *Client) DeleteUser(userID string) error {
 	_, err := c.doRequest("DELETE", fmt.Sprintf("/api/users/%s", userID), nil)
+	return err
+}
+
+// UpdateUserProfilePicture uploads a user's profile picture
+func (c *Client) UpdateUserProfilePicture(userID, filename string, data []byte) error {
+	contentType, body, err := multipartFile("file", filename, data)
+	if err != nil {
+		return err
+	}
+	_, err = c.doRawRequest(context.Background(), http.MethodPut, fmt.Sprintf("/api/users/%s/profile-picture", userID), contentType, body)
+	return err
+}
+
+// DeleteUserProfilePicture restores a user's default profile picture
+func (c *Client) DeleteUserProfilePicture(userID string) error {
+	_, err := c.doRequest("DELETE", fmt.Sprintf("/api/users/%s/profile-picture", userID), nil)
 	return err
 }
 
@@ -776,6 +828,59 @@ func (c *Client) UpdateApplicationConfig(cfg *ApplicationConfig) (*ApplicationCo
 	}
 
 	return appConfigVariablesToConfig(vars), nil
+}
+
+// ApplicationImage identifies an application image by its endpoint under
+// /api/application-images.
+type ApplicationImage string
+
+const (
+	ApplicationImageLogo                  ApplicationImage = "logo?light=true"
+	ApplicationImageDarkLogo              ApplicationImage = "logo?light=false"
+	ApplicationImageEmailLogo             ApplicationImage = "email"
+	ApplicationImageBackground            ApplicationImage = "background"
+	ApplicationImageFavicon               ApplicationImage = "favicon"
+	ApplicationImageDefaultProfilePicture ApplicationImage = "default-profile-picture"
+)
+
+// UpdateApplicationImage uploads an application image
+func (c *Client) UpdateApplicationImage(image ApplicationImage, filename string, data []byte) error {
+	contentType, body, err := multipartFile("file", filename, data)
+	if err != nil {
+		return err
+	}
+	_, err = c.doRawRequest(context.Background(), http.MethodPut, "/api/application-images/"+string(image), contentType, body)
+	return err
+}
+
+// ApplicationImageSet reports whether a custom version of an application image
+// is set. The skipCache value is unique, so no cache in front of Pocket ID can
+// answer for it.
+func (c *Client) ApplicationImageSet(image ApplicationImage) (bool, error) {
+	endpoint, err := url.Parse("/api/application-images/" + string(image))
+	if err != nil {
+		return false, err
+	}
+	query := endpoint.Query()
+	query.Set("default", "false")
+	query.Set("skipCache", strconv.FormatInt(time.Now().UnixNano(), 10))
+	endpoint.RawQuery = query.Encode()
+
+	_, err = c.doRequest(http.MethodGet, endpoint.String(), nil)
+	if err != nil && strings.Contains(err.Error(), "HTTP 404") {
+		return false, nil
+	}
+	return err == nil, err
+}
+
+// DeleteApplicationImage restores the default of an application image. An
+// image that has no custom version is not an error.
+func (c *Client) DeleteApplicationImage(image ApplicationImage) error {
+	_, err := c.doRequest(http.MethodDelete, "/api/application-images/"+string(image), nil)
+	if err != nil && strings.Contains(err.Error(), "HTTP 404") {
+		return nil
+	}
+	return err
 }
 
 // CreateOneTimeAccessToken creates a new one-time access token for a user

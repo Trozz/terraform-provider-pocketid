@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -629,6 +630,100 @@ func TestClient_UpdateUserCustomClaims(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.Len(t, claims, 2)
+}
+
+// readUploadedFile parses a multipart upload and returns the filename and
+// contents of its "file" field.
+func readUploadedFile(t *testing.T, r *http.Request) (string, []byte) {
+	t.Helper()
+	mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	require.NoError(t, err)
+	require.Equal(t, "multipart/form-data", mediaType)
+
+	file, header, err := r.FormFile("file")
+	require.NoError(t, err)
+	defer func() { _ = file.Close() }()
+
+	data, err := io.ReadAll(file)
+	require.NoError(t, err)
+	return header.Filename, data
+}
+
+func TestClient_UpdateUserProfilePicture(t *testing.T) {
+	image := []byte("\x89PNG\r\n\x1a\nnot-really-a-png")
+	called := false
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called = true
+		assert.Equal(t, http.MethodPut, r.Method)
+		assert.Equal(t, "/api/users/u1/profile-picture", r.URL.Path)
+		assert.Equal(t, "test-token", r.Header.Get("X-API-KEY"))
+
+		filename, data := readUploadedFile(t, r)
+		assert.Equal(t, "avatar.png", filename)
+		assert.Equal(t, image, data)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	c, err := client.NewClient(server.URL, "test-token", false, 30)
+	require.NoError(t, err)
+
+	require.NoError(t, c.UpdateUserProfilePicture("u1", "avatar.png", image))
+	assert.True(t, called)
+}
+
+func TestClient_UpdateUserProfilePicture_RetryResendsBody(t *testing.T) {
+	image := []byte("\x89PNG\r\n\x1a\nnot-really-a-png")
+	attempts := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attempts++
+		_, data := readUploadedFile(t, r)
+		assert.Equal(t, image, data, "attempt %d received a different body", attempts)
+		if attempts == 1 {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	c, err := client.NewClient(server.URL, "test-token", false, 30)
+	require.NoError(t, err)
+
+	require.NoError(t, c.UpdateUserProfilePicture("u1", "avatar.png", image))
+	assert.Equal(t, 2, attempts)
+}
+
+func TestClient_DeleteUserProfilePicture(t *testing.T) {
+	tests := []struct {
+		name    string
+		status  int
+		wantErr bool
+	}{
+		{"reset", http.StatusNoContent, false},
+		{"server error", http.StatusInternalServerError, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, http.MethodDelete, r.Method)
+				assert.Equal(t, "/api/users/u1/profile-picture", r.URL.Path)
+				w.WriteHeader(tt.status)
+			}))
+			defer server.Close()
+
+			c, err := client.NewClient(server.URL, "test-token", false, 30)
+			require.NoError(t, err)
+
+			err = c.DeleteUserProfilePicture("u1")
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+		})
+	}
 }
 
 func TestClient_UpdateUserCustomClaims_Clear(t *testing.T) {

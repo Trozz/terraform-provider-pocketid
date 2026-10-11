@@ -97,6 +97,23 @@ resource "pocketid_user" "with_claims" {
     level      = "senior"
   }
 }
+
+# Set the user's profile picture from an image file
+resource "pocketid_user" "with_picture" {
+  username   = "picture.user"
+  email      = "picture.user@example.com"
+  first_name = "Picture"
+  last_name  = "User"
+
+  profile_picture = {
+    source = "${path.module}/avatars/picture.user.png"
+  }
+}
 ```
+
+## Profile picture
+
+- The provider does not check for pictures changed or removed in the Pocket ID UI.
+- Pocket ID lets browsers and proxies cache profile pictures for up to 15 minutes, so a change made through Terraform can take that long to appear in the UI.
 
 {{ .SchemaMarkdown | trimspace }}
