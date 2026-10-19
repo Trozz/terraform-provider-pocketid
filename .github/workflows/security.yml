@@ -42,7 +42,7 @@ jobs:
           exit-code: "0"  # Don't fail the build
 
       - name: Upload Trivy scan results
-        uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d # v3
+        uses: github/codeql-action/upload-sarif@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v3
         if: always()
         with:
           sarif_file: "trivy-results.sarif"
@@ -56,12 +56,12 @@ jobs:
           cache: true
 
       - name: Run gosec security scanner
-        uses: securego/gosec@71577268350e1e0f2f1491de1ef53f1227b43c1f # master
+        uses: securego/gosec@707f2271f66579a18e1da25794b1e8012247274b # master
         with:
           args: "-fmt sarif -out gosec-results.sarif ./..."
 
       - name: Upload gosec results
-        uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d # v3
+        uses: github/codeql-action/upload-sarif@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v3
         if: always()
         with:
           sarif_file: "gosec-results.sarif"
