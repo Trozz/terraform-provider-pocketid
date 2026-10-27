@@ -275,6 +275,104 @@ func TestClient_ListClients(t *testing.T) {
 	assert.Equal(t, expectedResponse, result)
 }
 
+func TestClient_ListUserGroups_FetchesAllPages(t *testing.T) {
+	page := func(current, total, items int, groups ...client.UserGroup) *client.PaginatedResponse[client.UserGroup] {
+		return &client.PaginatedResponse[client.UserGroup]{
+			Data: groups,
+			Pagination: client.PaginationInfo{
+				TotalItems:   total,
+				CurrentPage:  current,
+				ItemsPerPage: items,
+				TotalPages:   (total + items - 1) / items,
+			},
+		}
+	}
+
+	pages := map[string]*client.PaginatedResponse[client.UserGroup]{
+		"": page(1, 5, 2,
+			client.UserGroup{ID: "g1", Name: "group-1"},
+			client.UserGroup{ID: "g2", Name: "group-2"},
+		),
+		"2": page(2, 5, 2,
+			client.UserGroup{ID: "g3", Name: "group-3"},
+			client.UserGroup{ID: "g4", Name: "group-4"},
+		),
+		"3": page(3, 5, 2,
+			client.UserGroup{ID: "g5", Name: "group-5"},
+		),
+	}
+
+	var requested []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "GET", r.Method)
+		assert.Equal(t, "/api/user-groups", r.URL.Path)
+
+		requested = append(requested, r.URL.RawQuery)
+		response, ok := pages[r.URL.Query().Get("pagination[page]")]
+		require.True(t, ok, "unexpected page query %q", r.URL.RawQuery)
+		if r.URL.Query().Get("pagination[page]") != "" {
+			assert.Equal(t, "2", r.URL.Query().Get("pagination[limit]"))
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			t.Fatalf("Failed to encode response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	c, err := client.NewClient(server.URL, "test-token", false, 30)
+	require.NoError(t, err)
+
+	result, err := c.ListUserGroups()
+	require.NoError(t, err)
+
+	var ids []string
+	for _, group := range result.Data {
+		ids = append(ids, group.ID)
+	}
+	assert.Equal(t, []string{"g1", "g2", "g3", "g4", "g5"}, ids)
+	assert.Equal(t, 3, result.Pagination.CurrentPage)
+	assert.Equal(t, 5, result.Pagination.TotalItems)
+	assert.Len(t, requested, 3)
+}
+
+func TestClient_ListUsers_StopsWhenPaginationIsIgnored(t *testing.T) {
+	response := &client.PaginatedResponse[client.User]{
+		Data: []client.User{
+			{ID: "u1", Username: "user-1"},
+			{ID: "u2", Username: "user-2"},
+		},
+		Pagination: client.PaginationInfo{
+			TotalItems:   4,
+			CurrentPage:  1,
+			ItemsPerPage: 2,
+			TotalPages:   2,
+		},
+	}
+
+	requests := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests++
+		assert.Equal(t, "/api/users", r.URL.Path)
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			t.Fatalf("Failed to encode response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	c, err := client.NewClient(server.URL, "test-token", false, 30)
+	require.NoError(t, err)
+
+	result, err := c.ListUsers()
+	require.NoError(t, err)
+
+	assert.Len(t, result.Data, 2)
+	assert.Equal(t, 2, requests)
+}
+
 func TestClient_GenerateClientSecret(t *testing.T) {
 	expectedSecret := "new-client-secret-123"
 
