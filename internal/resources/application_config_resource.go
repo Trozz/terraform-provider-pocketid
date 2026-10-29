@@ -71,6 +71,8 @@ type applicationConfigModel struct {
 	EmailLoginNotificationEnabled              types.String `tfsdk:"email_login_notification_enabled"`
 	EmailApiKeyExpirationEnabled               types.String `tfsdk:"email_api_key_expiration_enabled"`
 	EmailVerificationEnabled                   types.String `tfsdk:"email_verification_enabled"`
+	EmailLoginNotificationMode                 types.String `tfsdk:"email_login_notification_mode"`
+	EmailVerification                          types.String `tfsdk:"email_verification"`
 
 	// LDAP
 	LdapEnabled                        types.String `tfsdk:"ldap_enabled"`
@@ -133,6 +135,8 @@ func applicationConfigToModel(cfg *client.ApplicationConfig, m *applicationConfi
 	m.EmailLoginNotificationEnabled = types.StringValue(cfg.EmailLoginNotificationEnabled)
 	m.EmailApiKeyExpirationEnabled = types.StringValue(cfg.EmailApiKeyExpirationEnabled)
 	m.EmailVerificationEnabled = types.StringValue(cfg.EmailVerificationEnabled)
+	m.EmailLoginNotificationMode = types.StringValue(cfg.EmailLoginNotificationMode)
+	m.EmailVerification = types.StringValue(cfg.EmailVerification)
 
 	m.LdapEnabled = types.StringValue(cfg.LdapEnabled)
 	m.LdapUrl = types.StringValue(cfg.LdapUrl)
@@ -202,6 +206,8 @@ func modelToApplicationConfig(plan *applicationConfigModel, current *client.Appl
 	cfg.EmailLoginNotificationEnabled = mergedString(plan.EmailLoginNotificationEnabled, current.EmailLoginNotificationEnabled)
 	cfg.EmailApiKeyExpirationEnabled = mergedString(plan.EmailApiKeyExpirationEnabled, current.EmailApiKeyExpirationEnabled)
 	cfg.EmailVerificationEnabled = mergedString(plan.EmailVerificationEnabled, current.EmailVerificationEnabled)
+	cfg.EmailLoginNotificationMode = mergedString(plan.EmailLoginNotificationMode, current.EmailLoginNotificationMode)
+	cfg.EmailVerification = mergedString(plan.EmailVerification, current.EmailVerification)
 
 	cfg.LdapEnabled = mergedString(plan.LdapEnabled, current.LdapEnabled)
 	cfg.LdapUrl = mergedString(plan.LdapUrl, current.LdapUrl)
@@ -234,6 +240,41 @@ func optionalComputedString(description string, sensitive bool) schema.StringAtt
 		Computed:    true,
 		Sensitive:   sensitive,
 	}
+}
+
+func deprecatedOptionalComputedString(description, replacement string) schema.StringAttribute {
+	attr := optionalComputedString(description, false)
+	attr.DeprecationMessage = fmt.Sprintf("Removed in Pocket ID 2.19.0. Use %s instead.", replacement)
+	return attr
+}
+
+// checkEmailSettingAttributes rejects email settings the connected Pocket ID
+// does not have. Pocket ID 2.19.0 replaced the email_login_notification_enabled
+// and email_verification_enabled toggles with modes, so the server reports
+// only one of each pair.
+func checkEmailSettingAttributes(plan *applicationConfigModel, current *client.ApplicationConfig, diags *diag.Diagnostics) {
+	newAPI := current.EmailLoginNotificationMode != ""
+	pairs := []struct {
+		legacy, modern           string
+		legacyValue, modernValue types.String
+	}{
+		{"email_login_notification_enabled", "email_login_notification_mode", plan.EmailLoginNotificationEnabled, plan.EmailLoginNotificationMode},
+		{"email_verification_enabled", "email_verification", plan.EmailVerificationEnabled, plan.EmailVerification},
+	}
+	for _, p := range pairs {
+		if newAPI && isSetString(p.legacyValue) {
+			diags.AddAttributeError(path.Root(p.legacy), "Unsupported attribute for this Pocket ID version",
+				fmt.Sprintf("Pocket ID 2.19.0 removed %s. Use %s instead.", p.legacy, p.modern))
+		}
+		if !newAPI && isSetString(p.modernValue) {
+			diags.AddAttributeError(path.Root(p.modern), "Unsupported attribute for this Pocket ID version",
+				fmt.Sprintf("%s requires Pocket ID >= 2.19.0. Use %s on older versions.", p.modern, p.legacy))
+		}
+	}
+}
+
+func isSetString(v types.String) bool {
+	return !v.IsNull() && !v.IsUnknown() && v.ValueString() != ""
 }
 
 func applicationImageAttribute(description string) schema.SingleNestedAttribute {
@@ -295,9 +336,11 @@ func (r *applicationConfigResource) Schema(_ context.Context, _ resource.SchemaR
 
 			"email_one_time_access_as_admin_enabled":           optionalComputedString("Whether admins can use one-time access email links (\"true\" or \"false\").", false),
 			"email_one_time_access_as_unauthenticated_enabled": optionalComputedString("Whether unauthenticated users can request one-time access email links (\"true\" or \"false\").", false),
-			"email_login_notification_enabled":                 optionalComputedString("Whether login notification emails are enabled (\"true\" or \"false\").", false),
+			"email_login_notification_enabled":                 deprecatedOptionalComputedString("Whether login notification emails are enabled (\"true\" or \"false\"). Pocket ID < 2.19.0 only.", "email_login_notification_mode"),
 			"email_api_key_expiration_enabled":                 optionalComputedString("Whether API key expiration emails are enabled (\"true\" or \"false\").", false),
-			"email_verification_enabled":                       optionalComputedString("Whether email verification is enabled (\"true\" or \"false\").", false),
+			"email_verification_enabled":                       deprecatedOptionalComputedString("Whether email verification is enabled (\"true\" or \"false\"). Pocket ID < 2.19.0 only.", "email_verification"),
+			"email_login_notification_mode":                    optionalComputedString("When to send login notification emails: \"disabled\", \"always\", \"ipAndUserAgent\", or \"browserRecognition\". Requires Pocket ID >= 2.19.0.", false),
+			"email_verification":                               optionalComputedString("Email verification mode: \"disabled\", \"optional\", or \"required\". \"required\" needs require_user_email = \"true\", emails_verified = \"false\", and SMTP host and sender set. Requires Pocket ID >= 2.19.0.", false),
 
 			"ldap_enabled":                           optionalComputedString("Whether LDAP integration is enabled (\"true\" or \"false\").", false),
 			"ldap_url":                               optionalComputedString("LDAP server URL.", false),
@@ -357,6 +400,11 @@ func (r *applicationConfigResource) applyConfig(ctx context.Context, plan *appli
 			"Error reading application configuration",
 			"Could not read current application configuration: "+err.Error(),
 		)
+		return
+	}
+
+	checkEmailSettingAttributes(plan, current, diags)
+	if diags.HasError() {
 		return
 	}
 
