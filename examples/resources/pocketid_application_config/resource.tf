@@ -26,8 +26,8 @@ resource "pocketid_application_config" "with_smtp" {
   smtp_tls              = "starttls"
   smtp_skip_cert_verify = "false"
 
-  email_login_notification_enabled = "true"
-  email_verification_enabled       = "true"
+  email_login_notification_mode = "browserRecognition"
+  email_verification            = "optional"
 }
 
 # Example: brand the instance with image files next to the configuration

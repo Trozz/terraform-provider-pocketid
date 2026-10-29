@@ -55,11 +55,19 @@ func TestApplicationConfigResource_Schema(t *testing.T) {
 	assert.False(t, idAttr.Optional)
 
 	// Writable attributes are optional + computed.
-	for _, name := range []string{"app_name", "session_duration", "ldap_enabled"} {
+	for _, name := range []string{"app_name", "session_duration", "ldap_enabled", "email_login_notification_mode", "email_verification"} {
 		attr, ok := resp.Schema.Attributes[name].(schema.StringAttribute)
 		require.True(t, ok, "attribute %s should exist", name)
 		assert.True(t, attr.Optional, "attribute %s should be optional", name)
 		assert.True(t, attr.Computed, "attribute %s should be computed", name)
+	}
+
+	// Toggles replaced by modes in Pocket ID 2.19.0 are deprecated.
+	for _, name := range []string{"email_login_notification_enabled", "email_verification_enabled"} {
+		attr, ok := resp.Schema.Attributes[name].(schema.StringAttribute)
+		require.True(t, ok, "attribute %s should exist", name)
+		assert.True(t, attr.Optional, "attribute %s should be optional", name)
+		assert.NotEmpty(t, attr.DeprecationMessage, "attribute %s should be deprecated", name)
 	}
 
 	// Secrets are marked sensitive.

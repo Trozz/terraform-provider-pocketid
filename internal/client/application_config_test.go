@@ -90,6 +90,38 @@ func TestUpdateApplicationConfig(t *testing.T) {
 	assert.Equal(t, "smtp.example.com", updated.SmtpHost)
 }
 
+func TestApplicationConfig_EmailSettingModesRoundTrip(t *testing.T) {
+	var receivedBody map[string]string
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodPut {
+			body, err := io.ReadAll(r.Body)
+			require.NoError(t, err)
+			require.NoError(t, json.Unmarshal(body, &receivedBody))
+		}
+		// Pocket ID >= 2.19.0 reports modes instead of the old toggles.
+		_ = json.NewEncoder(w).Encode([]client.AppConfigVariable{
+			{Key: "emailLoginNotificationMode", Type: "string", Value: "browserRecognition"},
+			{Key: "emailVerification", Type: "string", Value: "optional"},
+		})
+	}))
+	defer server.Close()
+
+	c, err := client.NewClient(server.URL, "test-token", false, 30)
+	require.NoError(t, err)
+
+	cfg, err := c.GetApplicationConfig()
+	require.NoError(t, err)
+	assert.Equal(t, "browserRecognition", cfg.EmailLoginNotificationMode)
+	assert.Equal(t, "optional", cfg.EmailVerification)
+
+	_, err = c.UpdateApplicationConfig(cfg)
+	require.NoError(t, err)
+	assert.Equal(t, "browserRecognition", receivedBody["emailLoginNotificationMode"])
+	assert.Equal(t, "optional", receivedBody["emailVerification"])
+}
+
 func TestClient_UpdateApplicationImage(t *testing.T) {
 	image := []byte("\x89PNG\r\n\x1a\nnot-really-a-png")
 

@@ -25,7 +25,7 @@ var sourceFileAttrTypes = map[string]attr.Type{
 
 // readSourceFile returns the contents of a file and their hex SHA-256.
 func readSourceFile(source string) ([]byte, string, error) {
-	data, err := os.ReadFile(source)
+	data, err := os.ReadFile(source) // #nosec G304 - Path comes from the operator's Terraform configuration
 	if err != nil {
 		return nil, "", fmt.Errorf("could not read file: %w", err)
 	}

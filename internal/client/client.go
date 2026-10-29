@@ -467,19 +467,58 @@ func (c *Client) DeleteClient(clientID string) error {
 	return err
 }
 
-// ListClients retrieves all OIDC clients
-func (c *Client) ListClients() (*PaginatedResponse[OIDCClient], error) {
-	body, err := c.doRequest("GET", "/api/oidc/clients", nil)
+// listAllPages retrieves every page of a paginated list endpoint. The first
+// request is sent without parameters, so servers that do not paginate the
+// endpoint keep answering exactly as before.
+func listAllPages[T any](c *Client, endpoint string) (*PaginatedResponse[T], error) {
+	body, err := c.doRequest("GET", endpoint, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	var result PaginatedResponse[OIDCClient]
-	if err := json.Unmarshal(body, &result); err != nil {
+	var first PaginatedResponse[T]
+	if err := json.Unmarshal(body, &first); err != nil {
 		return nil, fmt.Errorf("error unmarshaling response: %w", err)
 	}
 
+	if first.Pagination.TotalPages <= 1 || first.Pagination.CurrentPage >= first.Pagination.TotalPages {
+		return &first, nil
+	}
+
+	result := first
+	for page := first.Pagination.CurrentPage + 1; page <= first.Pagination.TotalPages; page++ {
+		query := url.Values{}
+		query.Set("pagination[page]", strconv.Itoa(page))
+		if first.Pagination.ItemsPerPage > 0 {
+			query.Set("pagination[limit]", strconv.Itoa(first.Pagination.ItemsPerPage))
+		}
+
+		body, err := c.doRequest("GET", endpoint+"?"+query.Encode(), nil)
+		if err != nil {
+			return nil, err
+		}
+
+		var next PaginatedResponse[T]
+		if err := json.Unmarshal(body, &next); err != nil {
+			return nil, fmt.Errorf("error unmarshaling response: %w", err)
+		}
+
+		// A server that ignores the pagination parameters answers with the
+		// first page again; stop rather than appending it as new entries.
+		if next.Pagination.CurrentPage != page {
+			break
+		}
+
+		result.Data = append(result.Data, next.Data...)
+		result.Pagination = next.Pagination
+	}
+
 	return &result, nil
+}
+
+// ListClients retrieves all OIDC clients
+func (c *Client) ListClients() (*PaginatedResponse[OIDCClient], error) {
+	return listAllPages[OIDCClient](c, "/api/oidc/clients")
 }
 
 // UpdateClientAllowedUserGroups updates the allowed user groups for an OIDC client
@@ -629,17 +668,7 @@ func (c *Client) DeleteUserProfilePicture(userID string) error {
 
 // ListUsers retrieves all users
 func (c *Client) ListUsers() (*PaginatedResponse[User], error) {
-	body, err := c.doRequest("GET", "/api/users", nil)
-	if err != nil {
-		return nil, err
-	}
-
-	var result PaginatedResponse[User]
-	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("error unmarshaling response: %w", err)
-	}
-
-	return &result, nil
+	return listAllPages[User](c, "/api/users")
 }
 
 // UpdateUserGroups updates the groups a user belongs to
@@ -727,17 +756,7 @@ func (c *Client) DeleteUserGroup(groupID string) error {
 
 // ListUserGroups retrieves all user groups
 func (c *Client) ListUserGroups() (*PaginatedResponse[UserGroup], error) {
-	body, err := c.doRequest("GET", "/api/user-groups", nil)
-	if err != nil {
-		return nil, err
-	}
-
-	var result PaginatedResponse[UserGroup]
-	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("error unmarshaling response: %w", err)
-	}
-
-	return &result, nil
+	return listAllPages[UserGroup](c, "/api/user-groups")
 }
 
 // UpdateGroupCustomClaims replaces all custom claims for a user group. The API

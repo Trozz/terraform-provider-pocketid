@@ -84,6 +84,45 @@ func TestAccResourceApplicationConfig_dataSource(t *testing.T) {
 	})
 }
 
+func TestAccResourceApplicationConfig_emailSettings(t *testing.T) {
+	resourceName := "pocketid_application_config.test"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccResourceApplicationConfigConfig_emailSettings("email_login_notification_mode", "always", "email_verification", "optional"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "email_login_notification_mode", "always"),
+					resource.TestCheckResourceAttr(resourceName, "email_verification", "optional"),
+				),
+			},
+			{
+				Config: testAccResourceApplicationConfigConfig_emailSettings("email_login_notification_mode", "disabled", "email_verification", "disabled"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "email_login_notification_mode", "disabled"),
+					resource.TestCheckResourceAttr(resourceName, "email_verification", "disabled"),
+				),
+			},
+			// The toggles replaced by modes in Pocket ID 2.19.0 are rejected.
+			{
+				Config:      testAccResourceApplicationConfigConfig_emailSettings("email_login_notification_enabled", "true", "email_verification_enabled", "true"),
+				ExpectError: regexp.MustCompile(`Pocket ID 2.19.0 removed email_login_notification_enabled`),
+			},
+		},
+	})
+}
+
+func testAccResourceApplicationConfigConfig_emailSettings(notificationAttr, notification, verificationAttr, verification string) string {
+	return fmt.Sprintf(`
+resource "pocketid_application_config" "test" {
+  %[1]s = %[2]q
+  %[3]s = %[4]q
+}
+`, notificationAttr, notification, verificationAttr, verification)
+}
+
 func testAccResourceApplicationConfigConfig_basic(appName, sessionDuration string) string {
 	return fmt.Sprintf(`
 resource "pocketid_application_config" "test" {

@@ -219,6 +219,8 @@ type ApplicationConfig struct {
 	EmailLoginNotificationEnabled              string `json:"emailLoginNotificationEnabled"`
 	EmailApiKeyExpirationEnabled               string `json:"emailApiKeyExpirationEnabled"`
 	EmailVerificationEnabled                   string `json:"emailVerificationEnabled"`
+	EmailLoginNotificationMode                 string `json:"emailLoginNotificationMode"`
+	EmailVerification                          string `json:"emailVerification"`
 
 	// LDAP
 	LdapEnabled                        string `json:"ldapEnabled"`
