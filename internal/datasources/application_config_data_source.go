@@ -59,6 +59,8 @@ type applicationConfigDataSourceModel struct {
 	EmailLoginNotificationEnabled              types.String `tfsdk:"email_login_notification_enabled"`
 	EmailApiKeyExpirationEnabled               types.String `tfsdk:"email_api_key_expiration_enabled"`
 	EmailVerificationEnabled                   types.String `tfsdk:"email_verification_enabled"`
+	EmailLoginNotificationMode                 types.String `tfsdk:"email_login_notification_mode"`
+	EmailVerification                          types.String `tfsdk:"email_verification"`
 
 	LdapEnabled                        types.String `tfsdk:"ldap_enabled"`
 	LdapUrl                            types.String `tfsdk:"ldap_url"`
@@ -127,9 +129,11 @@ func (d *applicationConfigDataSource) Schema(_ context.Context, _ datasource.Sch
 
 			"email_one_time_access_as_admin_enabled":           computedString("Whether admins can use one-time access email links.", false),
 			"email_one_time_access_as_unauthenticated_enabled": computedString("Whether unauthenticated users can request one-time access email links.", false),
-			"email_login_notification_enabled":                 computedString("Whether login notification emails are enabled.", false),
+			"email_login_notification_enabled":                 computedString("Whether login notification emails are enabled. Pocket ID < 2.19.0 only; empty on newer versions.", false),
 			"email_api_key_expiration_enabled":                 computedString("Whether API key expiration emails are enabled.", false),
-			"email_verification_enabled":                       computedString("Whether email verification is enabled.", false),
+			"email_verification_enabled":                       computedString("Whether email verification is enabled. Pocket ID < 2.19.0 only; empty on newer versions.", false),
+			"email_login_notification_mode":                    computedString("When login notification emails are sent. Pocket ID >= 2.19.0 only; empty on older versions.", false),
+			"email_verification":                               computedString("Email verification mode. Pocket ID >= 2.19.0 only; empty on older versions.", false),
 
 			"ldap_enabled":                           computedString("Whether LDAP integration is enabled.", false),
 			"ldap_url":                               computedString("LDAP server URL.", false),
@@ -214,6 +218,8 @@ func (d *applicationConfigDataSource) Read(ctx context.Context, _ datasource.Rea
 		EmailLoginNotificationEnabled:              types.StringValue(cfg.EmailLoginNotificationEnabled),
 		EmailApiKeyExpirationEnabled:               types.StringValue(cfg.EmailApiKeyExpirationEnabled),
 		EmailVerificationEnabled:                   types.StringValue(cfg.EmailVerificationEnabled),
+		EmailLoginNotificationMode:                 types.StringValue(cfg.EmailLoginNotificationMode),
+		EmailVerification:                          types.StringValue(cfg.EmailVerification),
 
 		LdapEnabled:                        types.StringValue(cfg.LdapEnabled),
 		LdapUrl:                            types.StringValue(cfg.LdapUrl),

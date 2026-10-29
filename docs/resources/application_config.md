@@ -41,8 +41,8 @@ resource "pocketid_application_config" "with_smtp" {
   smtp_tls              = "starttls"
   smtp_skip_cert_verify = "false"
 
-  email_login_notification_enabled = "true"
-  email_verification_enabled       = "true"
+  email_login_notification_mode = "browserRecognition"
+  email_verification            = "optional"
 }
 
 # Example: brand the instance with image files next to the configuration
@@ -75,11 +75,13 @@ resource "pocketid_application_config" "with_branding" {
 - `default_profile_picture` (Attributes) The profile picture of users without their own. (see [below for nested schema](#nestedatt--default_profile_picture))
 - `disable_animations` (String) Whether to disable UI animations ("true" or "false").
 - `email_api_key_expiration_enabled` (String) Whether API key expiration emails are enabled ("true" or "false").
-- `email_login_notification_enabled` (String) Whether login notification emails are enabled ("true" or "false").
+- `email_login_notification_enabled` (String, Deprecated) Whether login notification emails are enabled ("true" or "false"). Pocket ID < 2.19.0 only.
+- `email_login_notification_mode` (String) When to send login notification emails: "disabled", "always", "ipAndUserAgent", or "browserRecognition". Requires Pocket ID >= 2.19.0.
 - `email_logo` (Attributes) The logo used in emails. (see [below for nested schema](#nestedatt--email_logo))
 - `email_one_time_access_as_admin_enabled` (String) Whether admins can use one-time access email links ("true" or "false").
 - `email_one_time_access_as_unauthenticated_enabled` (String) Whether unauthenticated users can request one-time access email links ("true" or "false").
-- `email_verification_enabled` (String) Whether email verification is enabled ("true" or "false").
+- `email_verification` (String) Email verification mode: "disabled", "optional", or "required". "required" needs require_user_email = "true", emails_verified = "false", and SMTP host and sender set. Requires Pocket ID >= 2.19.0.
+- `email_verification_enabled` (String, Deprecated) Whether email verification is enabled ("true" or "false"). Pocket ID < 2.19.0 only.
 - `emails_verified` (String) Whether user emails are considered verified ("true" or "false").
 - `favicon` (Attributes) The favicon. (see [below for nested schema](#nestedatt--favicon))
 - `home_page_url` (String) URL of the application home page.

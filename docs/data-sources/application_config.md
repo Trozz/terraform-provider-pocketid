@@ -37,10 +37,12 @@ output "ldap_enabled" {
 - `app_name` (String) The name of the application.
 - `disable_animations` (String) Whether UI animations are disabled.
 - `email_api_key_expiration_enabled` (String) Whether API key expiration emails are enabled.
-- `email_login_notification_enabled` (String) Whether login notification emails are enabled.
+- `email_login_notification_enabled` (String) Whether login notification emails are enabled. Pocket ID < 2.19.0 only; empty on newer versions.
+- `email_login_notification_mode` (String) When login notification emails are sent. Pocket ID >= 2.19.0 only; empty on older versions.
 - `email_one_time_access_as_admin_enabled` (String) Whether admins can use one-time access email links.
 - `email_one_time_access_as_unauthenticated_enabled` (String) Whether unauthenticated users can request one-time access email links.
-- `email_verification_enabled` (String) Whether email verification is enabled.
+- `email_verification` (String) Email verification mode. Pocket ID >= 2.19.0 only; empty on older versions.
+- `email_verification_enabled` (String) Whether email verification is enabled. Pocket ID < 2.19.0 only; empty on newer versions.
 - `emails_verified` (String) Whether user emails are considered verified.
 - `home_page_url` (String) URL of the application home page.
 - `id` (String) Fixed identifier of the application configuration singleton.
