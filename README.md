@@ -1,5 +1,21 @@
 # Terraform Provider for Pocket-ID
 
+> [!IMPORTANT]
+> This repository is a static archive. It exists only so that existing
+> `trozz/pocketid` installs and lock files keep working. It receives no updates,
+> and no new releases will be published here.
+>
+> The provider now lives at
+> [pocket-id/terraform-provider-pocketid](https://github.com/pocket-id/terraform-provider-pocketid)
+> and is published as `pocket-id/pocketid`. To move over, change the `source` in
+> `required_providers` to `pocket-id/pocketid` and replace the provider in your state:
+>
+> ```sh
+> terraform state replace-provider trozz/pocketid pocket-id/pocketid
+> ```
+>
+> Please open issues and pull requests on the new repository.
+
 [![Terraform Registry](https://img.shields.io/badge/Terraform%20Registry-v0.1.0-blue)](https://registry.terraform.io/providers/trozz/pocketid/latest)
 [![CI](https://github.com/Trozz/terraform-provider-pocketid/actions/workflows/ci.yml/badge.svg)](https://github.com/Trozz/terraform-provider-pocketid/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/Trozz/terraform-provider-pocketid/branch/main/graph/badge.svg)](https://codecov.io/gh/Trozz/terraform-provider-pocketid)
