@@ -88,7 +88,7 @@ jobs:
 
       - name: Run GoReleaser (snapshot)
         if: steps.go_changes.outputs.changed == 'true'
-        uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v6
+        uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v6
         with:
           version: latest
           args: release --snapshot --skip=sign --clean --skip=validate
@@ -112,7 +112,7 @@ jobs:
 
       - name: Create GitHub pre-release
         if: steps.go_changes.outputs.changed == 'true'
-        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v2
+        uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v2
         with:
           name: "Development Build v${{ steps.version.outputs.version }}"
           tag_name: "v${{ steps.version.outputs.version }}"
